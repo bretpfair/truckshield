@@ -132,7 +132,7 @@ const Step6Trailers = ({ account }: StepProps) => {
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-xs">
               <Checkbox checked={item.has_physdam} onCheckedChange={(c) => updateItem(idx, "has_physdam", c)} />
-              Included Physical Damage (Comp/Coll)
+              Include Physical Damage (Comp/Coll)
             </label>
             {item.has_physdam && (
               <div className="flex items-center gap-1">
@@ -144,7 +144,7 @@ const Step6Trailers = ({ account }: StepProps) => {
 
           {/* Vehicle Ownership */}
           <div className="space-y-3">
-            <Label className="text-xs font-medium">Vehicle Ownership</Label>
+            <Label className="text-xs font-medium">Trailer Ownership</Label>
             <div className="flex gap-4">
               {["owned", "leased", "financed"].map((type) => (
                 <label key={type} className="flex items-center gap-2 text-xs cursor-pointer">
