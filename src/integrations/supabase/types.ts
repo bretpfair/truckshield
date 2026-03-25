@@ -401,6 +401,7 @@ export type Database = {
       power_units: {
         Row: {
           account_id: string
+          cab_card_path: string | null
           created_at: string
           garage_zip: string | null
           gvw_class: string | null
@@ -421,6 +422,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          cab_card_path?: string | null
           created_at?: string
           garage_zip?: string | null
           gvw_class?: string | null
@@ -441,6 +443,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          cab_card_path?: string | null
           created_at?: string
           garage_zip?: string | null
           gvw_class?: string | null

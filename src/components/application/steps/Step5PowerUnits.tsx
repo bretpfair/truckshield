@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GVW_CLASSES, TRUCK_TYPES, TRUCK_MAKES, US_STATES } from "../constants";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Upload, FileText, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface StepProps {
@@ -21,6 +21,7 @@ const emptyUnit = {
   vin: "", gvw_class: "", truck_type: "", is_service_vehicle: false,
   year: "", make: "", model: "", titled_state: "", garage_zip: "",
   roadside_assistance: false, has_physdam: false, physdam_amount: null, has_cargo: false,
+  cab_card_path: null,
 };
 
 const Step5PowerUnits = ({ account }: StepProps) => {
@@ -28,6 +29,43 @@ const Step5PowerUnits = ({ account }: StepProps) => {
   const queryClient = useQueryClient();
   const [units, setUnits] = useState<any[]>([]);
   const [decodingVin, setDecodingVin] = useState<Record<number, boolean>>({});
+  const [uploadingFile, setUploadingFile] = useState<Record<number, boolean>>({});
+
+  const handleFileUpload = useCallback(async (file: File, idx: number) => {
+    if (!file) return;
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast({ title: "File too large", description: "Max file size is 10MB", variant: "destructive" });
+      return;
+    }
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a PDF or image (JPG, PNG, WebP)", variant: "destructive" });
+      return;
+    }
+
+    setUploadingFile((prev) => ({ ...prev, [idx]: true }));
+    try {
+      const ext = file.name.split(".").pop() || "pdf";
+      const filePath = `${account.id}/truck-${idx}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("cab-cards").upload(filePath, file, { upsert: true });
+      if (error) throw error;
+      updateUnit(idx, "cab_card_path", filePath);
+      toast({ title: "File uploaded", description: file.name });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
+    } finally {
+      setUploadingFile((prev) => ({ ...prev, [idx]: false }));
+    }
+  }, [account.id, toast]);
+
+  const handleRemoveFile = useCallback(async (idx: number) => {
+    const path = units[idx]?.cab_card_path;
+    if (path) {
+      await supabase.storage.from("cab-cards").remove([path]);
+    }
+    updateUnit(idx, "cab_card_path", null);
+  }, [units]);
 
   const decodeVin = useCallback(async (vin: string, idx: number) => {
     const cleanVin = vin.trim().toUpperCase();
@@ -221,8 +259,52 @@ const Step5PowerUnits = ({ account }: StepProps) => {
               </div>
             )}
           </div>
+
+          {/* Cab Card / Registration Upload */}
+          <div className="space-y-1">
+            <Label className="text-xs">Cab Card / Registration</Label>
+            {unit.cab_card_path ? (
+              <div className="flex items-center gap-2 p-2 rounded-md bg-background border border-border">
+                <FileText className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs font-mono truncate flex-1">
+                  {unit.cab_card_path.split("/").pop()}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => handleRemoveFile(idx)}
+                >
+                  <X className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 p-3 rounded-md border border-dashed border-border hover:border-primary/40 cursor-pointer transition-colors">
+                {uploadingFile[idx] ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {uploadingFile[idx] ? "Uploading..." : "Upload PDF or image"}
+                </span>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, idx);
+                    e.target.value = "";
+                  }}
+                  disabled={uploadingFile[idx]}
+                />
+              </label>
+            )}
+          </div>
         </div>
       ))}
+
 
       <Button onClick={() => saveMutation.mutate()} className="w-full">Save Power Units</Button>
     </div>
