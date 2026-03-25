@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WIZARD_STEPS } from "./constants";
-import { Check, ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import Step1Applicant from "./steps/Step1Applicant";
 import Step2Coverage from "./steps/Step2Coverage";
 import Step3Radius from "./steps/Step3Radius";
@@ -25,11 +25,13 @@ interface ApplicationWizardProps {
 const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const [currentStep, setCurrentStep] = useState(account.application_step || 1);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    // Initialize form data from account
     setFormData({
       ...account,
       coverage_selections: account.coverage_selections || {},
@@ -37,6 +39,8 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       commodity_info: account.commodity_info || {},
       general_questions: account.general_questions || {},
     });
+    // Mark initialized after first load so we don't auto-save the initial set
+    setTimeout(() => { isInitialized.current = true; }, 500);
   }, [account]);
 
   const updateAccount = useMutation({
@@ -49,13 +53,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-accounts"] });
-      toast({ title: "Progress saved" });
+      setAutoSaveStatus("saved");
+      setTimeout(() => setAutoSaveStatus("idle"), 2000);
     },
     onError: (e: Error) => toast({ title: "Error saving", description: e.message, variant: "destructive" }),
   });
 
+  const debouncedSave = useCallback((data: Record<string, any>) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setAutoSaveStatus("saving");
+    debounceTimer.current = setTimeout(() => {
+      updateAccount.mutate(data);
+    }, 1500);
+  }, [currentStep, account.id]);
+
   const handleSave = (stepData?: Record<string, any>) => {
     const data = stepData || formData;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
     updateAccount.mutate(data);
   };
 
@@ -65,11 +79,16 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   };
 
   const handlePrev = () => {
+    handleSave();
     setCurrentStep((s: number) => Math.max(s - 1, 1));
   };
 
   const updateFormData = (updates: Record<string, any>) => {
-    setFormData((prev: Record<string, any>) => ({ ...prev, ...updates }));
+    setFormData((prev: Record<string, any>) => {
+      const next = { ...prev, ...updates };
+      if (isInitialized.current) debouncedSave(next);
+      return next;
+    });
   };
 
   const renderStep = () => {
@@ -140,9 +159,10 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
         >
           <ChevronLeft className="h-4 w-4" /> Previous
         </Button>
-        <Button variant="ghost" onClick={() => handleSave()} className="gap-2">
-          <Save className="h-4 w-4" /> Save Progress
-        </Button>
+        <span className="text-xs text-muted-foreground font-mono flex items-center gap-1.5">
+          {autoSaveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>}
+          {autoSaveStatus === "saved" && <><Check className="h-3 w-3 text-success" /> Saved</>}
+        </span>
         {currentStep < WIZARD_STEPS.length ? (
           <Button onClick={handleNext} className="gap-2">
             Next <ChevronRight className="h-4 w-4" />
