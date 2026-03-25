@@ -237,10 +237,6 @@ const Step5PowerUnits = ({ account }: StepProps) => {
           </div>
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-xs">
-              <Checkbox checked={unit.has_cargo} onCheckedChange={(c) => updateUnit(idx, "has_cargo", c)} />
-              Cargo Liability
-            </label>
-            <label className="flex items-center gap-2 text-xs">
               <Checkbox checked={unit.has_physdam} onCheckedChange={(c) => updateUnit(idx, "has_physdam", c)} />
               Physical Damage
             </label>
