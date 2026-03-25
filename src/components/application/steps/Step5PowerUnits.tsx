@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GVW_CLASSES, TRUCK_TYPES, TRUCK_MAKES, US_STATES } from "../constants";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface StepProps {
@@ -27,6 +27,48 @@ const Step5PowerUnits = ({ account }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [units, setUnits] = useState<any[]>([]);
+  const [decodingVin, setDecodingVin] = useState<Record<number, boolean>>({});
+
+  const decodeVin = useCallback(async (vin: string, idx: number) => {
+    const cleanVin = vin.trim().toUpperCase();
+    if (cleanVin.length !== 17 || !/^[A-HJ-NPR-Z0-9]{17}$/.test(cleanVin)) return;
+
+    setDecodingVin((prev) => ({ ...prev, [idx]: true }));
+    try {
+      const res = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${encodeURIComponent(cleanVin)}?format=json`
+      );
+      if (!res.ok) throw new Error("VIN lookup failed");
+      const json = await res.json();
+      const result = json.Results?.[0];
+      if (!result) return;
+
+      const updates: Record<string, string> = {};
+      if (result.ModelYear && result.ModelYear !== "0") updates.year = result.ModelYear;
+      if (result.Make) {
+        const matched = TRUCK_MAKES.find((m) => m.toLowerCase() === result.Make.toLowerCase());
+        if (matched) updates.make = matched;
+      }
+      if (result.Model) updates.model = result.Model;
+      if (result.BodyClass) {
+        const matched = TRUCK_TYPES.find((t) => t.toLowerCase() === result.BodyClass.toLowerCase());
+        if (matched) updates.truck_type = matched;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setUnits((prev) => {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], ...updates };
+          return copy;
+        });
+        toast({ title: "VIN decoded", description: `Found: ${Object.values(updates).join(", ")}` });
+      }
+    } catch {
+      // Silent fail — user can fill manually
+    } finally {
+      setDecodingVin((prev) => ({ ...prev, [idx]: false }));
+    }
+  }, [toast]);
 
   const { data } = useQuery({
     queryKey: ["power-units", account.id],
@@ -101,7 +143,18 @@ const Step5PowerUnits = ({ account }: StepProps) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">VIN</Label>
-              <Input value={unit.vin || ""} onChange={(e) => updateUnit(idx, "vin", e.target.value)} placeholder="Vehicle Identification Number" />
+              <div className="relative">
+                <Input
+                  value={unit.vin || ""}
+                  onChange={(e) => updateUnit(idx, "vin", e.target.value.toUpperCase())}
+                  onBlur={(e) => decodeVin(e.target.value, idx)}
+                  placeholder="17-character VIN"
+                  maxLength={17}
+                />
+                {decodingVin[idx] && (
+                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">GVW Class</Label>
