@@ -36,6 +36,7 @@ const SUPPLEMENTAL_COVERAGES = [
     fields: [
       { key: "cargo_vehicle_limit", label: "Cargo Limit (per vehicle)", type: "select", options: CARGO_VEHICLE_LIMITS },
       { key: "cargo_deductible", label: "Cargo Deductible", type: "select", options: DEDUCTIBLE_OPTIONS },
+      { key: "include_reefer", label: "Include Reefer Coverage", type: "checkbox" },
     ],
   },
   {
