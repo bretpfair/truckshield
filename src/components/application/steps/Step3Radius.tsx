@@ -118,7 +118,7 @@ const Step3Radius = ({ formData, updateFormData }: StepProps) => {
             </div>
             {Object.keys(loc.destinations || {}).length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                {Object.entries(loc.destinations || {}).map(([state, pct]: [string, any]) => (
+                {Object.entries(loc.destinations || {}).map(([state, pct]) => (
                   <div key={state} className="flex items-center gap-2">
                     <span className="text-xs font-mono text-primary">{state}</span>
                     <Input
