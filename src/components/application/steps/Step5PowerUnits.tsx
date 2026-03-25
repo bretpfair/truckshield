@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GVW_CLASSES, TRUCK_TYPES, TRUCK_MAKES, US_STATES } from "../constants";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Upload, FileText, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface StepProps {
