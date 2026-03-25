@@ -4,11 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CANCELLATION_REASONS, MONTHS } from "../constants";
-import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ShieldCheck } from "lucide-react";
 
 interface StepProps {
   account: any;
@@ -17,14 +15,34 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
-const COVERAGE_TYPES = ["Auto Liability", "Physical Damage", "Cargo Liability"];
+const COVERAGE_LINES = ["Auto Liability", "Physical Damage", "Cargo"];
 
-const emptyTerm = { from_month: "", from_year: "", to_month: "", to_year: "", num_claims: 0, power_units: "", insurance_company: "", claims: [] as any[] };
+const currentYear = new Date().getFullYear();
+const YEAR_RANGES = [
+  { label: `${currentYear} – ${currentYear + 1}`, from: currentYear, to: currentYear + 1 },
+  { label: `${currentYear - 1} – ${currentYear}`, from: currentYear - 1, to: currentYear },
+  { label: `${currentYear - 2} – ${currentYear - 1}`, from: currentYear - 2, to: currentYear - 1 },
+];
+
+interface YearData {
+  no_losses: boolean;
+  losses_confirmed: boolean;
+  lines: Record<string, { loss_count: number; losses_paid: number }>;
+}
+
+const emptyYearData = (): YearData => ({
+  no_losses: false,
+  losses_confirmed: false,
+  lines: Object.fromEntries(COVERAGE_LINES.map((l) => [l, { loss_count: 0, losses_paid: 0 }])),
+});
 
 const Step8LossHistory = ({ account }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [histories, setHistories] = useState<any[]>([]);
+  const [noPriorCoverage, setNoPriorCoverage] = useState(false);
+  const [yearDataMap, setYearDataMap] = useState<Record<string, YearData>>(() =>
+    Object.fromEntries(YEAR_RANGES.map((yr) => [yr.label, emptyYearData()]))
+  );
 
   const { data } = useQuery({
     queryKey: ["loss-history", account.id],
@@ -39,33 +57,52 @@ const Step8LossHistory = ({ account }: StepProps) => {
   });
 
   useEffect(() => {
-    if (data) {
-      if (data.length) {
-        setHistories(data);
-      } else {
-        setHistories(COVERAGE_TYPES.map((ct) => ({
-          account_id: account.id,
-          coverage_type: ct,
-          no_prior_coverage: false,
-          policy_terms: [{ ...emptyTerm }],
-          cancelled_nonrenewed: false,
-          cancellation_reason: "",
-          cancellation_reason_other: "",
-        })));
+    if (data && data.length) {
+      // Check if all entries have no_prior_coverage
+      const allNoPrior = data.every((d) => d.no_prior_coverage);
+      setNoPriorCoverage(allNoPrior);
+
+      // Rebuild yearDataMap from stored policy_terms
+      const newMap: Record<string, YearData> = Object.fromEntries(
+        YEAR_RANGES.map((yr) => [yr.label, emptyYearData()])
+      );
+
+      // Parse stored data - each record is a coverage_type with policy_terms containing year data
+      for (const record of data) {
+        const terms = (record.policy_terms as any) || {};
+        if (terms.year_data) {
+          for (const [yearLabel, yd] of Object.entries(terms.year_data as Record<string, any>)) {
+            if (newMap[yearLabel]) {
+              newMap[yearLabel].no_losses = yd.no_losses ?? false;
+              newMap[yearLabel].losses_confirmed = yd.losses_confirmed ?? false;
+              if (yd.lines) {
+                for (const [line, vals] of Object.entries(yd.lines as Record<string, any>)) {
+                  if (newMap[yearLabel].lines[line]) {
+                    newMap[yearLabel].lines[line] = vals as any;
+                  }
+                }
+              }
+            }
+          }
+          break; // Only need first record's year_data since we store all years together
+        }
       }
+      setYearDataMap(newMap);
     }
-  }, [data, account.id]);
+  }, [data]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("loss_history").delete().eq("account_id", account.id);
-      const toInsert = histories.map((h) => ({
-        ...h,
-        id: undefined,
-        created_at: undefined,
-        updated_at: undefined,
-      }));
-      const { error } = await supabase.from("loss_history").insert(toInsert);
+
+      // Store as a single record with all year data in policy_terms
+      const toInsert = {
+        account_id: account.id,
+        coverage_type: "Combined",
+        no_prior_coverage: noPriorCoverage,
+        policy_terms: JSON.parse(JSON.stringify({ year_data: yearDataMap })),
+      };
+      const { error } = await supabase.from("loss_history").insert([toInsert]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -75,146 +112,127 @@ const Step8LossHistory = ({ account }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const updateHistory = (idx: number, field: string, value: any) => {
-    const updated = [...histories];
-    updated[idx] = { ...updated[idx], [field]: value };
-    setHistories(updated);
+  const updateYearField = (yearLabel: string, line: string, field: "loss_count" | "losses_paid", value: number) => {
+    setYearDataMap((prev) => ({
+      ...prev,
+      [yearLabel]: {
+        ...prev[yearLabel],
+        lines: {
+          ...prev[yearLabel].lines,
+          [line]: { ...prev[yearLabel].lines[line], [field]: value },
+        },
+      },
+    }));
   };
 
-  const updateTerm = (hIdx: number, tIdx: number, field: string, value: any) => {
-    const updated = [...histories];
-    const terms = [...(updated[hIdx].policy_terms || [])];
-    terms[tIdx] = { ...terms[tIdx], [field]: value };
-    updated[hIdx] = { ...updated[hIdx], policy_terms: terms };
-    setHistories(updated);
+  const toggleNoLosses = (yearLabel: string, checked: boolean) => {
+    setYearDataMap((prev) => ({
+      ...prev,
+      [yearLabel]: {
+        ...prev[yearLabel],
+        no_losses: checked,
+        lines: checked
+          ? Object.fromEntries(COVERAGE_LINES.map((l) => [l, { loss_count: 0, losses_paid: 0 }]))
+          : prev[yearLabel].lines,
+      },
+    }));
   };
 
-  const addTerm = (hIdx: number) => {
-    const updated = [...histories];
-    updated[hIdx] = { ...updated[hIdx], policy_terms: [...(updated[hIdx].policy_terms || []), { ...emptyTerm }] };
-    setHistories(updated);
+  const toggleLossesConfirmed = (yearLabel: string, checked: boolean) => {
+    setYearDataMap((prev) => ({
+      ...prev,
+      [yearLabel]: { ...prev[yearLabel], losses_confirmed: checked },
+    }));
   };
-
-  const removeTerm = (hIdx: number, tIdx: number) => {
-    const updated = [...histories];
-    updated[hIdx] = { ...updated[hIdx], policy_terms: updated[hIdx].policy_terms.filter((_: any, i: number) => i !== tIdx) };
-    setHistories(updated);
-  };
-
-  const years = Array.from({ length: 7 }, (_, i) => (2020 + i).toString());
 
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold">Section 8 — Loss History</h3>
-        <p className="text-sm text-muted-foreground font-mono">Prior coverage and claims for each line</p>
+        <p className="text-sm text-muted-foreground font-mono">Prior coverage and claims for each policy year</p>
       </div>
 
-      {histories.map((hist, hIdx) => (
-        <div key={hist.coverage_type} className="p-4 rounded-md bg-secondary/30 border border-border space-y-4">
-          <h4 className="font-medium text-sm font-mono text-primary">{hist.coverage_type} Losses</h4>
+      {/* New Venture / No Prior Coverage */}
+      <label className="flex items-center gap-3 p-3 rounded-md border border-border bg-secondary/30 cursor-pointer">
+        <Checkbox
+          checked={noPriorCoverage}
+          onCheckedChange={(c) => setNoPriorCoverage(!!c)}
+        />
+        <div>
+          <span className="text-sm font-medium">New Venture / No Prior Coverage</span>
+          <p className="text-xs text-muted-foreground">Check if this is a new business with no prior insurance history</p>
+        </div>
+      </label>
 
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={hist.no_prior_coverage}
-              onCheckedChange={(c) => updateHistory(hIdx, "no_prior_coverage", c)}
-            />
-            No prior coverage for this line
-          </label>
-
-          {!hist.no_prior_coverage && (
-            <>
-              {(hist.policy_terms || []).map((term: any, tIdx: number) => (
-                <div key={tIdx} className="p-3 rounded bg-background/50 border border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-muted-foreground">Policy Term {tIdx + 1}</span>
-                    {(hist.policy_terms || []).length > 1 && (
-                      <Button variant="ghost" size="sm" onClick={() => removeTerm(hIdx, tIdx)}>
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
-                    )}
+      {!noPriorCoverage && (
+        <div className="space-y-6">
+          {YEAR_RANGES.map((yr) => {
+            const yd = yearDataMap[yr.label];
+            return (
+              <div key={yr.label} className="p-4 rounded-md bg-secondary/30 border border-border space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-base">{yr.label}</h4>
+                    <p className="text-xs text-muted-foreground">Physical Damage, Cargo</p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">From Month</Label>
-                      <Select value={term.from_month || ""} onValueChange={(v) => updateTerm(hIdx, tIdx, "from_month", v)}>
-                        <SelectTrigger><SelectValue placeholder="Mo" /></SelectTrigger>
-                        <SelectContent>{MONTHS.map((m, i) => <SelectItem key={m} value={(i+1).toString()}>{m}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">From Year</Label>
-                      <Select value={term.from_year || ""} onValueChange={(v) => updateTerm(hIdx, tIdx, "from_year", v)}>
-                        <SelectTrigger><SelectValue placeholder="Yr" /></SelectTrigger>
-                        <SelectContent>{years.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">To Month</Label>
-                      <Select value={term.to_month || ""} onValueChange={(v) => updateTerm(hIdx, tIdx, "to_month", v)}>
-                        <SelectTrigger><SelectValue placeholder="Mo" /></SelectTrigger>
-                        <SelectContent>{MONTHS.map((m, i) => <SelectItem key={m} value={(i+1).toString()}>{m}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">To Year</Label>
-                      <Select value={term.to_year || ""} onValueChange={(v) => updateTerm(hIdx, tIdx, "to_year", v)}>
-                        <SelectTrigger><SelectValue placeholder="Yr" /></SelectTrigger>
-                        <SelectContent>{years.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Number of Claims</Label>
-                      <Input type="number" value={term.num_claims || 0} onChange={(e) => updateTerm(hIdx, tIdx, "num_claims", parseInt(e.target.value) || 0)} min={0} max={10} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Power Units</Label>
-                      <Input type="number" value={term.power_units || ""} onChange={(e) => updateTerm(hIdx, tIdx, "power_units", e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Insurance Company</Label>
-                      <Input value={term.insurance_company || ""} onChange={(e) => updateTerm(hIdx, tIdx, "insurance_company", e.target.value)} />
-                    </div>
-                  </div>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={yd.no_losses}
+                      onCheckedChange={(c) => toggleNoLosses(yr.label, !!c)}
+                    />
+                    No Losses
+                  </label>
                 </div>
-              ))}
-              <Button variant="outline" size="sm" onClick={() => addTerm(hIdx)} className="gap-1">
-                <Plus className="h-3 w-3" /> Add Policy Term
-              </Button>
-            </>
-          )}
 
-          {/* Cancellation */}
-          <div className="space-y-2 pt-2 border-t border-border">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={hist.cancelled_nonrenewed}
-                onCheckedChange={(c) => updateHistory(hIdx, "cancelled_nonrenewed", c)}
-              />
-              Cancelled or Non-Renewed?
-            </label>
-            {hist.cancelled_nonrenewed && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Reason</Label>
-                  <Select value={hist.cancellation_reason || ""} onValueChange={(v) => updateHistory(hIdx, "cancellation_reason", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{CANCELLATION_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                {hist.cancellation_reason === "Other" && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Explain</Label>
-                    <Input value={hist.cancellation_reason_other || ""} onChange={(e) => updateHistory(hIdx, "cancellation_reason_other", e.target.value)} />
+                {!yd.no_losses && (
+                  <div className="space-y-3">
+                    {COVERAGE_LINES.map((line) => (
+                      <div key={line} className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">{line}: Loss Count (Open or Closed)</Label>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground font-mono w-4">#</span>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={yd.lines[line].loss_count}
+                              onChange={(e) => updateYearField(yr.label, line, "loss_count", parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">{line}: Losses Paid, Open or Reserved</Label>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground font-mono w-4">$</span>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={yd.lines[line].losses_paid}
+                              onChange={(e) => updateYearField(yr.label, line, "losses_paid", parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+                {/* Losses Confirmed toggle */}
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <Checkbox
+                      checked={yd.losses_confirmed}
+                      onCheckedChange={(c) => toggleLossesConfirmed(yr.label, !!c)}
+                    />
+                    <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                    Losses Confirmed
+                  </label>
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })}
         </div>
-      ))}
+      )}
 
       <Button onClick={() => saveMutation.mutate()} className="w-full">Save Loss History</Button>
     </div>
