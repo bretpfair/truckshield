@@ -21,6 +21,7 @@ const emptyUnit = {
   vin: "", gvw_class: "", truck_type: "", is_service_vehicle: false,
   year: "", make: "", model: "", titled_state: "", garage_zip: "",
   roadside_assistance: false, has_physdam: false, physdam_amount: null, has_cargo: false,
+  cab_card_path: null,
 };
 
 const Step5PowerUnits = ({ account }: StepProps) => {
