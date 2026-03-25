@@ -124,7 +124,7 @@ const Step3Radius = ({ formData, updateFormData }: StepProps) => {
                     <Input
                       type="number"
                       className="h-8 w-20"
-                      value={pct || ""}
+                      value={(pct as string) || ""}
                       onChange={(e) => updateDestPct(idx, state, e.target.value)}
                       placeholder="%"
                     />
