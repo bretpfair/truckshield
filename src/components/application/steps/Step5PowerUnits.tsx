@@ -143,7 +143,18 @@ const Step5PowerUnits = ({ account }: StepProps) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">VIN</Label>
-              <Input value={unit.vin || ""} onChange={(e) => updateUnit(idx, "vin", e.target.value)} placeholder="Vehicle Identification Number" />
+              <div className="relative">
+                <Input
+                  value={unit.vin || ""}
+                  onChange={(e) => updateUnit(idx, "vin", e.target.value.toUpperCase())}
+                  onBlur={(e) => decodeVin(e.target.value, idx)}
+                  placeholder="17-character VIN"
+                  maxLength={17}
+                />
+                {decodingVin[idx] && (
+                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">GVW Class</Label>
