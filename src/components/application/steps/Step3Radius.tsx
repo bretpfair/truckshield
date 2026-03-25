@@ -48,9 +48,9 @@ const Step3Radius = ({ formData, updateFormData }: StepProps) => {
     updateFormData({ radius_operations: updated });
   };
 
-  const distTotal = (index: number) => {
+  const distTotal = (index: number): number => {
     const hbd = radius[index]?.hauled_by_distance || {};
-    return Object.values(hbd).reduce((sum: number, v: any) => sum + (parseFloat(v) || 0), 0);
+    return Object.values(hbd).reduce((sum: number, v: any) => sum + (parseFloat(v as string) || 0), 0 as number);
   };
 
   return (
