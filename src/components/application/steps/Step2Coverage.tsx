@@ -64,11 +64,21 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
           )}
           <div className="space-y-2">
             <Label>Uninsured Motorist BI</Label>
-            <Input value={coverage.um_bi || "$50,000 CSL"} onChange={(e) => setCoverage("um_bi", e.target.value)} />
+            <Select value={coverage.um_bi || ""} onValueChange={(v) => setCoverage("um_bi", v)}>
+              <SelectTrigger><SelectValue placeholder="Select limit" /></SelectTrigger>
+              <SelectContent>
+                {PRIMARY_BIPD_LIMITS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Underinsured Motorist BI</Label>
-            <Input value={coverage.uim_bi || "Included in UM"} onChange={(e) => setCoverage("uim_bi", e.target.value)} />
+            <Select value={coverage.uim_bi || ""} onValueChange={(v) => setCoverage("uim_bi", v)}>
+              <SelectTrigger><SelectValue placeholder="Select limit" /></SelectTrigger>
+              <SelectContent>
+                {PRIMARY_BIPD_LIMITS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
