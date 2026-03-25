@@ -49,7 +49,16 @@ export const COMMODITY_CLASSES = [
   { name: "Livestock Haulers", items: ["Cattle","Hogs","Poultry","Horses","Other Livestock"] },
 ];
 
-export const GVW_CLASSES = ["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8"];
+export const GVW_CLASSES = [
+  { value: "Class 1", label: "Class 1 (0 – 6,000 lbs)" },
+  { value: "Class 2", label: "Class 2 (6,001 – 10,000 lbs)" },
+  { value: "Class 3", label: "Class 3 (10,001 – 14,000 lbs)" },
+  { value: "Class 4", label: "Class 4 (14,001 – 16,000 lbs)" },
+  { value: "Class 5", label: "Class 5 (16,001 – 19,500 lbs)" },
+  { value: "Class 6", label: "Class 6 (19,501 – 26,000 lbs)" },
+  { value: "Class 7", label: "Class 7 (26,001 – 33,000 lbs)" },
+  { value: "Class 8", label: "Class 8 (33,001+ lbs)" },
+];
 export const TRUCK_TYPES = [
   "Truck Tractor","Box Truck","Pickup Truck","Cargo Van","Dump Truck","Coal Truck",
   "Garbage Truck","Tow Truck","Tank Truck","Private Passenger"

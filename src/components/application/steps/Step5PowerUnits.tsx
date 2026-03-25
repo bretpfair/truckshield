@@ -198,7 +198,7 @@ const Step5PowerUnits = ({ account }: StepProps) => {
               <Label className="text-xs">GVW Class</Label>
               <Select value={unit.gvw_class || ""} onValueChange={(v) => updateUnit(idx, "gvw_class", v)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{GVW_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                <SelectContent>{GVW_CLASSES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
