@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
+  lead: "bg-blue-500/10 text-blue-500 border-blue-500/20",
   pending_info: "bg-warning/10 text-warning border-warning/20",
   info_complete: "bg-primary/10 text-primary border-primary/20",
   quoting: "bg-accent/10 text-accent border-accent/20",
