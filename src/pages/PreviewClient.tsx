@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertTriangle, FileText, Truck, Shield, Clock, CheckCircle2,
-  ChevronRight, ClipboardList, MapPin, Users, Package,
+  ChevronRight, ClipboardList, MapPin, Users, Package, Building,
 } from "lucide-react";
 import { WIZARD_STEPS } from "@/components/application/constants";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
@@ -84,6 +84,13 @@ const MOCK_QUOTES = [
     published_at: "2026-03-22T00:00:00Z",
     expires_at: "2026-04-22T00:00:00Z",
   },
+];
+
+const MOCK_REVIEWING_CARRIERS = [
+  { id: "r1", carriers: { name: "Progressive Commercial" } },
+  { id: "r2", carriers: { name: "Sentry Insurance" } },
+  { id: "r3", carriers: { name: "National Interstate" } },
+  { id: "r4", carriers: { name: "Northland Insurance" } },
 ];
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -229,6 +236,43 @@ const PreviewClient = () => {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Carriers Reviewing */}
+          <Card className="glass-panel">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-primary" />
+                <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
+                  Carriers Reviewing
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Your application is being marketed to these carriers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {MOCK_REVIEWING_CARRIERS.map((q) => (
+                  <div
+                    key={q.id}
+                    className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Building className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{q.carriers.name}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">Under review</p>
+                    </div>
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                    </span>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle, FileText, Truck, Shield, Clock, CheckCircle2,
-  ChevronRight, ClipboardList, MapPin, Users, Package,
+  ChevronRight, ClipboardList, MapPin, Users, Package, Building,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 import { WIZARD_STEPS } from "@/components/application/constants";
@@ -41,19 +41,21 @@ const ClientPortal = () => {
 
   const account = accounts?.[0];
 
-  const { data: quotes } = useQuery({
-    queryKey: ["client-quotes", account?.id],
+  const { data: allQuotes } = useQuery({
+    queryKey: ["client-all-quotes", account?.id],
     enabled: !!account,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quotes")
         .select("*, carriers(name)")
-        .eq("status", "published")
         .eq("account_id", account!.id);
       if (error) throw error;
       return data;
     },
   });
+
+  const quotes = allQuotes?.filter((q: any) => q.status === "published") ?? [];
+  const reviewingQuotes = allQuotes?.filter((q: any) => q.status === "draft" || q.status === "reviewing") ?? [];
 
   const { data: powerUnits } = useQuery({
     queryKey: ["client-power-units", account?.id],
@@ -205,6 +207,54 @@ const ClientPortal = () => {
         </CardContent>
       </Card>
 
+      {/* Carriers Reviewing */}
+      <Card className="glass-panel">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Building className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
+              Carriers Reviewing
+            </CardTitle>
+          </div>
+          <CardDescription className="text-xs">
+            Your application is being marketed to these carriers
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {reviewingQuotes.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {reviewingQuotes.map((q: any) => (
+                <div
+                  key={q.id}
+                  className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border"
+                >
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Building className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">Under review</p>
+                  </div>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <Building className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {isComplete
+                  ? "Carriers will appear here once your application is being reviewed."
+                  : "Complete your application to begin the quoting process."}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Quotes Section */}
       <Card className="glass-panel">
         <CardHeader className="pb-3">
@@ -216,7 +266,7 @@ const ClientPortal = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {quotes && quotes.length > 0 ? (
+          {quotes.length > 0 ? (
             <div className="space-y-3">
               {quotes.map((q: any) => (
                 <div
