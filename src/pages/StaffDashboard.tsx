@@ -11,8 +11,9 @@ import { useAuth } from "@/hooks/useAuth";
 import AccountDetail from "@/components/staff/AccountDetail";
 import CarrierManager from "@/components/staff/CarrierManager";
 import InviteClient from "@/components/staff/InviteClient";
+import PdfUpload from "@/components/staff/PdfUpload";
 import {
-  Building2, Users, FileText, TrendingUp, Plus, Search,
+  Building2, Users, FileText, TrendingUp, Plus, Search, Upload,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -118,6 +119,9 @@ const StaffDashboard = () => {
       <Tabs defaultValue="accounts" className="space-y-4">
         <TabsList className="bg-secondary">
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
+          <TabsTrigger value="pdf-upload">
+            <Upload className="h-3 w-3 mr-1" /> PDF Import
+          </TabsTrigger>
           <TabsTrigger value="carriers">Carriers</TabsTrigger>
           <TabsTrigger value="invite">Invite Client</TabsTrigger>
         </TabsList>
@@ -187,6 +191,10 @@ const StaffDashboard = () => {
               )}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="pdf-upload">
+          <PdfUpload />
         </TabsContent>
 
         <TabsContent value="carriers">
