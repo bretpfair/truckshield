@@ -259,8 +259,52 @@ const Step5PowerUnits = ({ account }: StepProps) => {
               </div>
             )}
           </div>
+
+          {/* Cab Card / Registration Upload */}
+          <div className="space-y-1">
+            <Label className="text-xs">Cab Card / Registration</Label>
+            {unit.cab_card_path ? (
+              <div className="flex items-center gap-2 p-2 rounded-md bg-background border border-border">
+                <FileText className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs font-mono truncate flex-1">
+                  {unit.cab_card_path.split("/").pop()}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => handleRemoveFile(idx)}
+                >
+                  <X className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 p-3 rounded-md border border-dashed border-border hover:border-primary/40 cursor-pointer transition-colors">
+                {uploadingFile[idx] ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {uploadingFile[idx] ? "Uploading..." : "Upload PDF or image"}
+                </span>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, idx);
+                    e.target.value = "";
+                  }}
+                  disabled={uploadingFile[idx]}
+                />
+              </label>
+            )}
+          </div>
         </div>
       ))}
+
 
       <Button onClick={() => saveMutation.mutate()} className="w-full">Save Power Units</Button>
     </div>
