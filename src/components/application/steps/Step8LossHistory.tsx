@@ -102,7 +102,7 @@ const Step8LossHistory = ({ account }: StepProps) => {
         no_prior_coverage: noPriorCoverage,
         policy_terms: { year_data: yearDataMap },
       };
-      const { error } = await supabase.from("loss_history").insert(toInsert);
+      const { error } = await supabase.from("loss_history").insert([toInsert]);
       if (error) throw error;
     },
     onSuccess: () => {
