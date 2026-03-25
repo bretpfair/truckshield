@@ -29,6 +29,43 @@ const Step5PowerUnits = ({ account }: StepProps) => {
   const queryClient = useQueryClient();
   const [units, setUnits] = useState<any[]>([]);
   const [decodingVin, setDecodingVin] = useState<Record<number, boolean>>({});
+  const [uploadingFile, setUploadingFile] = useState<Record<number, boolean>>({});
+
+  const handleFileUpload = useCallback(async (file: File, idx: number) => {
+    if (!file) return;
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast({ title: "File too large", description: "Max file size is 10MB", variant: "destructive" });
+      return;
+    }
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a PDF or image (JPG, PNG, WebP)", variant: "destructive" });
+      return;
+    }
+
+    setUploadingFile((prev) => ({ ...prev, [idx]: true }));
+    try {
+      const ext = file.name.split(".").pop() || "pdf";
+      const filePath = `${account.id}/truck-${idx}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("cab-cards").upload(filePath, file, { upsert: true });
+      if (error) throw error;
+      updateUnit(idx, "cab_card_path", filePath);
+      toast({ title: "File uploaded", description: file.name });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
+    } finally {
+      setUploadingFile((prev) => ({ ...prev, [idx]: false }));
+    }
+  }, [account.id, toast]);
+
+  const handleRemoveFile = useCallback(async (idx: number) => {
+    const path = units[idx]?.cab_card_path;
+    if (path) {
+      await supabase.storage.from("cab-cards").remove([path]);
+    }
+    updateUnit(idx, "cab_card_path", null);
+  }, [units]);
 
   const decodeVin = useCallback(async (vin: string, idx: number) => {
     const cleanVin = vin.trim().toUpperCase();
