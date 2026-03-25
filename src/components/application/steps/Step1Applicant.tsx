@@ -35,7 +35,7 @@ const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
           <Input value={formData.dot_number || ""} onChange={(e) => updateFormData({ dot_number: e.target.value })} placeholder="1234567" />
         </div>
         <div className="space-y-2">
-          <Label>MC Number</Label>
+          <Label>MC Number (If applicable)</Label>
           <Input value={formData.mc_number || ""} onChange={(e) => updateFormData({ mc_number: e.target.value })} placeholder="MC-123456" />
         </div>
         <div className="space-y-2">
