@@ -100,7 +100,7 @@ const Step8LossHistory = ({ account }: StepProps) => {
         account_id: account.id,
         coverage_type: "Combined",
         no_prior_coverage: noPriorCoverage,
-        policy_terms: { year_data: yearDataMap },
+        policy_terms: JSON.parse(JSON.stringify({ year_data: yearDataMap })),
       };
       const { error } = await supabase.from("loss_history").insert([toInsert]);
       if (error) throw error;
