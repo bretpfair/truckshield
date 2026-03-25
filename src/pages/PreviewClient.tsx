@@ -86,6 +86,13 @@ const MOCK_QUOTES = [
   },
 ];
 
+const MOCK_REVIEWING_CARRIERS = [
+  { id: "r1", carriers: { name: "Progressive Commercial" } },
+  { id: "r2", carriers: { name: "Sentry Insurance" } },
+  { id: "r3", carriers: { name: "National Interstate" } },
+  { id: "r4", carriers: { name: "Northland Insurance" } },
+];
+
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending_info: { label: "Pending Information", color: "bg-warning/10 text-warning border-warning/30", icon: Clock },
   info_complete: { label: "Info Complete", color: "bg-primary/10 text-primary border-primary/30", icon: CheckCircle2 },
