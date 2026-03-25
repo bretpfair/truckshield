@@ -1,0 +1,2 @@
+ALTER TABLE public.accounts DROP CONSTRAINT accounts_status_check;
+ALTER TABLE public.accounts ADD CONSTRAINT accounts_status_check CHECK (status = ANY (ARRAY['lead'::text, 'pending_info'::text, 'info_complete'::text, 'quoting'::text, 'quoted'::text, 'bound'::text, 'declined'::text]));
