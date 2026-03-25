@@ -1,1 +1,4 @@
 project_id = "czowzqkqzvsamfhkaozk"
+
+[functions.ctq-webhook]
+verify_jwt = false
