@@ -210,6 +210,16 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
                               </SelectContent>
                             </Select>
                           )}
+                          {field.type === "checkbox" && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <Checkbox
+                                id={`field-${field.key}`}
+                                checked={!!coverage[field.key]}
+                                onCheckedChange={(checked) => setCoverage(field.key, !!checked)}
+                              />
+                              <label htmlFor={`field-${field.key}`} className="text-sm cursor-pointer">{field.label}</label>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
