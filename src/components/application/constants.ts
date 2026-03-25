@@ -69,11 +69,9 @@ export const TRUCK_MAKES = [
   "Ram","Sterling","Tesla","Toyota","UD Trucks","Volvo","Western Star"
 ];
 export const TRAILER_TYPES = [
-  "Auto Hauler","Box (Straight Truck)","Bulker","Curtain Side Van","Delivery Van","Drop Frame",
-  "Dry Van/Box","Dump Trailer (Tilt)","Dump Trailer (Bottom)","Enclosed","Flatbed","Gooseneck",
-  "Grain","Heavy Equipment","Hopper","Intermodal/Container","Livestock","Live Floor","Logging",
-  "Lowboy","Open Top","Platform","Pole","Reefer","Roll-Off","Side Dump","Step Deck","Tanker",
-  "Tipper","Utility"
+  "Dry Van","Reefer","Flatbed","Step Deck / Drop Deck","Lowboy / Double Drop","Tanker",
+  "Curtainside","Conestoga","Chassis","Dump Trailer","Livestock","Logging/Pole",
+  "Auto Hauler","Bulk Commodity/Grain","Water","Other"
 ];
 export const TRAILER_MAKES = [
   "Aspen","Barrett","Beall","Benson","Big Tex","Brenner Tank","CIMC","Cottrell","Cozad","Delavan",
