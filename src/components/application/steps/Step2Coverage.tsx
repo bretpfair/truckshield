@@ -36,6 +36,7 @@ const SUPPLEMENTAL_COVERAGES = [
     fields: [
       { key: "cargo_vehicle_limit", label: "Cargo Limit (per vehicle)", type: "select", options: CARGO_VEHICLE_LIMITS },
       { key: "cargo_deductible", label: "Cargo Deductible", type: "select", options: DEDUCTIBLE_OPTIONS },
+      { key: "include_reefer", label: "Include Reefer Coverage", type: "checkbox" },
     ],
   },
   {
@@ -208,6 +209,16 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
                                 <SelectItem value="No">No</SelectItem>
                               </SelectContent>
                             </Select>
+                          )}
+                          {field.type === "checkbox" && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <Checkbox
+                                id={`field-${field.key}`}
+                                checked={!!coverage[field.key]}
+                                onCheckedChange={(checked) => setCoverage(field.key, !!checked)}
+                              />
+                              <label htmlFor={`field-${field.key}`} className="text-sm cursor-pointer">{field.label}</label>
+                            </div>
                           )}
                         </div>
                       ))}
