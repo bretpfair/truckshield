@@ -14,16 +14,246 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          annual_revenue: number | null
+          cargo_types: string[] | null
+          client_user_id: string | null
+          company_name: string
+          created_at: string
+          created_by: string | null
+          current_coverage_expiry: string | null
+          dot_number: string | null
+          fleet_size: number | null
+          id: string
+          loss_history_summary: string | null
+          mc_number: string | null
+          notes: string | null
+          number_of_claims: number | null
+          operating_states: string[] | null
+          status: string
+          updated_at: string
+          years_in_business: number | null
+        }
+        Insert: {
+          annual_revenue?: number | null
+          cargo_types?: string[] | null
+          client_user_id?: string | null
+          company_name: string
+          created_at?: string
+          created_by?: string | null
+          current_coverage_expiry?: string | null
+          dot_number?: string | null
+          fleet_size?: number | null
+          id?: string
+          loss_history_summary?: string | null
+          mc_number?: string | null
+          notes?: string | null
+          number_of_claims?: number | null
+          operating_states?: string[] | null
+          status?: string
+          updated_at?: string
+          years_in_business?: number | null
+        }
+        Update: {
+          annual_revenue?: number | null
+          cargo_types?: string[] | null
+          client_user_id?: string | null
+          company_name?: string
+          created_at?: string
+          created_by?: string | null
+          current_coverage_expiry?: string | null
+          dot_number?: string | null
+          fleet_size?: number | null
+          id?: string
+          loss_history_summary?: string | null
+          mc_number?: string | null
+          notes?: string | null
+          number_of_claims?: number | null
+          operating_states?: string[] | null
+          status?: string
+          updated_at?: string
+          years_in_business?: number | null
+        }
+        Relationships: []
+      }
+      carriers: {
+        Row: {
+          am_best_rating: string | null
+          appetite_guide: Json | null
+          created_at: string
+          id: string
+          is_active: boolean
+          max_claims_tolerance: number | null
+          max_fleet_size: number | null
+          min_fleet_size: number | null
+          name: string
+          notes: string | null
+          preferred_cargo_types: string[] | null
+          preferred_states: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          am_best_rating?: string | null
+          appetite_guide?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_claims_tolerance?: number | null
+          max_fleet_size?: number | null
+          min_fleet_size?: number | null
+          name: string
+          notes?: string | null
+          preferred_cargo_types?: string[] | null
+          preferred_states?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          am_best_rating?: string | null
+          appetite_guide?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_claims_tolerance?: number | null
+          max_fleet_size?: number | null
+          min_fleet_size?: number | null
+          name?: string
+          notes?: string | null
+          preferred_cargo_types?: string[] | null
+          preferred_states?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          account_id: string
+          carrier_id: string
+          coverage_details: Json | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          match_score: number | null
+          premium_estimate: number | null
+          published_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          carrier_id: string
+          coverage_details?: Json | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          match_score?: number | null
+          premium_estimate?: number | null
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          carrier_id?: string
+          coverage_details?: Json | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          match_score?: number | null
+          premium_estimate?: number | null
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +380,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "client"],
+    },
   },
 } as const
