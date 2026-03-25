@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import StaffDashboard from "@/pages/StaffDashboard";
 import ClientPortal from "@/pages/ClientPortal";
-import { Truck, LogOut, User } from "lucide-react";
+import { Truck, LogOut, User, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
+  const [viewAsClient, setViewAsClient] = useState(false);
 
   if (loading) {
     return (
@@ -21,6 +23,8 @@ const AppLayout = () => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
+  const showClient = role !== "admin" || viewAsClient;
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -29,10 +33,21 @@ const AppLayout = () => {
             <Truck className="h-5 w-5 text-primary" />
             <span className="font-bold text-foreground">TruckShield</span>
             <span className="status-badge bg-primary/10 text-primary rounded">
-              {role === "admin" ? "Staff" : "Client"}
+              {showClient ? "Client" : "Staff"}
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {role === "admin" && (
+              <Button
+                variant={viewAsClient ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewAsClient(!viewAsClient)}
+                className="gap-1.5 text-xs"
+              >
+                <Eye className="h-3 w-3" />
+                {viewAsClient ? "Back to Staff" : "Preview Client"}
+              </Button>
+            )}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">{user.email}</span>
@@ -44,7 +59,7 @@ const AppLayout = () => {
         </div>
       </header>
       <main className="container px-4 py-6">
-        {role === "admin" ? <StaffDashboard /> : <ClientPortal />}
+        {showClient ? <ClientPortal /> : <StaffDashboard />}
       </main>
     </div>
   );
