@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Upload, FileText, Trash2, Loader2 } from "lucide-react";
 
 interface StepProps {
   account: any;
@@ -36,14 +36,23 @@ const emptyYearData = (): YearData => ({
   lines: Object.fromEntries(COVERAGE_LINES.map((l) => [l, { loss_count: 0, losses_paid: 0 }])),
 });
 
+interface StorageFile {
+  name: string;
+  id?: string;
+  created_at?: string;
+}
+
 const Step8LossHistory = ({ account }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const [noPriorCoverage, setNoPriorCoverage] = useState(false);
   const [yearDataMap, setYearDataMap] = useState<Record<string, YearData>>(() =>
     Object.fromEntries(YEAR_RANGES.map((yr) => [yr.label, emptyYearData()]))
   );
 
+  // Fetch loss history data
   const { data } = useQuery({
     queryKey: ["loss-history", account.id],
     queryFn: async () => {
@@ -56,18 +65,27 @@ const Step8LossHistory = ({ account }: StepProps) => {
     },
   });
 
+  // Fetch uploaded files
+  const { data: files, refetch: refetchFiles } = useQuery({
+    queryKey: ["loss-run-files", account.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage
+        .from("loss-runs")
+        .list(account.id, { sortBy: { column: "created_at", order: "desc" } });
+      if (error) throw error;
+      return (data || []) as StorageFile[];
+    },
+  });
+
   useEffect(() => {
     if (data && data.length) {
-      // Check if all entries have no_prior_coverage
       const allNoPrior = data.every((d) => d.no_prior_coverage);
       setNoPriorCoverage(allNoPrior);
 
-      // Rebuild yearDataMap from stored policy_terms
       const newMap: Record<string, YearData> = Object.fromEntries(
         YEAR_RANGES.map((yr) => [yr.label, emptyYearData()])
       );
 
-      // Parse stored data - each record is a coverage_type with policy_terms containing year data
       for (const record of data) {
         const terms = (record.policy_terms as any) || {};
         if (terms.year_data) {
@@ -84,7 +102,7 @@ const Step8LossHistory = ({ account }: StepProps) => {
               }
             }
           }
-          break; // Only need first record's year_data since we store all years together
+          break;
         }
       }
       setYearDataMap(newMap);
@@ -94,8 +112,6 @@ const Step8LossHistory = ({ account }: StepProps) => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("loss_history").delete().eq("account_id", account.id);
-
-      // Store as a single record with all year data in policy_terms
       const toInsert = {
         account_id: account.id,
         coverage_type: "Combined",
@@ -111,6 +127,37 @@ const Step8LossHistory = ({ account }: StepProps) => {
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(selectedFiles)) {
+        const filePath = `${account.id}/${Date.now()}_${file.name}`;
+        const { error } = await supabase.storage.from("loss-runs").upload(filePath, file);
+        if (error) throw error;
+      }
+      toast({ title: "Files uploaded successfully" });
+      refetchFiles();
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteFile = async (fileName: string) => {
+    const { error } = await supabase.storage.from("loss-runs").remove([`${account.id}/${fileName}`]);
+    if (error) {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "File deleted" });
+      refetchFiles();
+    }
+  };
 
   const updateYearField = (yearLabel: string, line: string, field: "loss_count" | "losses_paid", value: number) => {
     setYearDataMap((prev) => ({
@@ -150,6 +197,52 @@ const Step8LossHistory = ({ account }: StepProps) => {
       <div>
         <h3 className="text-lg font-semibold">Section 8 — Loss History</h3>
         <p className="text-sm text-muted-foreground font-mono">Prior coverage and claims for each policy year</p>
+      </div>
+
+      {/* Upload Loss Runs */}
+      <div className="p-4 rounded-md border border-border bg-secondary/30 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Upload className="h-4 w-4 text-primary" />
+              Upload Loss Runs
+            </h4>
+            <p className="text-xs text-muted-foreground">Attach loss run documents (PDF, images, or other files)</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+            {uploading ? "Uploading…" : "Choose Files"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+        </div>
+
+        {files && files.length > 0 && (
+          <div className="space-y-1">
+            {files.map((file) => (
+              <div key={file.name} className="flex items-center justify-between p-2 rounded bg-background border border-border text-sm">
+                <div className="flex items-center gap-2 truncate">
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">{file.name.replace(/^\d+_/, "")}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleDeleteFile(file.name)}>
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* New Venture / No Prior Coverage */}
@@ -217,7 +310,6 @@ const Step8LossHistory = ({ account }: StepProps) => {
                   </div>
                 )}
 
-                {/* Losses Confirmed toggle */}
                 <div className="flex items-center gap-2 pt-2 border-t border-border">
                   <label className="flex items-center gap-2 text-xs cursor-pointer">
                     <Checkbox
