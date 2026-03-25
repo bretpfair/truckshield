@@ -19,9 +19,9 @@ const COVERAGE_LINES = ["Auto Liability", "Physical Damage", "Cargo"];
 
 const currentYear = new Date().getFullYear();
 const YEAR_RANGES = [
-  { label: `${currentYear} – ${currentYear + 1}`, from: currentYear, to: currentYear + 1 },
   { label: `${currentYear - 1} – ${currentYear}`, from: currentYear - 1, to: currentYear },
   { label: `${currentYear - 2} – ${currentYear - 1}`, from: currentYear - 2, to: currentYear - 1 },
+  { label: `${currentYear - 3} – ${currentYear - 2}`, from: currentYear - 3, to: currentYear - 2 },
 ];
 
 interface YearData {
