@@ -1,0 +1,53 @@
+import { useAuth } from "@/hooks/useAuth";
+import { Navigate } from "react-router-dom";
+import StaffDashboard from "@/pages/StaffDashboard";
+import ClientPortal from "@/pages/ClientPortal";
+import { Truck, LogOut, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+const AppLayout = () => {
+  const { user, role, loading, signOut } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex items-center gap-3 animate-fade-in">
+          <Truck className="h-6 w-6 text-primary animate-pulse" />
+          <span className="text-muted-foreground font-mono text-sm">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container flex items-center justify-between h-14 px-4">
+          <div className="flex items-center gap-3">
+            <Truck className="h-5 w-5 text-primary" />
+            <span className="font-bold text-foreground">TruckShield</span>
+            <span className="status-badge bg-primary/10 text-primary rounded">
+              {role === "admin" ? "Staff" : "Client"}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">{user.email}</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+      <main className="container px-4 py-6">
+        {role === "admin" ? <StaffDashboard /> : <ClientPortal />}
+      </main>
+    </div>
+  );
+};
+
+export default AppLayout;
