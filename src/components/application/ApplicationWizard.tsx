@@ -25,11 +25,13 @@ interface ApplicationWizardProps {
 const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const [currentStep, setCurrentStep] = useState(account.application_step || 1);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    // Initialize form data from account
     setFormData({
       ...account,
       coverage_selections: account.coverage_selections || {},
@@ -37,6 +39,8 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       commodity_info: account.commodity_info || {},
       general_questions: account.general_questions || {},
     });
+    // Mark initialized after first load so we don't auto-save the initial set
+    setTimeout(() => { isInitialized.current = true; }, 500);
   }, [account]);
 
   const updateAccount = useMutation({
@@ -49,13 +53,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["client-accounts"] });
-      toast({ title: "Progress saved" });
+      setAutoSaveStatus("saved");
+      setTimeout(() => setAutoSaveStatus("idle"), 2000);
     },
     onError: (e: Error) => toast({ title: "Error saving", description: e.message, variant: "destructive" }),
   });
 
+  const debouncedSave = useCallback((data: Record<string, any>) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setAutoSaveStatus("saving");
+    debounceTimer.current = setTimeout(() => {
+      updateAccount.mutate(data);
+    }, 1500);
+  }, [currentStep, account.id]);
+
   const handleSave = (stepData?: Record<string, any>) => {
     const data = stepData || formData;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
     updateAccount.mutate(data);
   };
 
@@ -65,11 +79,16 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   };
 
   const handlePrev = () => {
+    handleSave();
     setCurrentStep((s: number) => Math.max(s - 1, 1));
   };
 
   const updateFormData = (updates: Record<string, any>) => {
-    setFormData((prev: Record<string, any>) => ({ ...prev, ...updates }));
+    setFormData((prev: Record<string, any>) => {
+      const next = { ...prev, ...updates };
+      if (isInitialized.current) debouncedSave(next);
+      return next;
+    });
   };
 
   const renderStep = () => {
