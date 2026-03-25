@@ -115,7 +115,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Cargo Vehicle Limit</Label>
+            <Label>Cargo Limit</Label>
             <Select value={coverage.cargo_vehicle_limit || ""} onValueChange={(v) => setCoverage("cargo_vehicle_limit", v)}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
