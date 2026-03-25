@@ -167,7 +167,7 @@ const Step8LossHistory = ({ account }: StepProps) => {
       {!noPriorCoverage && (
         <div className="space-y-6">
           {YEAR_RANGES.map((yr) => {
-            const yd = yearDataMap[yr.label];
+            const yd = yearDataMap[yr.label] || emptyYearData();
             return (
               <div key={yr.label} className="p-4 rounded-md bg-secondary/30 border border-border space-y-4">
                 <div className="flex items-center justify-between">
