@@ -1,6 +1,8 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
 import { PRIMARY_BIPD_LIMITS, GL_OPTIONS, DEDUCTIBLE_OPTIONS, CARGO_VEHICLE_LIMITS, TRAILER_INTERCHANGE_OPTIONS } from "../constants";
 
 interface StepProps {
@@ -10,10 +12,77 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
+const SUPPLEMENTAL_COVERAGES = [
+  {
+    key: "general_liability",
+    label: "General Liability",
+    description: "Covers third-party bodily injury and property damage claims not related to auto operations.",
+    fields: [
+      { key: "general_liability_limit", label: "GL Limit", type: "select", options: GL_OPTIONS },
+    ],
+  },
+  {
+    key: "physical_damage",
+    label: "Physical Damage",
+    description: "Covers damage to your own trucks (comprehensive & collision).",
+    fields: [
+      { key: "physdam_deductible", label: "Deductible", type: "select", options: DEDUCTIBLE_OPTIONS },
+    ],
+  },
+  {
+    key: "cargo_liability",
+    label: "Cargo Liability",
+    description: "Covers loss or damage to freight you are hauling.",
+    fields: [
+      { key: "cargo_vehicle_limit", label: "Cargo Limit (per vehicle)", type: "select", options: CARGO_VEHICLE_LIMITS },
+      { key: "cargo_deductible", label: "Cargo Deductible", type: "select", options: DEDUCTIBLE_OPTIONS },
+    ],
+  },
+  {
+    key: "trailer_interchange",
+    label: "Trailer Interchange",
+    description: "Covers physical damage to non-owned trailers used under a trailer interchange agreement.",
+    fields: [
+      { key: "trailer_interchange_limit", label: "Interchange Limit", type: "select", options: TRAILER_INTERCHANGE_OPTIONS.filter(o => o !== "No Coverage") },
+    ],
+  },
+  {
+    key: "hired_nonowned",
+    label: "Hired / Non-Owned Auto",
+    description: "Covers liability for vehicles you hire or employees' personal vehicles used for business.",
+    fields: [
+      { key: "total_employees", label: "Total Employees", type: "number" },
+      { key: "contractually_required", label: "Contractually Required?", type: "yesno" },
+    ],
+  },
+  {
+    key: "roadside_assistance",
+    label: "Roadside Assistance / Towing",
+    description: "Emergency roadside service and towing coverage for breakdowns.",
+    fields: [],
+  },
+  {
+    key: "terrorism",
+    label: "Terrorism Coverage (TRIA)",
+    description: "Federal terrorism risk insurance act coverage.",
+    fields: [],
+  },
+];
+
 const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
   const coverage = formData.coverage_selections || {};
   const setCoverage = (key: string, value: any) => {
     updateFormData({ coverage_selections: { ...coverage, [key]: value } });
+  };
+
+  const toggleSupplemental = (key: string, checked: boolean) => {
+    const updated = { ...coverage, [key]: checked };
+    // Clear follow-up fields when unchecked
+    if (!checked) {
+      const def = SUPPLEMENTAL_COVERAGES.find(c => c.key === key);
+      def?.fields.forEach(f => { updated[f.key] = undefined; });
+    }
+    updateFormData({ coverage_selections: updated });
   };
 
   return (
@@ -86,100 +155,68 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
       {/* Supplemental Coverage */}
       <div>
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Supplemental Coverage</Label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          <div className="space-y-2">
-            <Label>General Liability</Label>
-            <Select value={coverage.general_liability || ""} onValueChange={(v) => setCoverage("general_liability", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {GL_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Physical Damage Deductible</Label>
-            <Select value={coverage.physdam_deductible || ""} onValueChange={(v) => setCoverage("physdam_deductible", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {DEDUCTIBLE_OPTIONS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Cargo Liability Deductible</Label>
-            <Select value={coverage.cargo_deductible || ""} onValueChange={(v) => setCoverage("cargo_deductible", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {DEDUCTIBLE_OPTIONS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Cargo Limit</Label>
-            <Select value={coverage.cargo_vehicle_limit || ""} onValueChange={(v) => setCoverage("cargo_vehicle_limit", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {CARGO_VEHICLE_LIMITS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Trailer Interchange</Label>
-            <Select value={coverage.trailer_interchange || ""} onValueChange={(v) => setCoverage("trailer_interchange", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                {TRAILER_INTERCHANGE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Hired/Non-Owned Coverage</Label>
-            <Select value={coverage.hired_nonowned || ""} onValueChange={(v) => setCoverage("hired_nonowned", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="No">No</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {coverage.hired_nonowned === "Yes" && (
-            <>
-              <div className="space-y-2">
-                <Label>Total Employees</Label>
-                <Input type="number" value={coverage.total_employees || ""} onChange={(e) => setCoverage("total_employees", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Contractually Required?</Label>
-                <Select value={coverage.contractually_required || ""} onValueChange={(v) => setCoverage("contractually_required", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Yes">Yes</SelectItem>
-                    <SelectItem value="No">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
-          <div className="space-y-2">
-            <Label>Roadside Assistance</Label>
-            <Select value={coverage.roadside_assistance || ""} onValueChange={(v) => setCoverage("roadside_assistance", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="No">No</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Terrorism Coverage</Label>
-            <Select value={coverage.terrorism || ""} onValueChange={(v) => setCoverage("terrorism", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="Reject">Reject</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <p className="text-sm text-muted-foreground mt-1 mb-3">Select the additional coverages you need. Follow-up questions will appear for each selected coverage.</p>
+        <div className="space-y-3">
+          {SUPPLEMENTAL_COVERAGES.map((cov) => {
+            const isSelected = !!coverage[cov.key];
+            return (
+              <Card
+                key={cov.key}
+                className={`transition-colors ${isSelected ? "border-primary/50 bg-primary/5" : "border-border"}`}
+              >
+                <CardContent className="py-4 px-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id={`cov-${cov.key}`}
+                      checked={isSelected}
+                      onCheckedChange={(checked) => toggleSupplemental(cov.key, !!checked)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor={`cov-${cov.key}`} className="font-medium cursor-pointer text-sm">
+                        {cov.label}
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-0.5">{cov.description}</p>
+                    </div>
+                  </div>
+
+                  {isSelected && cov.fields.length > 0 && (
+                    <div className="pl-7 grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border/50">
+                      {cov.fields.map((field) => (
+                        <div key={field.key} className="space-y-2">
+                          <Label className="text-sm">{field.label}</Label>
+                          {field.type === "select" && (
+                            <Select value={coverage[field.key] || ""} onValueChange={(v) => setCoverage(field.key, v)}>
+                              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                              <SelectContent>
+                                {field.options?.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          {field.type === "number" && (
+                            <Input
+                              type="number"
+                              value={coverage[field.key] || ""}
+                              onChange={(e) => setCoverage(field.key, e.target.value)}
+                            />
+                          )}
+                          {field.type === "yesno" && (
+                            <Select value={coverage[field.key] || ""} onValueChange={(v) => setCoverage(field.key, v)}>
+                              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                                <SelectItem value="No">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </div>
