@@ -27,6 +27,48 @@ const Step5PowerUnits = ({ account }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [units, setUnits] = useState<any[]>([]);
+  const [decodingVin, setDecodingVin] = useState<Record<number, boolean>>({});
+
+  const decodeVin = useCallback(async (vin: string, idx: number) => {
+    const cleanVin = vin.trim().toUpperCase();
+    if (cleanVin.length !== 17 || !/^[A-HJ-NPR-Z0-9]{17}$/.test(cleanVin)) return;
+
+    setDecodingVin((prev) => ({ ...prev, [idx]: true }));
+    try {
+      const res = await fetch(
+        `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${encodeURIComponent(cleanVin)}?format=json`
+      );
+      if (!res.ok) throw new Error("VIN lookup failed");
+      const json = await res.json();
+      const result = json.Results?.[0];
+      if (!result) return;
+
+      const updates: Record<string, string> = {};
+      if (result.ModelYear && result.ModelYear !== "0") updates.year = result.ModelYear;
+      if (result.Make) {
+        const matched = TRUCK_MAKES.find((m) => m.toLowerCase() === result.Make.toLowerCase());
+        if (matched) updates.make = matched;
+      }
+      if (result.Model) updates.model = result.Model;
+      if (result.BodyClass) {
+        const matched = TRUCK_TYPES.find((t) => t.toLowerCase() === result.BodyClass.toLowerCase());
+        if (matched) updates.truck_type = matched;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setUnits((prev) => {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], ...updates };
+          return copy;
+        });
+        toast({ title: "VIN decoded", description: `Found: ${Object.values(updates).join(", ")}` });
+      }
+    } catch {
+      // Silent fail — user can fill manually
+    } finally {
+      setDecodingVin((prev) => ({ ...prev, [idx]: false }));
+    }
+  }, [toast]);
 
   const { data } = useQuery({
     queryKey: ["power-units", account.id],
