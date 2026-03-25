@@ -21,7 +21,8 @@ const emptyUnit = {
   vin: "", gvw_class: "", truck_type: "", is_service_vehicle: false,
   year: "", make: "", model: "", titled_state: "", garage_zip: "",
   roadside_assistance: false, has_physdam: false, physdam_amount: null, has_cargo: false,
-  cab_card_path: null,
+  cab_card_path: null, ownership_type: "owned",
+  lender_name: "", lender_address: "", lender_city: "", lender_state: "", lender_zip: "",
 };
 
 const Step5PowerUnits = ({ account }: StepProps) => {
@@ -244,6 +245,52 @@ const Step5PowerUnits = ({ account }: StepProps) => {
               <div className="flex items-center gap-1">
                 <Label className="text-xs">Stated Amount $</Label>
                 <Input className="h-8 w-28" type="number" value={unit.physdam_amount || ""} onChange={(e) => updateUnit(idx, "physdam_amount", e.target.value)} />
+              </div>
+            )}
+          </div>
+
+          {/* Vehicle Ownership */}
+          <div className="space-y-3">
+            <Label className="text-xs font-medium">Vehicle Ownership</Label>
+            <div className="flex gap-4">
+              {["owned", "leased", "financed"].map((type) => (
+                <label key={type} className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`ownership-${idx}`}
+                    checked={unit.ownership_type === type}
+                    onChange={() => updateUnit(idx, "ownership_type", type)}
+                    className="accent-primary"
+                  />
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </label>
+              ))}
+            </div>
+            {(unit.ownership_type === "leased" || unit.ownership_type === "financed") && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-md bg-background border border-border">
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-xs">Lender / Lessor Name</Label>
+                  <Input value={unit.lender_name || ""} onChange={(e) => updateUnit(idx, "lender_name", e.target.value)} placeholder="Company name" />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-xs">Address</Label>
+                  <Input value={unit.lender_address || ""} onChange={(e) => updateUnit(idx, "lender_address", e.target.value)} placeholder="Street address" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">City</Label>
+                  <Input value={unit.lender_city || ""} onChange={(e) => updateUnit(idx, "lender_city", e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">State</Label>
+                  <Select value={unit.lender_state || ""} onValueChange={(v) => updateUnit(idx, "lender_state", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ZIP</Label>
+                  <Input value={unit.lender_zip || ""} onChange={(e) => updateUnit(idx, "lender_zip", e.target.value)} maxLength={5} />
+                </div>
               </div>
             )}
           </div>

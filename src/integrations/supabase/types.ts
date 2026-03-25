@@ -409,8 +409,14 @@ export type Database = {
           has_physdam: boolean | null
           id: string
           is_service_vehicle: boolean | null
+          lender_address: string | null
+          lender_city: string | null
+          lender_name: string | null
+          lender_state: string | null
+          lender_zip: string | null
           make: string | null
           model: string | null
+          ownership_type: string | null
           physdam_amount: number | null
           roadside_assistance: boolean | null
           sort_order: number | null
@@ -430,8 +436,14 @@ export type Database = {
           has_physdam?: boolean | null
           id?: string
           is_service_vehicle?: boolean | null
+          lender_address?: string | null
+          lender_city?: string | null
+          lender_name?: string | null
+          lender_state?: string | null
+          lender_zip?: string | null
           make?: string | null
           model?: string | null
+          ownership_type?: string | null
           physdam_amount?: number | null
           roadside_assistance?: boolean | null
           sort_order?: number | null
@@ -451,8 +463,14 @@ export type Database = {
           has_physdam?: boolean | null
           id?: string
           is_service_vehicle?: boolean | null
+          lender_address?: string | null
+          lender_city?: string | null
+          lender_name?: string | null
+          lender_state?: string | null
+          lender_zip?: string | null
           make?: string | null
           model?: string | null
+          ownership_type?: string | null
           physdam_amount?: number | null
           roadside_assistance?: boolean | null
           sort_order?: number | null
