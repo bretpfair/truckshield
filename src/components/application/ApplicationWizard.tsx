@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WIZARD_STEPS } from "./constants";
-import { Check, ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import Step1Applicant from "./steps/Step1Applicant";
 import Step2Coverage from "./steps/Step2Coverage";
 import Step3Radius from "./steps/Step3Radius";
@@ -159,9 +159,10 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
         >
           <ChevronLeft className="h-4 w-4" /> Previous
         </Button>
-        <Button variant="ghost" onClick={() => handleSave()} className="gap-2">
-          <Save className="h-4 w-4" /> Save Progress
-        </Button>
+        <span className="text-xs text-muted-foreground font-mono flex items-center gap-1.5">
+          {autoSaveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>}
+          {autoSaveStatus === "saved" && <><Check className="h-3 w-3 text-success" /> Saved</>}
+        </span>
         {currentStep < WIZARD_STEPS.length ? (
           <Button onClick={handleNext} className="gap-2">
             Next <ChevronRight className="h-4 w-4" />
