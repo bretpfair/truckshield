@@ -49,8 +49,8 @@ const Step3Radius = ({ formData, updateFormData }: StepProps) => {
   };
 
   const distTotal = (index: number): number => {
-    const hbd = radius[index]?.hauled_by_distance || {};
-    return Object.values(hbd).reduce((sum: number, v: any) => sum + (parseFloat(v as string) || 0), 0 as number);
+    const hbd: Record<string, string> = radius[index]?.hauled_by_distance || {};
+    return Object.values(hbd).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
   };
 
   return (
