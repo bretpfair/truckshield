@@ -51,7 +51,7 @@ export const COMMODITY_CLASSES = [
 
 export const GVW_CLASSES = ["Class 1","Class 2","Class 3","Class 4","Class 5","Class 6","Class 7","Class 8"];
 export const TRUCK_TYPES = [
-  "Truck Tractor","Straight Truck - Straight Truck (Box)","Pickup Truck","Cargo Van","Dump Truck","Coal Truck",
+  "Truck Tractor","Box Truck","Pickup Truck","Cargo Van","Dump Truck","Coal Truck",
   "Garbage Truck","Tow Truck","Tank Truck","Private Passenger"
 ];
 export const TRUCK_MAKES = [
