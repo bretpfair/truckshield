@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle, FileText, Truck, Shield, Clock, CheckCircle2,
-  ChevronRight, ClipboardList, MapPin, Users, Package, Building,
+  ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+import AccountMessages from "@/components/messaging/AccountMessages";
 import { WIZARD_STEPS } from "@/components/application/constants";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -21,6 +22,15 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   bound: { label: "Policy Bound", color: "bg-success/20 text-success border-success/40", icon: Shield },
   lead: { label: "New Lead", color: "bg-muted text-muted-foreground border-border", icon: Clock },
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/30", icon: AlertCircle },
+};
+
+const quoteStatusConfig: Record<string, { label: string; color: string }> = {
+  submitted: { label: "Submitted", color: "bg-primary/10 text-primary border-primary/20" },
+  reviewing: { label: "Under Review", color: "bg-warning/10 text-warning border-warning/20" },
+  info_requested: { label: "Additional Info Needed", color: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+  quoted: { label: "Quoted", color: "bg-success/10 text-success border-success/20" },
+  bound: { label: "Bound", color: "bg-success/20 text-success border-success/30" },
+  declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/20" },
 };
 
 const ClientPortal = () => {
@@ -54,17 +64,15 @@ const ClientPortal = () => {
     },
   });
 
-  const quotes = allQuotes?.filter((q: any) => q.status === "published") ?? [];
-  const reviewingQuotes = allQuotes?.filter((q: any) => q.status === "draft" || q.status === "reviewing") ?? [];
+  const reviewingQuotes = allQuotes?.filter((q: any) => ["submitted", "reviewing"].includes(q.status)) ?? [];
+  const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
+  const completedQuotes = allQuotes?.filter((q: any) => ["quoted", "bound"].includes(q.status)) ?? [];
 
   const { data: powerUnits } = useQuery({
     queryKey: ["client-power-units", account?.id],
     enabled: !!account,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("power_units")
-        .select("id")
-        .eq("account_id", account!.id);
+      const { data, error } = await supabase.from("power_units").select("id").eq("account_id", account!.id);
       if (error) throw error;
       return data;
     },
@@ -74,10 +82,7 @@ const ClientPortal = () => {
     queryKey: ["client-drivers", account?.id],
     enabled: !!account,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("drivers")
-        .select("id")
-        .eq("account_id", account!.id);
+      const { data, error } = await supabase.from("drivers").select("id").eq("account_id", account!.id);
       if (error) throw error;
       return data;
     },
@@ -119,7 +124,7 @@ const ClientPortal = () => {
   const appStep = account.application_step || 1;
   const appProgress = Math.round((appStep / WIZARD_STEPS.length) * 100);
   const currentStepName = WIZARD_STEPS.find((s) => s.id === appStep)?.title ?? "Getting Started";
-  const isComplete = account.status === "info_complete" || account.status === "quoting" || account.status === "quoted" || account.status === "bound";
+  const isComplete = ["info_complete", "quoting", "quoted", "bound"].includes(account.status);
   const statusInfo = statusConfig[account.status] ?? statusConfig.lead;
   const StatusIcon = statusInfo.icon;
 
@@ -129,9 +134,7 @@ const ClientPortal = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{account.company_name}</h1>
-          {account.dba_name && (
-            <p className="text-sm text-muted-foreground font-mono">DBA: {account.dba_name}</p>
-          )}
+          {account.dba_name && <p className="text-sm text-muted-foreground font-mono">DBA: {account.dba_name}</p>}
         </div>
         <Badge variant="outline" className={`${statusInfo.color} gap-1.5 text-sm px-3 py-1.5`}>
           <StatusIcon className="h-3.5 w-3.5" />
@@ -165,22 +168,16 @@ const ClientPortal = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
-                Application Progress
-              </CardTitle>
+              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Application Progress</CardTitle>
             </div>
             <span className="text-sm font-bold text-primary">{appProgress}%</span>
           </div>
           <CardDescription className="text-xs">
-            {isComplete
-              ? "Your application has been submitted and is being reviewed."
-              : `Currently on: ${currentStepName}`}
+            {isComplete ? "Your application has been submitted and is being reviewed." : `Currently on: ${currentStepName}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Progress value={appProgress} className="h-2" />
-
-          {/* Step Chips */}
           <div className="flex flex-wrap gap-1.5">
             {WIZARD_STEPS.map((step) => (
               <span
@@ -197,7 +194,6 @@ const ClientPortal = () => {
               </span>
             ))}
           </div>
-
           {!isComplete && (
             <Button onClick={() => setShowWizard(true)} className="w-full sm:w-auto gap-2">
               {appStep > 1 ? "Continue Application" : "Start Application"}
@@ -207,48 +203,70 @@ const ClientPortal = () => {
         </CardContent>
       </Card>
 
+      {/* Action Needed */}
+      {actionNeededQuotes.length > 0 && (
+        <Card className="glass-panel border-amber-500/30 bg-amber-500/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <CardTitle className="text-sm font-mono uppercase tracking-wider text-amber-600">Action Needed</CardTitle>
+            </div>
+            <CardDescription className="text-xs">These carriers have requested additional information</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {actionNeededQuotes.map((q: any) => (
+                <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
+                  <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
+                    <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Carriers Reviewing */}
       <Card className="glass-panel">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Building className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
-              Carriers Reviewing
-            </CardTitle>
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Carriers Reviewing</CardTitle>
           </div>
-          <CardDescription className="text-xs">
-            Your application is being marketed to these carriers
-          </CardDescription>
+          <CardDescription className="text-xs">Your application is being marketed to these carriers</CardDescription>
         </CardHeader>
         <CardContent>
           {reviewingQuotes.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {reviewingQuotes.map((q: any) => (
-                <div
-                  key={q.id}
-                  className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border"
-                >
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Building className="h-4 w-4 text-primary" />
+              {reviewingQuotes.map((q: any) => {
+                const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.submitted;
+                return (
+                  <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Building className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">{cfg.label}</p>
+                    </div>
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
-                    <p className="text-[11px] text-muted-foreground font-mono">Under review</p>
-                  </div>
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-6">
               <Building className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                {isComplete
-                  ? "Carriers will appear here once your application is being reviewed."
-                  : "Complete your application to begin the quoting process."}
+                {isComplete ? "Carriers will appear here once your application is being reviewed." : "Complete your application to begin the quoting process."}
               </p>
             </div>
           )}
@@ -260,51 +278,40 @@ const ClientPortal = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
-              Your Quotes
-            </CardTitle>
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Your Quotes</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          {quotes.length > 0 ? (
+          {completedQuotes.length > 0 ? (
             <div className="space-y-3">
-              {quotes.map((q: any) => (
-                <div
-                  key={q.id}
-                  className="flex items-center justify-between p-4 rounded-md bg-secondary/50 border border-border"
-                >
-                  <div>
-                    <p className="font-semibold text-foreground">{q.carriers?.name ?? "Carrier"}</p>
-                    <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
-                      {q.premium_estimate && (
-                        <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>
-                      )}
-                      {q.published_at && (
-                        <span>Published: {new Date(q.published_at).toLocaleDateString()}</span>
-                      )}
-                      {q.expires_at && (
-                        <span>Expires: {new Date(q.expires_at).toLocaleDateString()}</span>
-                      )}
+              {completedQuotes.map((q: any) => {
+                const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.quoted;
+                return (
+                  <div key={q.id} className="flex items-center justify-between p-4 rounded-md bg-secondary/50 border border-border">
+                    <div>
+                      <p className="font-semibold text-foreground">{q.carriers?.name ?? "Carrier"}</p>
+                      <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
+                        {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
+                      </div>
                     </div>
+                    <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
                   </div>
-                  <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                    Available
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
               <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                {isComplete
-                  ? "Your application is under review. Quotes will appear here once available."
-                  : "Complete your application to receive quotes from carriers."}
+                {isComplete ? "Your application is under review. Quotes will appear here once available." : "Complete your application to receive quotes from carriers."}
               </p>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Messages */}
+      <AccountMessages accountId={account.id} isStaff={false} />
     </div>
   );
 };

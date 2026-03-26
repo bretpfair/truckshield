@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   FileText, Truck, Shield, Clock, CheckCircle2,
-  ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertCircle,
+  ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertCircle, AlertTriangle,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+import AccountMessages from "@/components/messaging/AccountMessages";
 import { WIZARD_STEPS } from "@/components/application/constants";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -22,6 +23,15 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/30", icon: AlertCircle },
 };
 
+const quoteStatusConfig: Record<string, { label: string; color: string }> = {
+  submitted: { label: "Submitted", color: "bg-primary/10 text-primary border-primary/20" },
+  reviewing: { label: "Under Review", color: "bg-warning/10 text-warning border-warning/20" },
+  info_requested: { label: "Additional Info Needed", color: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+  quoted: { label: "Quoted", color: "bg-success/10 text-success border-success/20" },
+  bound: { label: "Bound", color: "bg-success/20 text-success border-success/30" },
+  declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/20" },
+};
+
 interface Props {
   accountId: string;
 }
@@ -32,11 +42,7 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
   const { data: account, isLoading } = useQuery({
     queryKey: ["account", accountId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("id", accountId)
-        .single();
+      const { data, error } = await supabase.from("accounts").select("*").eq("id", accountId).single();
       if (error) throw error;
       return data;
     },
@@ -46,17 +52,15 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
     queryKey: ["client-all-quotes", accountId],
     enabled: !!account,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("quotes")
-        .select("*, carriers(name)")
-        .eq("account_id", accountId);
+      const { data, error } = await supabase.from("quotes").select("*, carriers(name)").eq("account_id", accountId);
       if (error) throw error;
       return data;
     },
   });
 
-  const quotes = allQuotes?.filter((q: any) => q.status === "published") ?? [];
-  const reviewingQuotes = allQuotes?.filter((q: any) => q.status === "draft" || q.status === "reviewing") ?? [];
+  const reviewingQuotes = allQuotes?.filter((q: any) => ["submitted", "reviewing"].includes(q.status)) ?? [];
+  const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
+  const completedQuotes = allQuotes?.filter((q: any) => ["quoted", "bound"].includes(q.status)) ?? [];
 
   const { data: powerUnits } = useQuery({
     queryKey: ["client-power-units", accountId],
@@ -121,9 +125,7 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{account.company_name}</h1>
-          {account.dba_name && (
-            <p className="text-sm text-muted-foreground font-mono">DBA: {account.dba_name}</p>
-          )}
+          {account.dba_name && <p className="text-sm text-muted-foreground font-mono">DBA: {account.dba_name}</p>}
         </div>
         <Badge variant="outline" className={`${statusInfo.color} gap-1.5 text-sm px-3 py-1.5`}>
           <StatusIcon className="h-3.5 w-3.5" />
@@ -157,9 +159,7 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
-                Application Progress
-              </CardTitle>
+              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Application Progress</CardTitle>
             </div>
             <span className="text-sm font-bold text-primary">{appProgress}%</span>
           </div>
@@ -192,27 +192,59 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
         </CardContent>
       </Card>
 
+      {/* Action Needed */}
+      {actionNeededQuotes.length > 0 && (
+        <Card className="glass-panel border-amber-500/30 bg-amber-500/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <CardTitle className="text-sm font-mono uppercase tracking-wider text-amber-600">Action Needed</CardTitle>
+            </div>
+            <CardDescription className="text-xs">These carriers have requested additional information</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {actionNeededQuotes.map((q: any) => (
+                <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
+                  <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
+                    <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Carriers Reviewing */}
       <Card className="glass-panel">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Building className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
-              Carriers Reviewing
-            </CardTitle>
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Carriers Reviewing</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           {reviewingQuotes.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {reviewingQuotes.map((q: any) => (
-                <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Building className="h-4 w-4 text-primary" />
+              {reviewingQuotes.map((q: any) => {
+                const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.submitted;
+                return (
+                  <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Building className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{q.carriers?.name ?? "Carrier"}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">{cfg.label}</p>
+                    </div>
                   </div>
-                  <p className="font-medium text-sm truncate">{q.carriers?.name ?? "Carrier"}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">No carriers reviewing yet.</p>
@@ -221,29 +253,39 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
       </Card>
 
       {/* Quotes */}
-      {quotes.length > 0 && (
-        <Card className="glass-panel">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Quotes</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {quotes.map((q: any) => (
-              <div key={q.id} className="flex items-center justify-between p-4 rounded-md bg-secondary/50 border border-border">
-                <div>
-                  <p className="font-semibold">{q.carriers?.name ?? "Carrier"}</p>
-                  <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
-                    {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
+      <Card className="glass-panel">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Your Quotes</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {completedQuotes.length > 0 ? (
+            <div className="space-y-3">
+              {completedQuotes.map((q: any) => {
+                const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.quoted;
+                return (
+                  <div key={q.id} className="flex items-center justify-between p-4 rounded-md bg-secondary/50 border border-border">
+                    <div>
+                      <p className="font-semibold">{q.carriers?.name ?? "Carrier"}</p>
+                      <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
+                        {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
                   </div>
-                </div>
-                <Badge variant="outline" className="bg-success/10 text-success border-success/20">Available</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">No quotes available yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Messages */}
+      <AccountMessages accountId={accountId} isStaff={false} />
     </div>
   );
 };
