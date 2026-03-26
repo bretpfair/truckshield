@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Zap, CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
+import { Zap, CheckCircle2, XCircle, AlertTriangle, Info, RefreshCw } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 
 interface CarrierRow {
@@ -199,98 +199,127 @@ interface Props {
 }
 
 const MarketGuidance = ({ account, carriers, onGenerateQuote, existingQuoteCarrierIds }: Props) => {
-  const matches = useMemo(() => {
-    return carriers
+  const [matches, setMatches] = useState<CarrierMatch[] | null>(null);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+
+  const runCheck = useCallback(() => {
+    const results = carriers
       .map((c) => evaluateCarrier(account, c))
       .sort((a, b) => b.score - a.score);
+    setMatches(results);
+    setLastChecked(new Date());
   }, [account, carriers]);
 
-  const strongCount = matches.filter((m) => m.tier === "strong").length;
-  const partialCount = matches.filter((m) => m.tier === "partial").length;
+  const strongCount = matches?.filter((m) => m.tier === "strong").length ?? 0;
+  const partialCount = matches?.filter((m) => m.tier === "partial").length ?? 0;
 
   return (
     <Card className="glass-panel">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-          <Zap className="h-4 w-4 text-primary" /> Market Guidance
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          {strongCount} strong match{strongCount !== 1 ? "es" : ""}, {partialCount} partial
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" /> Market Guidance
+            </CardTitle>
+            {matches ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                {strongCount} strong match{strongCount !== 1 ? "es" : ""}, {partialCount} partial
+                {lastChecked && (
+                  <span className="ml-2 opacity-60">• checked {lastChecked.toLocaleTimeString()}</span>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">
+                Run a check to evaluate carriers against this account's data.
+              </p>
+            )}
+          </div>
+          <Button size="sm" onClick={runCheck} className="gap-1.5">
+            <RefreshCw className="h-3.5 w-3.5" />
+            {matches ? "Re-check Markets" : "Check Markets"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <TooltipProvider>
-          {matches.map((m) => (
-            <div key={m.carrier.id} className="rounded-lg border bg-card p-4 space-y-3">
-              {/* Header row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 text-center">
-                    <span className={`text-xl font-bold font-mono ${
-                      m.tier === "strong" ? "text-success" : m.tier === "partial" ? "text-warning" : "text-destructive"
-                    }`}>
-                      {m.score}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-semibold">{m.carrier.name}</p>
-                    <div className="flex items-center gap-2">
-                      {m.carrier.am_best_rating && (
-                        <span className="text-[10px] font-mono text-muted-foreground">AM Best: {m.carrier.am_best_rating}</span>
-                      )}
-                      <Badge variant="outline" className={`text-[10px] ${tierColors[m.tier]}`}>
-                        {tierLabels[m.tier]}
-                      </Badge>
+        {!matches ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Click <strong>Check Markets</strong> to evaluate carrier appetite matches.</p>
+          </div>
+        ) : (
+          <TooltipProvider>
+            {matches.map((m) => (
+              <div key={m.carrier.id} className="rounded-lg border bg-card p-4 space-y-3">
+                {/* Header row */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 text-center">
+                      <span className={`text-xl font-bold font-mono ${
+                        m.tier === "strong" ? "text-success" : m.tier === "partial" ? "text-warning" : "text-destructive"
+                      }`}>
+                        {m.score}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold">{m.carrier.name}</p>
+                      <div className="flex items-center gap-2">
+                        {m.carrier.am_best_rating && (
+                          <span className="text-[10px] font-mono text-muted-foreground">AM Best: {m.carrier.am_best_rating}</span>
+                        )}
+                        <Badge variant="outline" className={`text-[10px] ${tierColors[m.tier]}`}>
+                          {tierLabels[m.tier]}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
+                  {existingQuoteCarrierIds.includes(m.carrier.id) ? (
+                    <Badge variant="outline" className="text-[10px]">Quote Created</Badge>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant={m.tier === "strong" ? "default" : "outline"}
+                      onClick={() => onGenerateQuote(m.carrier.id, m.score)}
+                    >
+                      Generate Quote
+                    </Button>
+                  )}
                 </div>
-                {existingQuoteCarrierIds.includes(m.carrier.id) ? (
-                  <Badge variant="outline" className="text-[10px]">Quote Created</Badge>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant={m.tier === "strong" ? "default" : "outline"}
-                    onClick={() => onGenerateQuote(m.carrier.id, m.score)}
-                  >
-                    Generate Quote
-                  </Button>
-                )}
-              </div>
 
-              {/* Criteria breakdown */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                {m.criteria.map((c) => (
-                  <Tooltip key={c.name}>
-                    <TooltipTrigger asChild>
-                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-default ${
-                        c.status === "pass" ? "bg-success/5" :
-                        c.status === "fail" ? "bg-destructive/5" :
-                        c.status === "warn" ? "bg-warning/5" :
-                        "bg-muted/30"
-                      }`}>
-                        {statusIcon[c.status]}
-                        <span className="truncate">{c.name}</span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs">
-                      <p className="text-xs">{c.detail}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
+                {/* Criteria breakdown */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+                  {m.criteria.map((c) => (
+                    <Tooltip key={c.name}>
+                      <TooltipTrigger asChild>
+                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-default ${
+                          c.status === "pass" ? "bg-success/5" :
+                          c.status === "fail" ? "bg-destructive/5" :
+                          c.status === "warn" ? "bg-warning/5" :
+                          "bg-muted/30"
+                        }`}>
+                          {statusIcon[c.status]}
+                          <span className="truncate">{c.name}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p className="text-xs">{c.detail}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
 
-              {/* Summary */}
-              <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground">
-                <span className="text-success">{m.passCount} pass</span>
-                <span className="text-warning">{m.warnCount} warn</span>
-                <span className="text-destructive">{m.failCount} fail</span>
+                {/* Summary */}
+                <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground">
+                  <span className="text-success">{m.passCount} pass</span>
+                  <span className="text-warning">{m.warnCount} warn</span>
+                  <span className="text-destructive">{m.failCount} fail</span>
+                </div>
               </div>
-            </div>
-          ))}
-          {matches.length === 0 && (
-            <p className="text-muted-foreground text-sm text-center py-4">No carriers in the system yet.</p>
-          )}
-        </TooltipProvider>
+            ))}
+            {matches.length === 0 && (
+              <p className="text-muted-foreground text-sm text-center py-4">No carriers in the system yet.</p>
+            )}
+          </TooltipProvider>
+        )}
       </CardContent>
     </Card>
   );
