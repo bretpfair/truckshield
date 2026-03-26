@@ -88,6 +88,11 @@ const Auth = () => {
         </div>
 
         <div className="glass-panel rounded-lg p-8">
+          {inviteToken && (
+            <div className="mb-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm text-primary">
+              You've been invited to join TruckShield. {isLogin ? "Sign in" : "Create an account"} to access your portal.
+            </div>
+          )}
           <div className="flex items-center gap-2 mb-6">
             <Shield className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">{isLogin ? "Sign In" : "Create Account"}</h2>
