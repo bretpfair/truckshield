@@ -135,51 +135,143 @@ Deno.serve(async (req) => {
       loss_history_summary: payload.loss_history_summary || null,
     };
 
-    // JSON fields
+    // Coverage selections - map CTQ coverage_and_limit to form format
     if (Object.keys(coverageSelections).length > 0) {
       accountData.coverage_selections = coverageSelections;
     } else if (payload.coverage_selections) {
       accountData.coverage_selections = payload.coverage_selections;
     }
-    if (payload.radius_operations) {
-      accountData.radius_operations = payload.radius_operations;
+
+    // Map auto_liability limit/deductible into coverage_selections
+    const autoLiabilityLimit = cl("auto_liability_limit");
+    if (autoLiabilityLimit) {
+      const cs = (accountData.coverage_selections as Record<string, unknown>) || {};
+      cs.primary_bipd = `$${Number(autoLiabilityLimit).toLocaleString()}`;
+      const autoDeductible = cl("auto_liability_deductible");
+      if (autoDeductible) cs.auto_liability_deductible = `$${Number(autoDeductible).toLocaleString()}`;
+      // Map broadform cargo
+      const cargoLimit = cl("broadform_cargo_limit");
+      if (cargoLimit) {
+        cs.cargo_liability = true;
+        const cargoVal = Number(cargoLimit);
+        cs.cargo_vehicle_limit = cargoVal >= 1000 ? `$${Math.round(cargoVal / 1000)}K` : `$${cargoVal}`;
+        const cargoDed = cl("broadform_cargo_deductible");
+        if (cargoDed) cs.cargo_deductible = `$${Number(cargoDed).toLocaleString()}`;
+      }
+      // Map federal/state filing from coverage
+      const fedFiling = op("federal_or_state_filings_required");
+      if (fedFiling === true || fedFiling === "Yes") {
+        cs.icc_filing = "Yes";
+        cs.state_filing = "Yes";
+      }
+      accountData.coverage_selections = cs;
     }
 
-    // Map commodities[] array to commodity_info
+    // Radius operations - store in the format the wizard form expects
+    const rangeOfOp = op("range_of_operation") as string;
+    const radiusOfOp = op("radius_of_operation");
+    const annualMileage = op("annual_mileage");
+    if (rangeOfOp || radiusOfOp || annualMileage || payload.radius_operations) {
+      if (payload.radius_operations) {
+        accountData.radius_operations = payload.radius_operations;
+      } else {
+        // Map CTQ single-radius format to wizard format
+        let operationType = "Both";
+        if (rangeOfOp) {
+          const lower = String(rangeOfOp).toLowerCase();
+          if (lower.includes("interstate") && !lower.includes("intrastate")) operationType = "Interstate";
+          else if (lower.includes("intrastate") && !lower.includes("interstate")) operationType = "Intrastate";
+          else operationType = "Both";
+        }
+        // Derive radius percentages from single radius value
+        const radiusMiles = parseInt(String(radiusOfOp || 0), 10);
+        const radiusDetails: Record<string, string> = {};
+        if (radiusMiles > 0) {
+          if (radiusMiles <= 50) {
+            radiusDetails.under_50 = "100";
+          } else if (radiusMiles <= 200) {
+            radiusDetails.under_50 = "30";
+            radiusDetails["51_200"] = "70";
+          } else if (radiusMiles <= 500) {
+            radiusDetails.under_50 = "20";
+            radiusDetails["51_200"] = "30";
+            radiusDetails["201_500"] = "50";
+          } else {
+            radiusDetails.under_50 = "10";
+            radiusDetails["51_200"] = "20";
+            radiusDetails["201_500"] = "30";
+            radiusDetails["500_plus"] = "40";
+          }
+        }
+        accountData.radius_operations = [{
+          operation_type: operationType,
+          annual_mileage: annualMileage ? String(annualMileage) : null,
+          radius_details: radiusDetails,
+        }];
+      }
+    }
+
+    // Map commodities to the format the wizard form uses
     if (Array.isArray(payload.commodities) && payload.commodities.length > 0) {
+      const selectedCommodities: Record<string, string> = {};
+      for (const c of payload.commodities) {
+        const name = (c.commodity as string) || "General Merchandise";
+        selectedCommodities[name] = String(c.loads_percentage ?? "");
+      }
       accountData.commodity_info = {
-        commodities: payload.commodities.map((c: Record<string, unknown>) => ({
-          commodity: c.commodity || null,
-          loads_percentage: c.loads_percentage ?? null,
-          average_value_per_load: c.average_value_per_load ?? null,
-          max_value_per_load: c.max_value_per_load ?? null,
-        })),
+        selected_commodities: selectedCommodities,
       };
     } else if (payload.commodity_info) {
       accountData.commodity_info = payload.commodity_info;
     }
 
-    if (payload.general_questions) {
-      accountData.general_questions = payload.general_questions;
+    // Map CTQ operation questions to wizard q-format
+    const generalQuestions: Record<string, unknown> = payload.general_questions
+      ? (typeof payload.general_questions === "object" ? { ...(payload.general_questions as Record<string, unknown>) } : {})
+      : {};
+
+    // q4: cover_all_vehicles
+    const coverAll = op("cover_all_vehicles");
+    if (coverAll !== undefined && coverAll !== null && !generalQuestions.q4) {
+      generalQuestions.q4 = { answer: coverAll === true || coverAll === "Yes" ? "Yes" : "No" };
+    }
+    // q6: non_employee_passengers
+    const nonEmpPax = op("non_employee_passengers");
+    if (nonEmpPax !== undefined && nonEmpPax !== null && !generalQuestions.q6) {
+      generalQuestions.q6 = { answer: nonEmpPax === true || nonEmpPax === "Yes" ? "Yes" : "No" };
+    }
+    // q12: is_risk_cancelled_in_last_three_years
+    const cancelled = op("is_risk_cancelled_in_last_three_years");
+    if (cancelled !== undefined && cancelled !== null && !generalQuestions.q12) {
+      generalQuestions.q12 = { answer: cancelled === true || cancelled === "Yes" ? "Yes" : "No" };
+    }
+    // q15: is_risk_covered (workers comp)
+    const workerComp = op("is_risk_covered");
+    if (workerComp !== undefined && workerComp !== null && !generalQuestions.q15) {
+      generalQuestions.q15 = { answer: workerComp === true || workerComp === "Yes" ? "Yes" : "No" };
+    }
+    // q16: federal_or_state_filings_required
+    const fedFilings = op("federal_or_state_filings_required");
+    if (fedFilings !== undefined && fedFilings !== null && !generalQuestions.q16) {
+      generalQuestions.q16 = { answer: fedFilings === true || fedFilings === "Yes" ? "Yes" : "No" };
+    }
+    // q17: years_insured_owned_commercial_equipment
+    const yearsEquip = op("years_insured_owned_commercial_equipment");
+    if (yearsEquip !== undefined && yearsEquip !== null && !generalQuestions.q17) {
+      generalQuestions.q17 = { value: String(yearsEquip) };
+    }
+    // q18: years of primary liability coverage
+    const yearsLiability = op("years_of_primary_liability_coverage") ?? bi("years_of_primary_liability_coverage");
+    if (yearsLiability !== undefined && yearsLiability !== null && !generalQuestions.q18) {
+      generalQuestions.q18 = { value: String(yearsLiability) };
+    }
+    // q9: map years of coverage to yes/no
+    if (yearsLiability !== undefined && yearsLiability !== null && !generalQuestions.q9) {
+      generalQuestions.q9 = { answer: Number(yearsLiability) >= 2 ? "Yes" : "No" };
     }
 
-    // Store operation info as general_questions if not already set
-    if (!accountData.general_questions) {
-      const opQuestions: Record<string, unknown> = {};
-      const opFields = [
-        "operation_description_string", "pull", "radius_of_operation",
-        "range_of_operation", "major_cities", "cover_all_vehicles",
-        "federal_or_state_filings_required", "is_risk_cancelled_in_last_three_years",
-        "is_risk_covered", "is_there_any_broker_authority", "non_employee_passengers",
-        "years_insured_owned_commercial_equipment", "annual_mileage",
-      ];
-      for (const f of opFields) {
-        const val = op(f);
-        if (val !== undefined && val !== null) opQuestions[f] = val;
-      }
-      if (Object.keys(opQuestions).length > 0) {
-        accountData.general_questions = opQuestions;
-      }
+    if (Object.keys(generalQuestions).length > 0) {
+      accountData.general_questions = generalQuestions;
     }
 
     if (isUpdate && accountId) {
