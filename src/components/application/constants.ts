@@ -50,14 +50,23 @@ export const COMMODITY_CLASSES = [
 ];
 
 export const GVW_CLASSES = [
-  { value: "Class 1", label: "Class 1 (0 – 6,000 lbs)" },
-  { value: "Class 2", label: "Class 2 (6,001 – 10,000 lbs)" },
-  { value: "Class 3", label: "Class 3 (10,001 – 14,000 lbs)" },
-  { value: "Class 4", label: "Class 4 (14,001 – 16,000 lbs)" },
-  { value: "Class 5", label: "Class 5 (16,001 – 19,500 lbs)" },
-  { value: "Class 6", label: "Class 6 (19,501 – 26,000 lbs)" },
-  { value: "Class 7", label: "Class 7 (26,001 – 33,000 lbs)" },
-  { value: "Class 8", label: "Class 8 (33,001+ lbs)" },
+  { value: "Class 1", label: "Class 1: 6,000 lb or less" },
+  { value: "Class 1A", label: "Class 1A: 3,000 lb or less" },
+  { value: "Class 1B", label: "Class 1B: 3,001 – 4,000 lb" },
+  { value: "Class 1C", label: "Class 1C: 4,001 – 5,000 lb" },
+  { value: "Class 1D", label: "Class 1D: 5,001 – 6,000 lb" },
+  { value: "Class 2", label: "Class 2: 6,001 – 10,000 lb" },
+  { value: "Class 2E", label: "Class 2E: 6,001 – 7,000 lb" },
+  { value: "Class 2F", label: "Class 2F: 7,001 – 8,000 lb" },
+  { value: "Class 2G", label: "Class 2G: 8,001 – 9,000 lb" },
+  { value: "Class 2H", label: "Class 2H: 9,001 – 10,000 lb" },
+  { value: "Class 3", label: "Class 3: 10,001 – 14,000 lb" },
+  { value: "Class 4", label: "Class 4: 14,001 – 16,000 lb" },
+  { value: "Class 5", label: "Class 5: 16,001 – 19,500 lb" },
+  { value: "Class 6", label: "Class 6: 19,501 – 26,000 lb" },
+  { value: "Class 7", label: "Class 7: 26,001 – 33,000 lb" },
+  { value: "Class 8", label: "Class 8: 33,001 lb and above" },
+  { value: "Other", label: "Other" },
 ];
 export const TRUCK_TYPES = [
   "Truck Tractor","Box Truck","Pickup Truck","Cargo Van","Dump Truck","Coal Truck",
