@@ -12,6 +12,7 @@ import MarketGuidance from "./MarketGuidance";
 import SubmittedMarkets from "./SubmittedMarkets";
 import ActivityLog from "./ActivityLog";
 import InviteClientDialog from "./InviteClientDialog";
+import DocumentHub from "./DocumentHub";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
 
@@ -259,6 +260,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           submittedCarrierIds={submittedCarrierIds}
         />
       )}
+
+      {/* Document Hub */}
+      <DocumentHub accountId={accountId} />
 
       {/* Client Invite (if no client linked) */}
       {!account.client_user_id && (
