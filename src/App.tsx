@@ -25,6 +25,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/preview-client" element={<PreviewClient />} />
+            <Route path="/preview-staff" element={<PreviewStaff />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
