@@ -378,13 +378,26 @@ const CarrierManager = () => {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <Truck className="h-5 w-5 text-primary mt-0.5" />
+                    {c.logo_path ? (
+                      <img
+                        src={supabase.storage.from("carrier-logos").getPublicUrl(c.logo_path).data.publicUrl}
+                        alt={c.name}
+                        className="h-10 w-10 rounded object-contain border bg-white shrink-0"
+                      />
+                    ) : (
+                      <Truck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{c.name}</p>
                         {c.am_best_rating && <Badge variant="outline" className="text-[10px]">AM Best: {c.am_best_rating}</Badge>}
                         {c.appetite_pdf_path && <FileText className="h-3 w-3 text-muted-foreground" />}
                       </div>
+                      {c.website && (
+                        <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                          {c.website.replace(/^https?:\/\//, "")}
+                        </a>
+                      )}
                       <div className="flex flex-wrap gap-2 mt-1">
                         {c.preferred_cargo_types?.length > 0 && (
                           <span className="text-xs text-muted-foreground font-mono">
