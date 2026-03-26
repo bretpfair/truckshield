@@ -50,6 +50,7 @@ export type Database = {
           notes: string | null
           number_of_claims: number | null
           operating_states: string[] | null
+          operation_info: Json | null
           projected_gross_receipts: number | null
           radius_operations: Json | null
           requested_effective_date: string | null
@@ -99,6 +100,7 @@ export type Database = {
           notes?: string | null
           number_of_claims?: number | null
           operating_states?: string[] | null
+          operation_info?: Json | null
           projected_gross_receipts?: number | null
           radius_operations?: Json | null
           requested_effective_date?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           notes?: string | null
           number_of_claims?: number | null
           operating_states?: string[] | null
+          operation_info?: Json | null
           projected_gross_receipts?: number | null
           radius_operations?: Json | null
           requested_effective_date?: string | null
