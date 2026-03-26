@@ -21,12 +21,11 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.json();
 
-    // Basic validation — require company_name at minimum
+    // Derive a company name — fall back to DOT number or "Unknown Lead"
     if (!payload.company_name) {
-      return new Response(
-        JSON.stringify({ error: "Missing required field: company_name" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      payload.company_name = payload.dot_number
+        ? `DOT ${payload.dot_number}`
+        : `Unknown Lead ${new Date().toISOString().slice(0, 10)}`;
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
