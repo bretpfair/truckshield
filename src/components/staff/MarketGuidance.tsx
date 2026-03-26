@@ -57,11 +57,11 @@ interface Props {
   powerUnits: any[];
   trailers: any[];
   lossHistory: any[];
-  onGenerateQuote: (carrierId: string, score: number) => void;
-  existingQuoteCarrierIds: string[];
+  onMarkSubmitted: (carrierId: string, score: number) => void;
+  submittedCarrierIds: string[];
 }
 
-const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, lossHistory, onGenerateQuote, existingQuoteCarrierIds }: Props) => {
+const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, lossHistory, onMarkSubmitted, submittedCarrierIds }: Props) => {
   const [matches, setMatches] = useState<CarrierMatch[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
@@ -240,15 +240,15 @@ const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, loss
                       </div>
                     </div>
                   </div>
-                  {existingQuoteCarrierIds.includes(m.carrier.id) ? (
-                    <Badge variant="outline" className="text-[10px]">Quote Created</Badge>
+                  {submittedCarrierIds.includes(m.carrier.id) ? (
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">Submitted</Badge>
                   ) : (
                     <Button
                       size="sm"
                       variant={m.tier === "strong" ? "default" : "outline"}
-                      onClick={() => onGenerateQuote(m.carrier.id, m.score)}
+                      onClick={() => onMarkSubmitted(m.carrier.id, m.score)}
                     >
-                      Generate Quote
+                      Mark as Submitted
                     </Button>
                   )}
                 </div>
