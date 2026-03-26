@@ -23,6 +23,14 @@ serve(async (req) => {
       .download(filePath);
     if (dlError) throw dlError;
 
+    // Determine MIME type from file extension
+    const ext = filePath.split(".").pop()?.toLowerCase();
+    const mimeType = ext === "docx"
+      ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      : ext === "doc"
+      ? "application/msword"
+      : "application/pdf";
+
     // Convert to base64 for AI
     const arrayBuffer = await fileData.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
@@ -52,7 +60,7 @@ serve(async (req) => {
               },
               {
                 type: "image_url",
-                image_url: { url: `data:application/pdf;base64,${base64}` },
+                image_url: { url: `data:${mimeType};base64,${base64}` },
               },
             ],
           },
