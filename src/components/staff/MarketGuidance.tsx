@@ -42,6 +42,7 @@ interface CarrierMatch {
   passCount: number;
   failCount: number;
   warnCount: number;
+  naCount: number;
 }
 
 function evaluateCarrier(account: any, carrier: CarrierRow): CarrierMatch {
