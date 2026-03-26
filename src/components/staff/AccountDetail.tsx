@@ -13,6 +13,7 @@ import SubmittedMarkets from "./SubmittedMarkets";
 import ActivityLog from "./ActivityLog";
 import InviteClientDialog from "./InviteClientDialog";
 import DocumentHub from "./DocumentHub";
+import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
 
@@ -260,6 +261,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           submittedCarrierIds={submittedCarrierIds}
         />
       )}
+
+      {/* Tasks & Follow-ups */}
+      <TaskManager accountId={accountId} />
 
       {/* Document Hub */}
       <DocumentHub accountId={accountId} />

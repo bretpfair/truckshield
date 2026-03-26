@@ -13,8 +13,9 @@ import CarrierManager from "@/components/staff/CarrierManager";
 import InviteClientDialog from "@/components/staff/InviteClientDialog";
 import PdfUpload from "@/components/staff/PdfUpload";
 import PipelineView from "@/components/staff/PipelineView";
+import DashboardAnalytics from "@/components/staff/DashboardAnalytics";
 import {
-  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List,
+  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -122,6 +123,9 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
             <Upload className="h-3 w-3 mr-1" /> PDF Import
           </TabsTrigger>
           <TabsTrigger value="carriers">Carriers</TabsTrigger>
+          <TabsTrigger value="analytics">
+            <BarChart3 className="h-3 w-3 mr-1" /> Analytics
+          </TabsTrigger>
           <TabsTrigger value="invite">Invite Client</TabsTrigger>
         </TabsList>
 
@@ -221,6 +225,10 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
 
         <TabsContent value="carriers">
           <CarrierManager />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <DashboardAnalytics />
         </TabsContent>
 
         <TabsContent value="invite">
