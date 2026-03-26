@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, ClipboardList } from "lucide-react";
+import { ArrowLeft, Send, ClipboardList, Eye } from "lucide-react";
 import MarketGuidance from "./MarketGuidance";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
