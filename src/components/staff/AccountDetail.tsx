@@ -13,9 +13,10 @@ import ApplicationWizard from "@/components/application/ApplicationWizard";
 interface Props {
   accountId: string;
   onBack: () => void;
+  onPreviewClient?: (accountId: string) => void;
 }
 
-const AccountDetail = ({ accountId, onBack }: Props) => {
+const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
