@@ -11,6 +11,7 @@ import { generateApplicationPdf } from "@/lib/generateApplicationPdf";
 import MarketGuidance from "./MarketGuidance";
 import SubmittedMarkets from "./SubmittedMarkets";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+import AccountMessages from "@/components/messaging/AccountMessages";
 
 interface Props {
   accountId: string;
@@ -220,6 +221,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
       {existingQuotes && existingQuotes.length > 0 && (
         <SubmittedMarkets accountId={accountId} quotes={existingQuotes} />
       )}
+
+      {/* Messages */}
+      <AccountMessages accountId={accountId} isStaff={true} />
     </div>
   );
 };

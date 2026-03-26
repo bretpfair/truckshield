@@ -23,9 +23,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Upload, DollarSign, FileText, Clock, CheckCircle2, XCircle, Send } from "lucide-react";
 
+import { AlertTriangle } from "lucide-react";
+
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   submitted: { label: "Submitted", color: "bg-primary/10 text-primary border-primary/20", icon: Send },
   reviewing: { label: "Under Review", color: "bg-warning/10 text-warning border-warning/20", icon: Clock },
+  info_requested: { label: "Additional Info Requested", color: "bg-amber-500/10 text-amber-600 border-amber-500/20", icon: AlertTriangle },
   quoted: { label: "Quoted", color: "bg-success/10 text-success border-success/20", icon: CheckCircle2 },
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/20", icon: XCircle },
   bound: { label: "Bound", color: "bg-success/20 text-success border-success/30", icon: CheckCircle2 },
@@ -158,6 +161,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                     <SelectContent>
                       <SelectItem value="submitted">Submitted</SelectItem>
                       <SelectItem value="reviewing">Under Review</SelectItem>
+                      <SelectItem value="info_requested">Additional Info Requested</SelectItem>
                       <SelectItem value="quoted">Quoted</SelectItem>
                       <SelectItem value="declined">Declined</SelectItem>
                       <SelectItem value="bound">Bound</SelectItem>
