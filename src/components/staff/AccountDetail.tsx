@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, ClipboardList, Eye, Download } from "lucide-react";
+import { ArrowLeft, ClipboardList, Eye, Download } from "lucide-react";
 import { generateApplicationPdf } from "@/lib/generateApplicationPdf";
 import MarketGuidance from "./MarketGuidance";
+import SubmittedMarkets from "./SubmittedMarkets";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
 interface Props {
@@ -99,36 +100,24 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     },
   });
 
-  const createQuote = useMutation({
+  const markSubmitted = useMutation({
     mutationFn: async ({ carrierId, score }: { carrierId: string; score: number }) => {
       const { error } = await supabase.from("quotes").insert({
         account_id: accountId,
         carrier_id: carrierId,
         match_score: score,
-        status: "draft",
+        status: "submitted",
         created_by: user!.id,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
-      toast({ title: "Quote created" });
+      toast({ title: "Marked as submitted" });
     },
   });
 
-  const publishQuote = useMutation({
-    mutationFn: async (quoteId: string) => {
-      const { error } = await supabase
-        .from("quotes")
-        .update({ status: "published", published_at: new Date().toISOString() })
-        .eq("id", quoteId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
-      toast({ title: "Quote published to client" });
-    },
-  });
+  const submittedCarrierIds = existingQuotes?.map((q: any) => q.carrier_id) || [];
 
   if (!account) return null;
 
@@ -158,7 +147,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     { label: "Authority Date", value: account.date_of_authority },
   ];
 
-  const existingQuoteCarrierIds = existingQuotes?.map((q: any) => q.carrier_id) || [];
+  
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -222,37 +211,14 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           powerUnits={powerUnits || []}
           trailers={accountTrailers || []}
           lossHistory={lossHistory || []}
-          onGenerateQuote={(carrierId, score) => createQuote.mutate({ carrierId, score })}
-          existingQuoteCarrierIds={existingQuoteCarrierIds}
+          onMarkSubmitted={(carrierId, score) => markSubmitted.mutate({ carrierId, score })}
+          submittedCarrierIds={submittedCarrierIds}
         />
       )}
 
-      {/* Existing Quotes */}
+      {/* Submitted Markets */}
       {existingQuotes && existingQuotes.length > 0 && (
-        <Card className="glass-panel">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Quotes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {existingQuotes.map((q: any) => (
-              <div key={q.id} className="flex items-center justify-between p-3 rounded-md bg-secondary/50">
-                <div>
-                  <p className="font-medium">{q.carriers?.name ?? "Unknown Carrier"}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-                    <span>Score: {q.match_score}</span>
-                    {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
-                    <Badge variant="outline" className="text-[10px]">{q.status}</Badge>
-                  </div>
-                </div>
-                {q.status === "draft" && (
-                  <Button size="sm" onClick={() => publishQuote.mutate(q.id)}>
-                    <Send className="h-3 w-3 mr-1" /> Publish
-                  </Button>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <SubmittedMarkets accountId={accountId} quotes={existingQuotes} />
       )}
     </div>
   );
