@@ -12,6 +12,7 @@ import { Send, Paperclip, FileText, X, MessageSquare } from "lucide-react";
 interface Props {
   accountId: string;
   isStaff: boolean;
+  embedded?: boolean;
 }
 
 interface Message {
