@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { AUTO_LIABILITY_QUESTIONS, GL_QUESTIONS } from "@/components/application/constants";
 
 interface PdfData {
   account: any;
@@ -365,9 +366,31 @@ export function generateApplicationPdf({
   // ====== 12. GENERAL QUESTIONS ======
   sectionTitle("12. General / Underwriting Questions");
   const gq = account.general_questions as any;
-  if (gq && typeof gq === "object") {
-    Object.entries(gq).forEach(([key, val]) => {
-      fieldRow(formatLabel(key), typeof val === "boolean" ? (val ? "Yes" : "No") : String(val ?? "—"));
+  const allQuestions = [...AUTO_LIABILITY_QUESTIONS, ...GL_QUESTIONS];
+  const questionMap = Object.fromEntries(allQuestions.map((q) => [q.id, q.text]));
+
+  if (gq && typeof gq === "object" && Object.keys(gq).length > 0) {
+    Object.entries(gq).forEach(([key, val]: [string, any]) => {
+      const questionText = questionMap[key] || formatLabel(key);
+      checkPage(12);
+      // Print question text
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      const qLines = doc.splitTextToSize(questionText, CONTENT_WIDTH - 4);
+      doc.text(qLines, MARGIN + 2, y);
+      y += qLines.length * LINE_HEIGHT;
+      // Print answer
+      doc.setFont("helvetica", "normal");
+      if (typeof val === "object" && val !== null) {
+        const parts: string[] = [];
+        if (val.answer) parts.push(val.answer);
+        if (val.explanation) parts.push(val.explanation);
+        if (val.date) parts.push(val.date);
+        if (val.value != null && val.value !== "") parts.push(String(val.value));
+        fieldRow("  Answer", parts.join(" — ") || "—");
+      } else {
+        fieldRow("  Answer", typeof val === "boolean" ? (val ? "Yes" : "No") : String(val ?? "—"));
+      }
     });
   } else {
     fieldRow("General Questions", "None answered");
