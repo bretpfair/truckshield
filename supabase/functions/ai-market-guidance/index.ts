@@ -107,11 +107,13 @@ serve(async (req) => {
 
 For each carrier, analyze the account data against the carrier's appetite guide, structured criteria, and notes. Consider:
 - Hard disqualifiers (excluded cargo, excluded states, authority requirements)
+- **Interstate vs Intrastate operations**: This is CRITICAL. Check whether the account operates Interstate or Intrastate (in radius_operations). Some carriers explicitly do NOT write Interstate risks — if the carrier's notes or appetite guide indicate they won't insure Interstate operations, and the account is Interstate, this is a hard disqualifier and the score should be very low (poor tier).
 - Numeric thresholds (fleet size, revenue, years in business, authority age, claims)
 - Preferred vs actual cargo types and operating states
 - Driver quality (violations, accidents, experience)
 - Equipment profile (types, ages, GVW classes)
 - Loss history (prior coverage, cancellations, claims patterns)
+- Description of operations (if provided) — use this to understand what the company actually does
 - Any nuanced guidance in the carrier's appetite_guide JSON or notes field
 
 Be realistic and conservative. If data is missing, note it as a concern — don't assume favorable conditions.

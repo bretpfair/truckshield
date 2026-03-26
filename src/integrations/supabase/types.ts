@@ -437,6 +437,38 @@ export type Database = {
           },
         ]
       }
+      market_guidance_results: {
+        Row: {
+          account_id: string
+          checked_at: string
+          created_at: string
+          id: string
+          results: Json
+        }
+        Insert: {
+          account_id: string
+          checked_at?: string
+          created_at?: string
+          id?: string
+          results?: Json
+        }
+        Update: {
+          account_id?: string
+          checked_at?: string
+          created_at?: string
+          id?: string
+          results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_guidance_results_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       power_units: {
         Row: {
           account_id: string
