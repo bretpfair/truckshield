@@ -126,6 +126,11 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5">
           <ClipboardList className="h-3.5 w-3.5" /> View Application
         </Button>
+        {onPreviewClient && (
+          <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5">
+            <Eye className="h-3.5 w-3.5" /> Preview Client
+          </Button>
+        )}
       </div>
 
       {/* Account Info */}
