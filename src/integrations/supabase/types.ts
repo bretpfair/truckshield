@@ -72,6 +72,8 @@ export type Database = {
           client_user_id: string | null
           commodity_info: Json | null
           company_name: string
+          contact_email: string | null
+          contact_phone: string | null
           contractor_types: string[] | null
           county: string | null
           coverage_selections: Json | null
@@ -122,6 +124,8 @@ export type Database = {
           client_user_id?: string | null
           commodity_info?: Json | null
           company_name: string
+          contact_email?: string | null
+          contact_phone?: string | null
           contractor_types?: string[] | null
           county?: string | null
           coverage_selections?: Json | null
@@ -172,6 +176,8 @@ export type Database = {
           client_user_id?: string | null
           commodity_info?: Json | null
           company_name?: string
+          contact_email?: string | null
+          contact_phone?: string | null
           contractor_types?: string[] | null
           county?: string | null
           coverage_selections?: Json | null
