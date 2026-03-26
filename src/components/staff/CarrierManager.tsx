@@ -256,8 +256,32 @@ const CarrierManager = () => {
                   <Input value={form.name} onChange={(e) => f("name", e.target.value)} placeholder="Progressive Commercial" />
                 </div>
                 <div className="space-y-2">
+                  <Label>Website</Label>
+                  <Input value={form.website} onChange={(e) => f("website", e.target.value)} placeholder="https://www.progressive.com" />
+                </div>
+                <div className="space-y-2">
                   <Label>AM Best Rating</Label>
                   <Input value={form.am_best_rating} onChange={(e) => f("am_best_rating", e.target.value)} placeholder="A+" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Carrier Logo</Label>
+                  <div className="flex items-center gap-3">
+                    {logoPreview && (
+                      <img src={logoPreview} alt="Logo" className="h-10 w-10 rounded object-contain border bg-white" />
+                    )}
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setLogoFile(file);
+                        if (file) {
+                          setLogoPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
