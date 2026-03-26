@@ -144,9 +144,21 @@ Deno.serve(async (req) => {
     if (payload.radius_operations) {
       accountData.radius_operations = payload.radius_operations;
     }
-    if (payload.commodity_info) {
+
+    // Map commodities[] array to commodity_info
+    if (Array.isArray(payload.commodities) && payload.commodities.length > 0) {
+      accountData.commodity_info = {
+        commodities: payload.commodities.map((c: Record<string, unknown>) => ({
+          commodity: c.commodity || null,
+          loads_percentage: c.loads_percentage ?? null,
+          average_value_per_load: c.average_value_per_load ?? null,
+          max_value_per_load: c.max_value_per_load ?? null,
+        })),
+      };
+    } else if (payload.commodity_info) {
       accountData.commodity_info = payload.commodity_info;
     }
+
     if (payload.general_questions) {
       accountData.general_questions = payload.general_questions;
     }
@@ -195,11 +207,15 @@ Deno.serve(async (req) => {
       }
 
       const driverRows = ctqDrivers.map((d: Record<string, unknown>, i: number) => {
-        // CTQ sends full_name; split into first/last
-        const fullName = (d.full_name as string) || "";
+        // CTQ sends "name" (full name); split into first/last
+        const fullName = (d.name as string) || (d.full_name as string) || "";
         const nameParts = fullName.trim().split(/\s+/);
         const firstName = d.first_name || nameParts[0] || null;
         const lastName = d.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(" ") : null);
+
+        // CTQ sends moving_violations and accidents as string counts
+        const numViolations = parseInt(String(d.moving_violations ?? d.num_violations ?? 0), 10) || 0;
+        const numAccidents = parseInt(String(d.accidents ?? d.num_accidents ?? 0), 10) || 0;
 
         return {
           account_id: accountId,
@@ -207,19 +223,19 @@ Deno.serve(async (req) => {
           last_name: lastName,
           date_of_birth: d.dob || d.date_of_birth || null,
           license_number: d.license_number || null,
-          license_state: d.license_state || null,
+          license_state: d.state || d.license_state || null,
           license_type: d.license_type || null,
           driver_type: d.is_owner_operator ? "owner_operator" : (d.driver_type || null),
-          experience_years: d.years_experience ?? d.experience_years ?? null,
+          experience_years: d.years_commercial_driving ?? d.years_experience ?? d.experience_years ?? null,
           experience_months: d.experience_months ?? null,
           date_hired_year: d.date_hired_year ?? null,
           date_hired_month: d.date_hired_month ?? null,
           original_issue_year: d.original_issue_year ?? null,
           original_issue_month: d.original_issue_month ?? null,
-          num_violations: d.num_violations ?? 0,
-          violations: d.violations || [],
-          num_accidents: d.num_accidents ?? 0,
-          accidents: d.accidents || [],
+          num_violations: numViolations,
+          violations: Array.isArray(d.violations) ? d.violations : [],
+          num_accidents: numAccidents,
+          accidents: Array.isArray(d.accidents) ? d.accidents : [],
           lapse_suspension: d.lapse_suspension || null,
           lapse_explanation: d.lapse_explanation || null,
           sort_order: i,
@@ -248,13 +264,13 @@ Deno.serve(async (req) => {
             account_id: accountId,
             year: v.year ? String(v.year) : null,
             make: v.make || null,
-            model: v.model || null,
+            model: v.vehicle_model || v.model || null,
             vin: v.vin || null,
             trailer_type: v.vehicle_type || v.trailer_type || null,
             garage_zip: v.garage_zip || null,
             ownership_type: v.ownership_type || "owned",
-            has_physdam: v.has_physdam ?? false,
-            physdam_amount: v.physdam_amount ?? null,
+            has_physdam: !!(v.stated_value || v.has_physdam),
+            physdam_amount: v.stated_value ?? v.physdam_amount ?? null,
             is_nonowned: v.is_nonowned ?? false,
             lender_name: v.lender_name || null,
             lender_address: v.lender_address || null,
@@ -268,15 +284,15 @@ Deno.serve(async (req) => {
             account_id: accountId,
             year: v.year ? String(v.year) : null,
             make: v.make || null,
-            model: v.model || null,
+            model: v.vehicle_model || v.model || null,
             vin: v.vin || null,
             truck_type: v.vehicle_type || v.truck_type || null,
-            gvw_class: v.gvw_class || null,
+            gvw_class: v.gvw || v.gvw_class || null,
             garage_zip: v.garage_zip || null,
             titled_state: v.titled_state || null,
             ownership_type: v.ownership_type || "owned",
-            has_physdam: v.has_physdam ?? false,
-            physdam_amount: v.physdam_amount ?? null,
+            has_physdam: !!(v.stated_value || v.has_physdam),
+            physdam_amount: v.stated_value ?? v.physdam_amount ?? null,
             has_cargo: v.has_cargo ?? false,
             is_service_vehicle: v.is_service_vehicle ?? false,
             roadside_assistance: v.roadside_assistance ?? false,
@@ -307,22 +323,28 @@ Deno.serve(async (req) => {
         await supabase.from("loss_history").delete().eq("account_id", accountId!);
       }
 
-      const lossRows = ctqLosses.map((l: Record<string, unknown>) => ({
-        account_id: accountId,
-        coverage_type: l.coverage_type || "auto_liability",
-        no_prior_coverage: l.no_prior_coverage ?? false,
-        policy_terms: l.policy_terms || [{
-          start_date: l.policy_start_date || null,
-          end_date: l.policy_end_date || null,
-          premium: l.premium_amount || null,
-          claims: l.number_of_claims || null,
-          total_paid_reserved: l.total_paid_and_reserved || null,
-          policy_numbers: l.policy_numbers || null,
-        }],
-        cancelled_nonrenewed: l.cancelled_nonrenewed ?? false,
-        cancellation_reason: l.cancellation_reason || null,
-        cancellation_reason_other: l.cancellation_reason_other || null,
-      }));
+      const lossRows = ctqLosses.map((l: Record<string, unknown>) => {
+        const companyName = (l.company_name as string) || "";
+        const isNoPrior = companyName.toLowerCase().includes("no prior");
+
+        return {
+          account_id: accountId,
+          coverage_type: l.coverage_type || "auto_liability",
+          no_prior_coverage: isNoPrior || (l.no_prior_coverage ?? false),
+          policy_terms: l.policy_terms || [{
+            start_date: l.policy_start_date || null,
+            end_date: l.policy_end_date || null,
+            premium: l.premium_amount || null,
+            claims: l.number_of_claims || null,
+            total_paid_reserved: l.total_paid_and_reserved || null,
+            policy_numbers: l.policy_numbers || null,
+            insurer: companyName || null,
+          }],
+          cancelled_nonrenewed: l.cancelled_nonrenewed ?? false,
+          cancellation_reason: l.cancellation_reason || null,
+          cancellation_reason_other: l.cancellation_reason_other || null,
+        };
+      });
 
       const { error } = await supabase.from("loss_history").insert(lossRows);
       if (error) throw new Error(`Loss history insert failed: ${error.message}`);
