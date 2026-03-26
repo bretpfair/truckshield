@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Send, ClipboardList, Eye, Download } from "lucide-react";
 import { generateApplicationPdf } from "@/lib/generateApplicationPdf";
 import MarketGuidance from "./MarketGuidance";
+import SubmittedMarkets from "./SubmittedMarkets";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
 interface Props {
@@ -99,36 +100,24 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     },
   });
 
-  const createQuote = useMutation({
+  const markSubmitted = useMutation({
     mutationFn: async ({ carrierId, score }: { carrierId: string; score: number }) => {
       const { error } = await supabase.from("quotes").insert({
         account_id: accountId,
         carrier_id: carrierId,
         match_score: score,
-        status: "draft",
+        status: "submitted",
         created_by: user!.id,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
-      toast({ title: "Quote created" });
+      toast({ title: "Marked as submitted" });
     },
   });
 
-  const publishQuote = useMutation({
-    mutationFn: async (quoteId: string) => {
-      const { error } = await supabase
-        .from("quotes")
-        .update({ status: "published", published_at: new Date().toISOString() })
-        .eq("id", quoteId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
-      toast({ title: "Quote published to client" });
-    },
-  });
+  const submittedCarrierIds = existingQuotes?.map((q: any) => q.carrier_id) || [];
 
   if (!account) return null;
 
@@ -158,7 +147,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     { label: "Authority Date", value: account.date_of_authority },
   ];
 
-  const existingQuoteCarrierIds = existingQuotes?.map((q: any) => q.carrier_id) || [];
+  // submittedCarrierIds moved above
 
   return (
     <div className="space-y-6 animate-fade-in">
