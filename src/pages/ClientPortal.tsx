@@ -11,7 +11,7 @@ import {
   ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
-import AccountMessages from "@/components/messaging/AccountMessages";
+
 import { WIZARD_STEPS } from "@/components/application/constants";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -310,8 +310,6 @@ const ClientPortal = () => {
         </CardContent>
       </Card>
 
-      {/* Messages */}
-      <AccountMessages accountId={account.id} isStaff={false} />
     </div>
   );
 };
