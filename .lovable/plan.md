@@ -1,83 +1,104 @@
 
 
-## Plan: CRM Pipeline, Messaging, and Client Quote Mirroring
+## Recommended Enhancements for a Seamless CRM Portal
 
-### Overview
-Transform the staff dashboard into a CRM with pipeline view, add an "Additional Info Requested" carrier status, mirror quote statuses on the client portal, and add a messaging/communication feature with document upload.
-
----
-
-### 1. Database Changes (Migration)
-
-**New `messages` table** for client-agency communication:
-- `id`, `account_id`, `sender_id`, `content` (text), `is_staff` (boolean), `attachment_path` (text, nullable), `attachment_name` (text, nullable), `created_at`
-- RLS: admins can manage all; clients can read/insert on their own account's messages
-- Enable realtime for live updates
-
-**New `client-documents` storage bucket** (private) for client-uploaded documents in messages.
-
-**Update `quotes_status_check`** constraint to add `info_requested` status.
+Based on a thorough review of the current codebase, here are the highest-impact improvements organized by priority.
 
 ---
 
-### 2. Staff Dashboard - CRM Pipeline View
+### Priority 1 — Core CRM Gaps
 
-**Redesign `StaffDashboard.tsx` accounts tab** with a Kanban-style pipeline:
-- Column headers: **Lead** | **Pending Info** | **Info Complete** | **Quoting** | **Quoted** | **Bound**
-- Each account rendered as a card in its status column showing company name, DOT#, fleet size
-- Clicking a card opens `AccountDetail` as before
-- Keep a toggle to switch between pipeline and list view for usability
+**A. Activity Log & Internal Notes per Account**
+- Create an `activity_log` table (`account_id`, `user_id`, `action_type`, `description`, `created_at`)
+- Auto-log key events: status changes, quote updates, messages sent, documents uploaded
+- Add a staff-only "Notes & Activity" timeline in AccountDetail showing chronological history
+- Staff can add freeform internal notes (not visible to clients)
 
-**Update `SubmittedMarkets.tsx`**:
-- Add `info_requested` to the status dropdown with label "Additional Info Requested" and an orange/amber styling
-- When staff sets a carrier to "info_requested", this signals the client that more info is needed
+**B. Task / Follow-Up Reminders**
+- Create a `tasks` table (`account_id`, `assigned_to`, `title`, `due_date`, `status`, `priority`)
+- Add a "Tasks" section in AccountDetail for staff to create follow-ups (e.g., "Call client re: loss runs", "Follow up with carrier X")
+- Show overdue/upcoming tasks on the dashboard with a count badge
+- Filter pipeline cards to highlight accounts with overdue tasks
 
----
-
-### 3. Client Portal - Mirror Quote Statuses
-
-**Update `ClientPortal.tsx` and `ClientPortalForAccount.tsx`**:
-- Currently the client only sees `published` quotes and `draft`/`reviewing` as "Carriers Reviewing"
-- Update the RLS policy on `quotes` to let clients see quotes with status `submitted`, `reviewing`, `info_requested`, `quoted`, `bound`, `declined` (not just `published`)
-- Show three sections on client portal:
-  - **Carriers Reviewing**: quotes with status `submitted` or `reviewing`
-  - **Action Needed**: quotes with status `info_requested` (highlighted with warning styling)
-  - **Your Quotes**: quotes with status `quoted` or `bound` (showing premium)
-- Each card shows carrier name, status badge, and premium when available
+**C. Centralized Document Hub per Account**
+- Currently documents only exist as message attachments — no organized view
+- Create a "Documents" tab in AccountDetail showing all uploaded files: cab cards, loss runs, message attachments, quote documents
+- Allow staff to upload documents directly (not just via messaging)
+- Categorize documents: Applications, Loss Runs, Cab Cards, Quotes, Misc
+- Mirror a read-only version on the client portal so clients see their uploaded docs
 
 ---
 
-### 4. Messaging / Communication Portal
+### Priority 2 — Automation & Notifications
 
-**New component `src/components/messaging/AccountMessages.tsx`**:
-- Chat-style UI showing messages between client and staff for a given account
-- Staff messages aligned right (blue), client messages aligned left (gray)
-- Text input at bottom with send button
-- File attachment button allowing document upload (PDF, DOC, images)
-- Uploaded files stored in `client-documents` bucket, path saved on message record
-- Attachments shown as clickable links/badges in the message
-- Realtime subscription via `supabase.channel()` for live updates
+**D. Notification System**
+- Create a `notifications` table (`user_id`, `account_id`, `type`, `message`, `read`, `created_at`)
+- Trigger notifications on: new message received, carrier status changed to `info_requested`, new quote available, task due
+- Add a bell icon in the header with unread count badge
+- Notification dropdown showing recent items with click-to-navigate
 
-**Integrate into Staff `AccountDetail.tsx`**:
-- Add a "Messages" tab or collapsible section showing the conversation thread for the account
-- Staff can send messages and view client replies
+**E. Automated Status Progression**
+- Auto-update account status from `pending_info` to `info_complete` when application reaches step 10 (review)
+- Auto-update to `quoting` when first quote is marked `submitted`
+- Auto-update to `quoted` when first quote is marked `quoted`
+- Keeps pipeline accurate without staff manually updating account statuses
 
-**Integrate into `ClientPortal.tsx` / `ClientPortalForAccount.tsx`**:
-- Add a "Messages" card/section showing the conversation with the agency
-- Client can send messages, upload documents, and see staff responses
-- Show unread indicator if there are new messages
+**F. Email Notifications via Backend Function**
+- Send email when: client has a new message from agency, carrier requests additional info, a quote is ready
+- Use a backend function triggered by database webhooks
+- Keeps clients engaged without needing to constantly check the portal
 
 ---
 
-### 5. Files to Create/Modify
+### Priority 3 — UX & Efficiency
 
-| File | Action |
-|------|--------|
-| `supabase/migrations/new.sql` | Create `messages` table, `client-documents` bucket, update `quotes` constraint, update RLS on `quotes` |
-| `src/components/messaging/AccountMessages.tsx` | **Create** - chat UI component |
-| `src/components/staff/SubmittedMarkets.tsx` | Add `info_requested` status option |
-| `src/components/staff/AccountDetail.tsx` | Add Messages section |
-| `src/pages/ClientPortal.tsx` | Add Action Needed section, mirror quote statuses, add Messages section |
-| `src/pages/ClientPortalForAccount.tsx` | Same client portal updates |
-| `src/pages/StaffDashboard.tsx` | Add pipeline/Kanban view for accounts |
+**G. Proper Client Invitation Flow**
+- Currently just shows a URL — no actual invite mechanism
+- Add email invite: staff enters client email + selects account → sends branded invite email with signup link
+- On signup, auto-link the client to their account using an invite token
+- Eliminates manual `client_user_id` assignment
+
+**H. Advanced Pipeline Interactions**
+- Drag-and-drop cards between pipeline columns to change account status
+- Show a message count badge on pipeline cards for accounts with unread messages
+- Add hover preview showing key account details without clicking in
+- Mobile-responsive: stack pipeline columns vertically on small screens
+
+**I. Dashboard Analytics**
+- Conversion funnel: Lead → Pending → Complete → Quoting → Quoted → Bound with percentages
+- Aging report: accounts stuck in a status for too long (highlighted in red)
+- Revenue summary: total bound premiums, average premium, win rate
+- Time-period filtering (this week, month, quarter)
+
+**J. Quote Comparison for Clients**
+- Side-by-side comparison view when multiple quotes are available
+- Show coverage details, premiums, and carrier ratings
+- "Select Quote" button for clients to indicate their preferred option
+
+---
+
+### Priority 4 — Polish
+
+**K. Renewal Tracking**
+- Flag accounts approaching `current_coverage_expiry` (30/60/90 day warnings)
+- Dashboard widget showing upcoming renewals
+- Auto-create a new "lead" for renewal when expiry is within 90 days
+
+**L. Search & Filtering Improvements**
+- Filter accounts by status, date range, assigned carrier, premium range
+- Sort by created date, company name, expiry date
+- Saved filter presets for common views ("My overdue tasks", "Quotes ready")
+
+---
+
+### Suggested Implementation Order
+
+| Phase | Items | Effort |
+|-------|-------|--------|
+| Phase 1 | Activity Log (A), Automated Status (E), Client Invite (G) | Medium |
+| Phase 2 | Document Hub (C), Notifications (D), Pipeline UX (H) | Medium-High |
+| Phase 3 | Tasks (B), Email Notifications (F), Dashboard Analytics (I) | High |
+| Phase 4 | Quote Comparison (J), Renewals (K), Search/Filter (L) | Medium |
+
+Each phase builds on the previous one. Phase 1 fills the most critical operational gaps. Phase 2 adds the engagement layer. Phase 3 brings proactive workflow management. Phase 4 is competitive polish.
 
