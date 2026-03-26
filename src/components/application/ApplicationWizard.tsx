@@ -38,6 +38,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       radius_operations: account.radius_operations || [],
       commodity_info: account.commodity_info || {},
       general_questions: account.general_questions || {},
+      operation_info: account.operation_info || {},
     });
     // Mark initialized after first load so we don't auto-save the initial set
     setTimeout(() => { isInitialized.current = true; }, 500);
