@@ -1,36 +1,63 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { MessageSquare } from "lucide-react";
+import { useState } from "react";
+import { MessageSquare, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import AccountMessages from "./AccountMessages";
+import { cn } from "@/lib/utils";
 
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  expanded: boolean;
+  onToggle: () => void;
   accountId: string | null;
   isStaff: boolean;
 }
 
-const MessagingSidebar = ({ open, onOpenChange, accountId, isStaff }: Props) => {
+const MessagingSidebar = ({ expanded, onToggle, accountId, isStaff }: Props) => {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:w-[420px] p-0 flex flex-col">
-        <SheetHeader className="px-4 py-3 border-b border-border">
-          <SheetTitle className="flex items-center gap-2 text-sm font-mono uppercase tracking-wider text-muted-foreground">
+    <aside
+      className={cn(
+        "border-l border-border bg-card/50 backdrop-blur-sm flex flex-col transition-all duration-300 shrink-0",
+        expanded ? "w-[380px]" : "w-12"
+      )}
+    >
+      {/* Toggle header */}
+      <div className={cn(
+        "h-14 border-b border-border flex items-center shrink-0",
+        expanded ? "px-4 justify-between" : "justify-center"
+      )}>
+        {expanded && (
+          <span className="flex items-center gap-2 text-sm font-mono uppercase tracking-wider text-muted-foreground">
             <MessageSquare className="h-4 w-4 text-primary" />
             Messages
-          </SheetTitle>
-        </SheetHeader>
-        <div className="flex-1 overflow-hidden p-4">
+          </span>
+        )}
+        <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8">
+          {expanded ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      {/* Collapsed icon strip */}
+      {!expanded && (
+        <div className="flex flex-col items-center pt-3">
+          <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8" title="Open Messages">
+            <MessageSquare className="h-4 w-4 text-primary" />
+          </Button>
+        </div>
+      )}
+
+      {/* Content */}
+      {expanded && (
+        <div className="flex-1 overflow-hidden p-3">
           {accountId ? (
             <AccountMessages accountId={accountId} isStaff={isStaff} embedded />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <MessageSquare className="h-8 w-8 opacity-40 mb-2" />
-              <p className="text-sm">No account selected</p>
+              <p className="text-sm text-center">Select an account to view messages</p>
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      )}
+    </aside>
   );
 };
 

@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import StaffDashboard from "@/pages/StaffDashboard";
 import ClientPortal from "@/pages/ClientPortal";
 import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
-import { Truck, LogOut, User, Eye, MessageSquare } from "lucide-react";
+import { Truck, LogOut, User, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessagingSidebar from "@/components/messaging/MessagingSidebar";
 
@@ -12,7 +12,7 @@ const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
   const [viewAsClient, setViewAsClient] = useState(false);
   const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
-  const [messagingOpen, setMessagingOpen] = useState(false);
+  const [messagingExpanded, setMessagingExpanded] = useState(true);
   const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
 
   if (loading) {
@@ -41,13 +41,12 @@ const AppLayout = () => {
     setPreviewAccountId(null);
   };
 
-  // Determine which account ID to use for messaging
   const activeAccountId = messagingAccountId || previewAccountId;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-14 px-4">
+        <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
             <Truck className="h-5 w-5 text-primary" />
             <span className="font-bold text-foreground">TruckShield</span>
@@ -67,15 +66,6 @@ const AppLayout = () => {
                 {viewAsClient ? "Back to Staff" : "Preview Client"}
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setMessagingOpen(true)}
-              className="gap-1.5 text-xs"
-            >
-              <MessageSquare className="h-3 w-3" />
-              Messages
-            </Button>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">{user.email}</span>
@@ -86,28 +76,30 @@ const AppLayout = () => {
           </div>
         </div>
       </header>
-      <main className="container px-4 py-6">
-        {showClient ? (
-          previewAccountId ? (
-            <ClientPortalForAccount accountId={previewAccountId} />
-          ) : (
-            <ClientPortal onSetMessagingAccount={(id) => setMessagingAccountId(id)} />
-          )
-        ) : (
-          <StaffDashboard
-            onPreviewClient={handlePreviewClient}
-            onOpenMessages={(accountId) => { setMessagingAccountId(accountId); setMessagingOpen(true); }}
-          />
-        )}
-      </main>
 
-      {/* Messaging Sidebar */}
-      <MessagingSidebar
-        open={messagingOpen}
-        onOpenChange={setMessagingOpen}
-        accountId={activeAccountId}
-        isStaff={isStaff}
-      />
+      <div className="flex flex-1 overflow-hidden">
+        <main className="flex-1 overflow-y-auto px-4 py-6">
+          {showClient ? (
+            previewAccountId ? (
+              <ClientPortalForAccount accountId={previewAccountId} />
+            ) : (
+              <ClientPortal onSetMessagingAccount={(id) => setMessagingAccountId(id)} />
+            )
+          ) : (
+            <StaffDashboard
+              onPreviewClient={handlePreviewClient}
+              onOpenMessages={(accountId) => { setMessagingAccountId(accountId); setMessagingExpanded(true); }}
+            />
+          )}
+        </main>
+
+        <MessagingSidebar
+          expanded={messagingExpanded}
+          onToggle={() => setMessagingExpanded(!messagingExpanded)}
+          accountId={activeAccountId}
+          isStaff={isStaff}
+        />
+      </div>
     </div>
   );
 };
