@@ -44,6 +44,42 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     },
   });
 
+  const { data: drivers } = useQuery({
+    queryKey: ["drivers", accountId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("drivers").select("*").eq("account_id", accountId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: powerUnits } = useQuery({
+    queryKey: ["power_units", accountId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("power_units").select("*").eq("account_id", accountId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: accountTrailers } = useQuery({
+    queryKey: ["trailers", accountId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("trailers").select("*").eq("account_id", accountId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: lossHistory } = useQuery({
+    queryKey: ["loss_history", accountId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("loss_history").select("*").eq("account_id", accountId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: existingQuotes } = useQuery({
     queryKey: ["quotes", accountId],
     queryFn: async () => {
