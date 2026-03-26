@@ -190,14 +190,14 @@ Deno.serve(async (req) => {
     }
 
     // Radius operations - store in the format the wizard form expects
+    // NOTE: CTQ does not provide radius percentage breakdowns (under_50, 51_200, etc.)
+    // Only map operation type and annual mileage; leave radius_details empty
     const rangeOfOp = op("range_of_operation") as string;
-    const radiusOfOp = op("radius_of_operation");
     const annualMileage = op("annual_mileage");
-    if (rangeOfOp || radiusOfOp || annualMileage || payload.radius_operations) {
+    if (rangeOfOp || annualMileage || payload.radius_operations) {
       if (payload.radius_operations) {
         accountData.radius_operations = payload.radius_operations;
       } else {
-        // Map CTQ single-radius format to wizard format
         let operationType = "Both";
         if (rangeOfOp) {
           const lower = String(rangeOfOp).toLowerCase();
@@ -205,30 +205,10 @@ Deno.serve(async (req) => {
           else if (lower.includes("intrastate") && !lower.includes("interstate")) operationType = "Intrastate";
           else operationType = "Both";
         }
-        // Derive radius percentages from single radius value
-        const radiusMiles = parseInt(String(radiusOfOp || 0), 10);
-        const radiusDetails: Record<string, string> = {};
-        if (radiusMiles > 0) {
-          if (radiusMiles <= 50) {
-            radiusDetails.under_50 = "100";
-          } else if (radiusMiles <= 200) {
-            radiusDetails.under_50 = "30";
-            radiusDetails["51_200"] = "70";
-          } else if (radiusMiles <= 500) {
-            radiusDetails.under_50 = "20";
-            radiusDetails["51_200"] = "30";
-            radiusDetails["201_500"] = "50";
-          } else {
-            radiusDetails.under_50 = "10";
-            radiusDetails["51_200"] = "20";
-            radiusDetails["201_500"] = "30";
-            radiusDetails["500_plus"] = "40";
-          }
-        }
         accountData.radius_operations = [{
           operation_type: operationType,
           annual_mileage: annualMileage ? String(annualMileage) : null,
-          radius_details: radiusDetails,
+          radius_details: {},
         }];
       }
     }
