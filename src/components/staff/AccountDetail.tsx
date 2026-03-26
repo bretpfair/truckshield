@@ -147,7 +147,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     { label: "Authority Date", value: account.date_of_authority },
   ];
 
-  // submittedCarrierIds moved above
+  
 
   return (
     <div className="space-y-6 animate-fade-in">
