@@ -12,8 +12,9 @@ import AccountDetail from "@/components/staff/AccountDetail";
 import CarrierManager from "@/components/staff/CarrierManager";
 import InviteClient from "@/components/staff/InviteClient";
 import PdfUpload from "@/components/staff/PdfUpload";
+import PipelineView from "@/components/staff/PipelineView";
 import {
-  Building2, Users, FileText, TrendingUp, Plus, Search, Upload,
+  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -35,6 +36,7 @@ const StaffDashboard = ({ onPreviewClient }: StaffDashboardProps = {}) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
+  const [viewMode, setViewMode] = useState<"pipeline" | "list">("pipeline");
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -46,15 +48,6 @@ const StaffDashboard = ({ onPreviewClient }: StaffDashboardProps = {}) => {
         .from("accounts")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: quotes } = useQuery({
-    queryKey: ["all-quotes"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("quotes").select("*");
       if (error) throw error;
       return data;
     },
@@ -142,6 +135,24 @@ const StaffDashboard = ({ onPreviewClient }: StaffDashboardProps = {}) => {
                 className="pl-10"
               />
             </div>
+            <div className="flex items-center border rounded-md bg-secondary">
+              <Button
+                variant={viewMode === "pipeline" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 px-2.5"
+                onClick={() => setViewMode("pipeline")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 px-2.5"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
             <Button onClick={() => setShowNewAccount(true)}>
               <Plus className="h-4 w-4 mr-2" /> New Account
             </Button>
@@ -166,6 +177,11 @@ const StaffDashboard = ({ onPreviewClient }: StaffDashboardProps = {}) => {
 
           {isLoading ? (
             <p className="text-muted-foreground text-sm font-mono">Loading accounts...</p>
+          ) : viewMode === "pipeline" ? (
+            <PipelineView
+              accounts={filtered ?? []}
+              onSelectAccount={setSelectedAccountId}
+            />
           ) : (
             <div className="space-y-2">
               {filtered?.map((account) => (
