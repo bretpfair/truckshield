@@ -55,6 +55,12 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
 
   const account = accounts?.[0];
 
+  useEffect(() => {
+    if (account?.id && onSetMessagingAccount) {
+      onSetMessagingAccount(account.id);
+    }
+  }, [account?.id, onSetMessagingAccount]);
+
   const { data: allQuotes } = useQuery({
     queryKey: ["client-all-quotes", account?.id],
     enabled: !!account,
