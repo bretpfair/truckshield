@@ -175,6 +175,7 @@ export type Database = {
           excluded_states: string[] | null
           id: string
           is_active: boolean
+          logo_path: string | null
           max_annual_revenue: number | null
           max_claims_tolerance: number | null
           max_fleet_size: number | null
@@ -189,6 +190,7 @@ export type Database = {
           preferred_states: string[] | null
           requires_authority: boolean | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           accepted_business_types?: string[] | null
@@ -200,6 +202,7 @@ export type Database = {
           excluded_states?: string[] | null
           id?: string
           is_active?: boolean
+          logo_path?: string | null
           max_annual_revenue?: number | null
           max_claims_tolerance?: number | null
           max_fleet_size?: number | null
@@ -214,6 +217,7 @@ export type Database = {
           preferred_states?: string[] | null
           requires_authority?: boolean | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           accepted_business_types?: string[] | null
@@ -225,6 +229,7 @@ export type Database = {
           excluded_states?: string[] | null
           id?: string
           is_active?: boolean
+          logo_path?: string | null
           max_annual_revenue?: number | null
           max_claims_tolerance?: number | null
           max_fleet_size?: number | null
@@ -239,6 +244,7 @@ export type Database = {
           preferred_states?: string[] | null
           requires_authority?: boolean | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
