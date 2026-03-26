@@ -112,8 +112,13 @@ export const AUTO_LIABILITY_QUESTIONS = [
   { id: "q9", text: "Has the applicant had 2 or more continuous years of commercial auto liability coverage?", hasExplain: true },
   { id: "q10", text: "Has the applicant had 2 or more continuous years of personal auto liability coverage?", hasExplain: false },
   { id: "q11", text: "Has the applicant ever filed for bankruptcy?", hasExplain: false, hasDate: true },
+  { id: "q12", text: "Has risk been cancelled or non-renewed in the last 3 years?", hasExplain: true },
   { id: "q13", text: "Is the insured subject to an ELD mandate for Hours-of-Service compliance?", hasExplain: false },
   { id: "q14", text: "Do operations involve intermodal shipments or marine port terminals that require a UIIA Agreement?", hasExplain: false },
+  { id: "q15", text: "Is the risk covered by workers compensation?", hasExplain: false },
+  { id: "q16", text: "Are federal or state filings required?", hasExplain: false },
+  { id: "q17", text: "How many years has the insured owned commercial equipment?", hasExplain: false, hasNumber: true },
+  { id: "q18", text: "How many years of primary liability coverage does the applicant have?", hasExplain: false, hasNumber: true },
 ];
 
 export const GL_QUESTIONS = [
