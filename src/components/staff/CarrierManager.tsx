@@ -201,15 +201,15 @@ const CarrierManager = () => {
             <div className="p-4 rounded-lg border-2 border-dashed border-primary/20 bg-primary/5">
               <div className="flex items-center gap-3 mb-2">
                 <Upload className="h-5 w-5 text-primary" />
-                <p className="font-medium text-sm">Upload Appetite Guide PDF</p>
+                <p className="font-medium text-sm">Upload Appetite Guide</p>
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                Upload a carrier's appetite guide and AI will extract the criteria automatically.
+                Upload a carrier's appetite guide (PDF or Word doc) and AI will extract the criteria automatically.
               </p>
               <div className="flex items-center gap-3">
                 <Input
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
                   className="flex-1"
                 />
