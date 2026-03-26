@@ -38,6 +38,20 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     },
   });
 
+  const { data: clientProfile } = useQuery({
+    queryKey: ["client-profile", account?.client_user_id],
+    enabled: !!account?.client_user_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", account!.client_user_id!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: carriers } = useQuery({
     queryKey: ["carriers"],
     queryFn: async () => {
@@ -148,7 +162,12 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     { label: "Authority Date", value: account.date_of_authority },
   ];
 
-  
+  const contactFields = [
+    { label: "Contact Name", value: clientProfile?.full_name || account.business_owner_name },
+    { label: "Email", value: clientProfile?.email },
+    { label: "Phone", value: clientProfile?.phone },
+    { label: "Mailing Address", value: [account.mailing_address, account.mailing_city, account.mailing_state, account.mailing_zip].filter(Boolean).join(", ") || null },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -186,22 +205,44 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         )}
       </div>
 
-      {/* Account Info */}
+      {/* Account Info with Contact */}
       <Card className="glass-panel">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Account Details</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {infoFields.map((f) => (
-              <div key={f.label}>
-                <p className="text-xs text-muted-foreground font-mono">{f.label}</p>
-                <p className="text-sm font-medium">{f.value || <span className="text-muted-foreground italic">Missing</span>}</p>
-              </div>
-            ))}
+        <CardContent className="space-y-5">
+          {/* Contact Info */}
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-primary mb-2">Contact Information</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {contactFields.map((f) => (
+                <div key={f.label}>
+                  <p className="text-xs text-muted-foreground font-mono">{f.label}</p>
+                  <p className="text-sm font-medium">{f.value || <span className="text-muted-foreground italic">Missing</span>}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="border-t border-border" />
+          {/* Business Info */}
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-primary mb-2">Business Information</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {infoFields.map((f) => (
+                <div key={f.label}>
+                  <p className="text-xs text-muted-foreground font-mono">{f.label}</p>
+                  <p className="text-sm font-medium">{f.value || <span className="text-muted-foreground italic">Missing</span>}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Submitted Markets - moved up */}
+      {existingQuotes && existingQuotes.length > 0 && (
+        <SubmittedMarkets accountId={accountId} quotes={existingQuotes} />
+      )}
 
       {/* Market Guidance */}
       {carriers && (
@@ -216,12 +257,6 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           submittedCarrierIds={submittedCarrierIds}
         />
       )}
-
-      {/* Submitted Markets */}
-      {existingQuotes && existingQuotes.length > 0 && (
-        <SubmittedMarkets accountId={accountId} quotes={existingQuotes} />
-      )}
-
     </div>
   );
 };
