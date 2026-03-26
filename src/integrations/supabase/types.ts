@@ -469,6 +469,47 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          account_id: string
+          attachment_name: string | null
+          attachment_path: string | null
+          content: string
+          created_at: string
+          id: string
+          is_staff: boolean
+          sender_id: string
+        }
+        Insert: {
+          account_id: string
+          attachment_name?: string | null
+          attachment_path?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_staff?: boolean
+          sender_id: string
+        }
+        Update: {
+          account_id?: string
+          attachment_name?: string | null
+          attachment_path?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_staff?: boolean
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       power_units: {
         Row: {
           account_id: string
