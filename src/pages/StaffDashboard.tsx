@@ -94,6 +94,7 @@ const StaffDashboard = ({ onPreviewClient }: StaffDashboardProps = {}) => {
       <AccountDetail
         accountId={selectedAccountId}
         onBack={() => setSelectedAccountId(null)}
+        onPreviewClient={onPreviewClient}
       />
     );
   }
