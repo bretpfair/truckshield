@@ -38,6 +38,20 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     },
   });
 
+  const { data: clientProfile } = useQuery({
+    queryKey: ["client-profile", account?.client_user_id],
+    enabled: !!account?.client_user_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", account!.client_user_id!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: carriers } = useQuery({
     queryKey: ["carriers"],
     queryFn: async () => {
