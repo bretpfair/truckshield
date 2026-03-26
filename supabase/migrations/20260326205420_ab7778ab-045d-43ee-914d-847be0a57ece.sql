@@ -1,0 +1,2 @@
+ALTER TABLE public.quotes DROP CONSTRAINT quotes_status_check;
+ALTER TABLE public.quotes ADD CONSTRAINT quotes_status_check CHECK (status = ANY (ARRAY['draft'::text, 'pending_review'::text, 'published'::text, 'accepted'::text, 'declined'::text, 'expired'::text, 'submitted'::text, 'reviewing'::text, 'quoted'::text, 'bound'::text]));
