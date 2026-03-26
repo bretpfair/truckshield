@@ -75,7 +75,7 @@ const InviteClientDialog = ({ accountId }: Props) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
       queryClient.invalidateQueries({ queryKey: ["activity_log"] });
       // Log activity
@@ -85,7 +85,23 @@ const InviteClientDialog = ({ accountId }: Props) => {
         action_type: "client_linked",
         description: `Invitation sent to ${email}`,
       });
-      toast({ title: "Invitation created", description: "Share the invite link with the client." });
+
+      // Send invite email automatically
+      const portalLink = getInviteUrl(data.token);
+      const firstName = email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      try {
+        await supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "client-portal-invite",
+            recipientEmail: email.trim().toLowerCase(),
+            idempotencyKey: `portal-invite-${data.id}`,
+            templateData: { firstName, portalLink },
+          },
+        });
+        toast({ title: "Invitation sent", description: "Portal invite email sent to the client." });
+      } catch {
+        toast({ title: "Invitation created", description: "Email delivery may be delayed while your domain verifies." });
+      }
       setEmail("");
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
