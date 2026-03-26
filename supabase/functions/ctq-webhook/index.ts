@@ -20,6 +20,7 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json();
+    console.log("CTQ raw payload:", JSON.stringify(payload));
 
     // Derive a company name — fall back to DOT number or "Unknown Lead"
     if (!payload.company_name) {
