@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, ClipboardList, Eye } from "lucide-react";
+import { ArrowLeft, Send, ClipboardList, Eye, Download } from "lucide-react";
+import { generateApplicationPdf } from "@/lib/generateApplicationPdf";
 import MarketGuidance from "./MarketGuidance";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
@@ -75,6 +76,15 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     queryKey: ["loss_history", accountId],
     queryFn: async () => {
       const { data, error } = await supabase.from("loss_history").select("*").eq("account_id", accountId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: garageLocations } = useQuery({
+    queryKey: ["garage_locations", accountId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("garage_locations").select("*").eq("account_id", accountId).order("sort_order");
       if (error) throw error;
       return data;
     },
@@ -161,6 +171,23 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         <div className="flex-1" />
         <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5">
           <ClipboardList className="h-3.5 w-3.5" /> View Application
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() =>
+            generateApplicationPdf({
+              account,
+              drivers: drivers || [],
+              powerUnits: powerUnits || [],
+              trailers: accountTrailers || [],
+              lossHistory: lossHistory || [],
+              garageLocations: garageLocations || [],
+            })
+          }
+        >
+          <Download className="h-3.5 w-3.5" /> Download Application
         </Button>
         {onPreviewClient && (
           <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5">
