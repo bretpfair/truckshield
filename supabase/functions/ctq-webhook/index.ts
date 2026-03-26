@@ -13,8 +13,30 @@ function get(obj: Record<string, unknown>, path: string): unknown {
     return undefined;
   }, obj);
 }
+const GVW_VALUES = [
+  "Class 1","Class 1A","Class 1B","Class 1C","Class 1D",
+  "Class 2","Class 2E","Class 2F","Class 2G","Class 2H",
+  "Class 3","Class 4","Class 5","Class 6","Class 7","Class 8","Other",
+];
 
-/** Calculate years from a date string to now */
+/** Normalize a GVW string from CTQ into our class values */
+function normalizeGvw(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  // Direct match
+  const exact = GVW_VALUES.find((v) => v === s);
+  if (exact) return exact;
+  // Match by prefix e.g. "Class 2E: 6,001 - 7,000 lb" -> "Class 2E"
+  const match = s.match(/^(Class\s*\d[A-H]?)/i);
+  if (match) {
+    const normalized = match[1].replace(/\s+/g, " ");
+    const found = GVW_VALUES.find((v) => v.toLowerCase() === normalized.toLowerCase());
+    if (found) return found;
+  }
+  return s; // fallback: store raw value
+}
+
+
 function yearsSince(dateStr: string | undefined | null): number | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
@@ -379,7 +401,7 @@ Deno.serve(async (req) => {
             model: v.vehicle_model || v.model || null,
             vin: v.vin || null,
             truck_type: v.vehicle_type || v.truck_type || null,
-            gvw_class: v.gvw || v.gvw_class || null,
+            gvw_class: normalizeGvw(v.gvw_string || v.gvw || v.gvw_class),
             garage_zip: v.garage_zip || null,
             titled_state: v.titled_state || null,
             ownership_type: v.ownership_type || "owned",
