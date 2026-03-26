@@ -165,9 +165,36 @@ export function generateApplicationPdf({
   fieldRow("Cargo Types", account.cargo_types?.join(", "));
   const commodity = account.commodity_info as any;
   if (commodity && typeof commodity === "object") {
-    Object.entries(commodity).forEach(([key, val]) => {
-      fieldRow(formatLabel(key), typeof val === "object" ? JSON.stringify(val) : String(val ?? ""));
-    });
+    // commodity_info may be an object like { "selected_commodities": [...] } or { "Beverages": "25", ... }
+    const selected = commodity.selected_commodities || commodity.commodities;
+    if (Array.isArray(selected) && selected.length > 0) {
+      // Array of { name, percentage } objects
+      checkPage(10);
+      drawTableHeader(doc, y, ["#", "Commodity", "Percentage"]);
+      y += 6;
+      selected.forEach((item: any, idx: number) => {
+        checkPage(7);
+        drawTableRow(doc, y, [String(idx + 1), item.name || item.type || "—", `${item.percentage ?? item.pct ?? "—"}%`], idx % 2 === 0);
+        y += 5;
+      });
+    } else {
+      // Flat key-value object like { "Beverages": "25", "General Freight": "50" }
+      const entries = Object.entries(commodity).filter(([k]) => k !== "selected_commodities" && k !== "commodities");
+      if (entries.length > 0) {
+        checkPage(10);
+        drawTableHeader(doc, y, ["#", "Commodity", "Percentage"]);
+        y += 6;
+        entries.forEach(([key, val], idx) => {
+          checkPage(7);
+          drawTableRow(doc, y, [String(idx + 1), key, `${val}%`], idx % 2 === 0);
+          y += 5;
+        });
+      } else {
+        fieldRow("Commodities", "None specified");
+      }
+    }
+  } else {
+    fieldRow("Commodities", "None specified");
   }
 
   // ====== 5. FINANCIALS ======
@@ -406,5 +433,6 @@ function drawTableRow(doc: jsPDF, y: number, cols: string[], shaded: boolean) {
 
 function getColWidths(count: number): number[] {
   if (count === 8) return [8, 14, 22, 22, 24, 16, 38, 26];
+  if (count === 3) return [12, 110, 48];
   return Array(count).fill(CONTENT_WIDTH / count);
 }
