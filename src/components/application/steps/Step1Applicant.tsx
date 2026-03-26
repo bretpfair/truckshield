@@ -112,6 +112,18 @@ const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
         </div>
       </div>
 
+      {/* Years in Business & Coverage Expiry */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Years in Business</Label>
+          <Input type="number" value={formData.years_in_business ?? ""} onChange={(e) => updateFormData({ years_in_business: e.target.value ? parseInt(e.target.value) : null })} placeholder="0" min={0} />
+        </div>
+        <div className="space-y-2">
+          <Label>Current Coverage Expiry Date</Label>
+          <Input type="date" value={formData.current_coverage_expiry || ""} onChange={(e) => updateFormData({ current_coverage_expiry: e.target.value })} />
+        </div>
+      </div>
+
       {/* Carrier Authority */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">

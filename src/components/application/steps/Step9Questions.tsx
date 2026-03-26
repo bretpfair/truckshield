@@ -56,6 +56,15 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
                   onChange={(e) => setAnswer(q.id, { ...questions[q.id], date: e.target.value })}
                 />
               )}
+              {(q as any).hasNumber && (
+                <Input
+                  type="number"
+                  className="w-32"
+                  placeholder="0"
+                  value={questions[q.id]?.value || ""}
+                  onChange={(e) => setAnswer(q.id, { ...questions[q.id], value: e.target.value })}
+                />
+              )}
             </div>
           </div>
         ))}
