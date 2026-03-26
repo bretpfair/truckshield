@@ -7,6 +7,7 @@ import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
 import { Truck, LogOut, User, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessagingSidebar from "@/components/messaging/MessagingSidebar";
+import NotificationBell from "@/components/NotificationBell";
 
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
@@ -54,7 +55,7 @@ const AppLayout = () => {
               {showClient ? "Client" : "Staff"}
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {role === "admin" && (
               <Button
                 variant={viewAsClient ? "default" : "outline"}
@@ -66,6 +67,15 @@ const AppLayout = () => {
                 {viewAsClient ? "Back to Staff" : "Preview Client"}
               </Button>
             )}
+            <NotificationBell
+              onNavigateToAccount={(accountId) => {
+                if (role === "admin") {
+                  setViewAsClient(false);
+                  setPreviewAccountId(null);
+                }
+                setMessagingAccountId(accountId);
+              }}
+            />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">{user.email}</span>
