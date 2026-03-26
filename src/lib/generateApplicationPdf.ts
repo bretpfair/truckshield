@@ -433,5 +433,6 @@ function drawTableRow(doc: jsPDF, y: number, cols: string[], shaded: boolean) {
 
 function getColWidths(count: number): number[] {
   if (count === 8) return [8, 14, 22, 22, 24, 16, 38, 26];
+  if (count === 3) return [12, 110, 48];
   return Array(count).fill(CONTENT_WIDTH / count);
 }
