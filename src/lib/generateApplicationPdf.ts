@@ -165,34 +165,38 @@ export function generateApplicationPdf({
   sectionTitle("4. Commodities / Cargo");
   fieldRow("Cargo Types", account.cargo_types?.join(", "));
   const commodity = account.commodity_info as any;
-  if (commodity && typeof commodity === "object") {
-    // commodity_info may be an object like { "selected_commodities": [...] } or { "Beverages": "25", ... }
-    const selected = commodity.selected_commodities || commodity.commodities;
-    if (Array.isArray(selected) && selected.length > 0) {
-      // Array of { name, percentage } objects
+  if (commodity && typeof commodity === "object" && Object.keys(commodity).length > 0) {
+    // Normalize to array of { name, percentage }
+    let items: { name: string; percentage: string | number }[] = [];
+
+    if (Array.isArray(commodity.commodities) && commodity.commodities.length > 0) {
+      // Format: { commodities: [{ commodity: "General Freight", loads_percentage: 80 }] }
+      items = commodity.commodities.map((c: any) => ({
+        name: c.commodity || c.name || c.type || "—",
+        percentage: c.loads_percentage ?? c.percentage ?? c.pct ?? "—",
+      }));
+    } else if (commodity.selected_commodities && typeof commodity.selected_commodities === "object" && !Array.isArray(commodity.selected_commodities)) {
+      // Format: { selected_commodities: { "Beverages": 25, "General Freight": 50 } }
+      items = Object.entries(commodity.selected_commodities).map(([k, v]) => ({ name: k, percentage: v as number }));
+    } else if (Array.isArray(commodity.selected_commodities) && commodity.selected_commodities.length > 0) {
+      // Format: { selected_commodities: [{ name, percentage }] }
+      items = commodity.selected_commodities.map((c: any) => ({
+        name: c.name || c.commodity || "—",
+        percentage: c.percentage ?? c.loads_percentage ?? "—",
+      }));
+    }
+
+    if (items.length > 0) {
       checkPage(10);
       drawTableHeader(doc, y, ["#", "Commodity", "Percentage"]);
       y += 6;
-      selected.forEach((item: any, idx: number) => {
+      items.forEach((item, idx) => {
         checkPage(7);
-        drawTableRow(doc, y, [String(idx + 1), item.name || item.type || "—", `${item.percentage ?? item.pct ?? "—"}%`], idx % 2 === 0);
+        drawTableRow(doc, y, [String(idx + 1), item.name, `${item.percentage}%`], idx % 2 === 0);
         y += 5;
       });
     } else {
-      // Flat key-value object like { "Beverages": "25", "General Freight": "50" }
-      const entries = Object.entries(commodity).filter(([k]) => k !== "selected_commodities" && k !== "commodities");
-      if (entries.length > 0) {
-        checkPage(10);
-        drawTableHeader(doc, y, ["#", "Commodity", "Percentage"]);
-        y += 6;
-        entries.forEach(([key, val], idx) => {
-          checkPage(7);
-          drawTableRow(doc, y, [String(idx + 1), key, `${val}%`], idx % 2 === 0);
-          y += 5;
-        });
-      } else {
-        fieldRow("Commodities", "None specified");
-      }
+      fieldRow("Commodities", "None specified");
     }
   } else {
     fieldRow("Commodities", "None specified");
