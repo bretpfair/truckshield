@@ -13,6 +13,7 @@ import { Plus, X, Truck, Upload, FileText, Pencil, Trash2 } from "lucide-react";
 
 const INITIAL_FORM = {
   name: "",
+  website: "",
   am_best_rating: "",
   preferred_cargo_types: "",
   preferred_states: "",
@@ -36,6 +37,8 @@ const CarrierManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,6 +58,7 @@ const CarrierManager = () => {
 
   const buildPayload = () => ({
     name: form.name,
+    website: form.website || null,
     am_best_rating: form.am_best_rating || null,
     preferred_cargo_types: splitCsv(form.preferred_cargo_types),
     preferred_states: splitCsv(form.preferred_states),
@@ -75,7 +79,18 @@ const CarrierManager = () => {
 
   const saveCarrier = useMutation({
     mutationFn: async () => {
-      const payload = buildPayload();
+      const payload: any = buildPayload();
+
+      // Upload logo if provided
+      if (logoFile) {
+        const logoPath = `logos/${Date.now()}-${logoFile.name}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("carrier-logos")
+          .upload(logoPath, logoFile);
+        if (uploadErr) throw uploadErr;
+        payload.logo_path = logoPath;
+      }
+
       if (editingId) {
         const { error } = await supabase.from("carriers").update(payload).eq("id", editingId);
         if (error) throw error;
@@ -109,12 +124,15 @@ const CarrierManager = () => {
     setEditingId(null);
     setForm(INITIAL_FORM);
     setPdfFile(null);
+    setLogoFile(null);
+    setLogoPreview(null);
   };
 
   const startEdit = (c: any) => {
     setEditingId(c.id);
     setForm({
       name: c.name,
+      website: c.website || "",
       am_best_rating: c.am_best_rating || "",
       preferred_cargo_types: c.preferred_cargo_types?.join(", ") || "",
       preferred_states: c.preferred_states?.join(", ") || "",
@@ -132,6 +150,12 @@ const CarrierManager = () => {
       requires_authority: c.requires_authority || false,
       notes: c.notes || "",
     });
+    if (c.logo_path) {
+      const { data } = supabase.storage.from("carrier-logos").getPublicUrl(c.logo_path);
+      setLogoPreview(data.publicUrl);
+    } else {
+      setLogoPreview(null);
+    }
     setShowForm(true);
   };
 
@@ -232,8 +256,32 @@ const CarrierManager = () => {
                   <Input value={form.name} onChange={(e) => f("name", e.target.value)} placeholder="Progressive Commercial" />
                 </div>
                 <div className="space-y-2">
+                  <Label>Website</Label>
+                  <Input value={form.website} onChange={(e) => f("website", e.target.value)} placeholder="https://www.progressive.com" />
+                </div>
+                <div className="space-y-2">
                   <Label>AM Best Rating</Label>
                   <Input value={form.am_best_rating} onChange={(e) => f("am_best_rating", e.target.value)} placeholder="A+" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Carrier Logo</Label>
+                  <div className="flex items-center gap-3">
+                    {logoPreview && (
+                      <img src={logoPreview} alt="Logo" className="h-10 w-10 rounded object-contain border bg-white" />
+                    )}
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setLogoFile(file);
+                        if (file) {
+                          setLogoPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -330,13 +378,26 @@ const CarrierManager = () => {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <Truck className="h-5 w-5 text-primary mt-0.5" />
+                    {c.logo_path ? (
+                      <img
+                        src={supabase.storage.from("carrier-logos").getPublicUrl(c.logo_path).data.publicUrl}
+                        alt={c.name}
+                        className="h-10 w-10 rounded object-contain border bg-white shrink-0"
+                      />
+                    ) : (
+                      <Truck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{c.name}</p>
                         {c.am_best_rating && <Badge variant="outline" className="text-[10px]">AM Best: {c.am_best_rating}</Badge>}
                         {c.appetite_pdf_path && <FileText className="h-3 w-3 text-muted-foreground" />}
                       </div>
+                      {c.website && (
+                        <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                          {c.website.replace(/^https?:\/\//, "")}
+                        </a>
+                      )}
                       <div className="flex flex-wrap gap-2 mt-1">
                         {c.preferred_cargo_types?.length > 0 && (
                           <span className="text-xs text-muted-foreground font-mono">

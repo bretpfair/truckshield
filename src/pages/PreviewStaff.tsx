@@ -211,11 +211,40 @@ const PreviewStaff = () => {
             </TabsContent>
 
             <TabsContent value="carriers">
-              <Card className="glass-panel">
-                <CardContent className="p-8 text-center text-muted-foreground text-sm">
-                  Carrier Manager is disabled in preview mode.
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Carrier Database</h3>
+                  <Button disabled>
+                    <Plus className="h-4 w-4 mr-2" /> Add Carrier
+                  </Button>
+                </div>
+                {[
+                  { name: "Great West Casualty", website: "greatwestcasualty.com", rating: "A", cargo: "General Freight, Refrigerated", states: "TX, CA, FL, IL, OH", fleet: "1-200" },
+                  { name: "Progressive Commercial", website: "progressivecommercial.com", rating: "A+", cargo: "General Freight, Flatbed", states: "All 48 States", fleet: "1-100" },
+                  { name: "Sentry Insurance", website: "sentry.com", rating: "A+", cargo: "General Freight, Intermodal", states: "Midwest, Southeast", fleet: "5-50" },
+                  { name: "Canal Insurance", website: "canalinsurance.com", rating: "A", cargo: "General Freight, Hazmat", states: "Southeast, Southwest", fleet: "1-75" },
+                ].map((carrier) => (
+                  <Card key={carrier.name} className="glass-panel">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Truck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold">{carrier.name}</p>
+                            <Badge variant="outline" className="text-[10px]">AM Best: {carrier.rating}</Badge>
+                          </div>
+                          <p className="text-xs text-primary">{carrier.website}</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            <span className="text-xs text-muted-foreground font-mono">Cargo: {carrier.cargo}</span>
+                            <span className="text-xs text-muted-foreground font-mono">States: {carrier.states}</span>
+                            <span className="text-xs text-muted-foreground font-mono">Fleet: {carrier.fleet}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="invite">
