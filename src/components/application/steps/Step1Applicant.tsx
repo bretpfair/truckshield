@@ -207,7 +207,21 @@ const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
             <Input type="number" value={formData.total_drivers || ""} onChange={(e) => updateFormData({ total_drivers: e.target.value ? parseInt(e.target.value) : null })} />
           </div>
         </div>
+      {/* Notes - Description of Operations */}
+      <div className="space-y-2">
+        <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Notes — Description of Operations</Label>
+        <Textarea
+          value={(formData.operation_info as any)?.notes || ""}
+          onChange={(e) =>
+            updateFormData({
+              operation_info: { ...(formData.operation_info || {}), notes: e.target.value },
+            })
+          }
+          placeholder="Describe the nature of the applicant's operations..."
+          rows={4}
+        />
       </div>
+    </div>
     </div>
   );
 };
