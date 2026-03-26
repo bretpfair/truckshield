@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,29 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite");
   const { toast } = useToast();
+
+  // If arriving with invite token, default to signup
+  useEffect(() => {
+    if (inviteToken) setIsLogin(false);
+  }, [inviteToken]);
+
+  const acceptInvitation = async () => {
+    if (!inviteToken) return;
+    try {
+      const { data, error } = await supabase.rpc("accept_invitation", { p_token: inviteToken });
+      if (error) throw error;
+      if (data && typeof data === "object" && "error" in (data as any)) {
+        toast({ title: "Invitation issue", description: (data as any).error, variant: "destructive" });
+      } else {
+        toast({ title: "Welcome!", description: "Your account has been linked." });
+      }
+    } catch (err: any) {
+      console.error("Invite acceptance error:", err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,21 +47,28 @@ const Auth = () => {
       if (error) {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });
       } else {
+        if (inviteToken) await acceptInvitation();
         navigate("/");
       }
     } else {
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { full_name: fullName },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: window.location.origin + (inviteToken ? `/auth?invite=${inviteToken}` : ""),
         },
       });
       if (error) {
         toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Account created", description: "Check your email to verify your account." });
+        // If auto-confirmed (session exists), accept invite immediately
+        if (signUpData.session && inviteToken) {
+          await acceptInvitation();
+          navigate("/");
+        } else {
+          toast({ title: "Account created", description: "Check your email to verify your account." });
+        }
       }
     }
     setLoading(false);
