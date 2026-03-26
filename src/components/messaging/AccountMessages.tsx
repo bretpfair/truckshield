@@ -26,7 +26,7 @@ interface Message {
   created_at: string;
 }
 
-const AccountMessages = ({ accountId, isStaff }: Props) => {
+const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -120,6 +120,107 @@ const AccountMessages = ({ accountId, isStaff }: Props) => {
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   };
 
+  const messagesContent = (
+    <>
+      {/* Messages list */}
+      <div
+        ref={scrollRef}
+        className={`${embedded ? "flex-1" : "h-[300px]"} overflow-y-auto space-y-3 p-3 rounded-lg bg-secondary/30 border border-border`}
+      >
+        {!messages || messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <MessageSquare className="h-8 w-8 opacity-40 mb-2" />
+            <p className="text-sm">No messages yet. Start the conversation!</p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isMine = msg.sender_id === user?.id;
+            return (
+              <div
+                key={msg.id}
+                className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                    isMine
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card border border-border text-foreground"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className={`text-[10px] font-mono ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      {msg.is_staff ? "Staff" : "Client"} · {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                  {msg.attachment_path && (
+                    <button
+                      onClick={() => getDownloadUrl(msg.attachment_path!)}
+                      className={`flex items-center gap-1.5 mt-1.5 text-xs underline ${
+                        isMine ? "text-primary-foreground/80" : "text-primary"
+                      }`}
+                    >
+                      <FileText className="h-3 w-3" />
+                      {msg.attachment_name || "Download"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* File preview */}
+      {file && (
+        <div className="flex items-center gap-2 p-2 rounded bg-secondary/50 border border-border text-sm">
+          <FileText className="h-4 w-4 text-primary shrink-0" />
+          <span className="truncate flex-1">{file.name}</span>
+          <button onClick={() => setFile(null)} className="text-muted-foreground hover:text-foreground">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Paperclip className="h-4 w-4" />
+        </Button>
+        <Input
+          placeholder="Type a message..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+          className="flex-1"
+        />
+        <Button
+          size="icon"
+          onClick={sendMessage}
+          disabled={sending || (!message.trim() && !file)}
+        >
+          <Send className="h-4 w-4" />
+        </Button>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="flex flex-col h-full space-y-3">{messagesContent}</div>;
+  }
+
   return (
     <Card className="glass-panel">
       <CardHeader className="pb-3">
@@ -128,98 +229,7 @@ const AccountMessages = ({ accountId, isStaff }: Props) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Messages list */}
-        <div
-          ref={scrollRef}
-          className="h-[300px] overflow-y-auto space-y-3 p-3 rounded-lg bg-secondary/30 border border-border"
-        >
-          {!messages || messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <MessageSquare className="h-8 w-8 opacity-40 mb-2" />
-              <p className="text-sm">No messages yet. Start the conversation!</p>
-            </div>
-          ) : (
-            messages.map((msg) => {
-              const isMine = msg.sender_id === user?.id;
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                      isMine
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card border border-border text-foreground"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className={`text-[10px] font-mono ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                        {msg.is_staff ? "Staff" : "Client"} · {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
-                    {msg.attachment_path && (
-                      <button
-                        onClick={() => getDownloadUrl(msg.attachment_path!)}
-                        className={`flex items-center gap-1.5 mt-1.5 text-xs underline ${
-                          isMine ? "text-primary-foreground/80" : "text-primary"
-                        }`}
-                      >
-                        <FileText className="h-3 w-3" />
-                        {msg.attachment_name || "Download"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* File preview */}
-        {file && (
-          <div className="flex items-center gap-2 p-2 rounded bg-secondary/50 border border-border text-sm">
-            <FileText className="h-4 w-4 text-primary shrink-0" />
-            <span className="truncate flex-1">{file.name}</span>
-            <button onClick={() => setFile(null)} className="text-muted-foreground hover:text-foreground">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Input */}
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <Input
-            placeholder="Type a message..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            className="flex-1"
-          />
-          <Button
-            size="icon"
-            onClick={sendMessage}
-            disabled={sending || (!message.trim() && !file)}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
+        {messagesContent}
       </CardContent>
     </Card>
   );
