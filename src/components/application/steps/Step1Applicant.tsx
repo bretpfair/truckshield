@@ -53,6 +53,25 @@ const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
         </div>
       </div>
 
+      {/* Contact Information */}
+      <div>
+        <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Contact Information</Label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+          <div className="space-y-2">
+            <Label>Contact Name</Label>
+            <Input value={formData.business_owner_name || ""} onChange={(e) => updateFormData({ business_owner_name: e.target.value })} placeholder="Full name" />
+          </div>
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input type="email" value={formData.contact_email || ""} onChange={(e) => updateFormData({ contact_email: e.target.value })} placeholder="email@example.com" />
+          </div>
+          <div className="space-y-2">
+            <Label>Phone</Label>
+            <Input type="tel" value={formData.contact_phone || ""} onChange={(e) => updateFormData({ contact_phone: e.target.value })} placeholder="(555) 555-5555" />
+          </div>
+        </div>
+      </div>
+
       {/* Mailing Address */}
       <div>
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Mailing Address</Label>
