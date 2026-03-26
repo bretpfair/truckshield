@@ -1,8 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Zap, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { Zap, CheckCircle2, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -65,7 +65,49 @@ const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, loss
   const [matches, setMatches] = useState<CarrierMatch[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(true);
   const { toast } = useToast();
+
+  // Load saved results on mount
+  useEffect(() => {
+    const loadSaved = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("market_guidance_results")
+          .select("*")
+          .eq("account_id", account.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Failed to load saved market guidance:", error);
+          setLoadingSaved(false);
+          return;
+        }
+
+        if (data) {
+          const savedEvals: AIEvaluation[] = (data.results as any) || [];
+          const carrierMap = new Map(carriers.map((c) => [c.id, c]));
+          const results: CarrierMatch[] = savedEvals
+            .filter((e) => carrierMap.has(e.carrier_id))
+            .map((e) => ({ ...e, carrier: carrierMap.get(e.carrier_id)! }))
+            .sort((a, b) => b.score - a.score);
+
+          setMatches(results);
+          setLastChecked(new Date(data.checked_at));
+        }
+      } catch (err) {
+        console.error("Error loading saved guidance:", err);
+      } finally {
+        setLoadingSaved(false);
+      }
+    };
+
+    if (account?.id && carriers.length > 0) {
+      loadSaved();
+    } else {
+      setLoadingSaved(false);
+    }
+  }, [account?.id, carriers]);
 
   const runCheck = useCallback(async () => {
     setLoading(true);
@@ -94,7 +136,24 @@ const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, loss
         .sort((a, b) => b.score - a.score);
 
       setMatches(results);
-      setLastChecked(new Date());
+      const now = new Date();
+      setLastChecked(now);
+
+      // Save/replace results in database (upsert on account_id unique index)
+      const { error: saveError } = await supabase
+        .from("market_guidance_results")
+        .upsert(
+          {
+            account_id: account.id,
+            results: evaluations as any,
+            checked_at: now.toISOString(),
+          },
+          { onConflict: "account_id" }
+        );
+
+      if (saveError) {
+        console.error("Failed to save market guidance results:", saveError);
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to evaluate markets", variant: "destructive" });
     } finally {
@@ -104,6 +163,17 @@ const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, loss
 
   const strongCount = matches?.filter((m) => m.tier === "strong").length ?? 0;
   const partialCount = matches?.filter((m) => m.tier === "partial").length ?? 0;
+
+  if (loadingSaved) {
+    return (
+      <Card className="glass-panel">
+        <CardContent className="py-6 text-center text-muted-foreground">
+          <Loader2 className="h-5 w-5 mx-auto animate-spin mb-2" />
+          <p className="text-sm">Loading market guidance…</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="glass-panel">
@@ -117,7 +187,7 @@ const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, loss
               <p className="text-xs text-muted-foreground mt-1">
                 {strongCount} strong match{strongCount !== 1 ? "es" : ""}, {partialCount} partial
                 {lastChecked && (
-                  <span className="ml-2 opacity-60">• checked {lastChecked.toLocaleTimeString()}</span>
+                  <span className="ml-2 opacity-60">• checked {lastChecked.toLocaleString()}</span>
                 )}
               </p>
             ) : (
