@@ -177,7 +177,7 @@ function evaluateCarrier(account: any, carrier: CarrierRow): CarrierMatch {
     : score >= 40 ? "partial"
     : "poor";
 
-  return { carrier, score, tier, criteria, passCount, failCount, warnCount };
+  return { carrier, score, tier, criteria, passCount, failCount, warnCount, naCount };
 }
 
 const tierColors = {
@@ -316,6 +316,7 @@ const MarketGuidance = ({ account, carriers, onGenerateQuote, existingQuoteCarri
                   <span className="text-success">{m.passCount} pass</span>
                   <span className="text-warning">{m.warnCount} warn</span>
                   <span className="text-destructive">{m.failCount} fail</span>
+                  <span className="text-muted-foreground">{m.naCount} unknown</span>
                 </div>
               </div>
             ))}
