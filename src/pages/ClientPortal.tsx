@@ -33,7 +33,11 @@ const quoteStatusConfig: Record<string, { label: string; color: string }> = {
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/20" },
 };
 
-const ClientPortal = () => {
+interface ClientPortalProps {
+  onSetMessagingAccount?: (accountId: string) => void;
+}
+
+const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
   const { user } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
 
