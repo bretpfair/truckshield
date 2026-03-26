@@ -13,6 +13,7 @@ import { Plus, X, Truck, Upload, FileText, Pencil, Trash2 } from "lucide-react";
 
 const INITIAL_FORM = {
   name: "",
+  website: "",
   am_best_rating: "",
   preferred_cargo_types: "",
   preferred_states: "",
@@ -36,6 +37,8 @@ const CarrierManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,6 +58,7 @@ const CarrierManager = () => {
 
   const buildPayload = () => ({
     name: form.name,
+    website: form.website || null,
     am_best_rating: form.am_best_rating || null,
     preferred_cargo_types: splitCsv(form.preferred_cargo_types),
     preferred_states: splitCsv(form.preferred_states),
