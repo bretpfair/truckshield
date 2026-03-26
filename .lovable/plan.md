@@ -1,104 +1,52 @@
 
 
-## Recommended Enhancements for a Seamless CRM Portal
+## Automated Client Portal Invite Email
 
-Based on a thorough review of the current codebase, here are the highest-impact improvements organized by priority.
+### Current State
+- Account creation exists in `StaffDashboard.tsx` — inserts a row into `accounts` with just `company_name` and `created_by`
+- `InviteClientDialog` creates a `client_invitations` row with a token and generates a portal link, but no email is sent — the link is just copied to clipboard
+- The existing `send-notification-email` edge function creates in-app notifications but does not actually send emails
+- **No email domain is configured** — email infrastructure needs to be set up first
 
----
+### What Needs to Happen
 
-### Priority 1 — Core CRM Gaps
+#### Step 1: Set up email domain
+You'll need to configure a sender domain so emails can actually be sent from your app. This is the domain your clients will see in their inbox (e.g., `notify@360riskpartners.com`).
 
-**A. Activity Log & Internal Notes per Account**
-- Create an `activity_log` table (`account_id`, `user_id`, `action_type`, `description`, `created_at`)
-- Auto-log key events: status changes, quote updates, messages sent, documents uploaded
-- Add a staff-only "Notes & Activity" timeline in AccountDetail showing chronological history
-- Staff can add freeform internal notes (not visible to clients)
+#### Step 2: Set up email infrastructure
+Backend queue and processing pipeline for reliable email delivery with retries.
 
-**B. Task / Follow-Up Reminders**
-- Create a `tasks` table (`account_id`, `assigned_to`, `title`, `due_date`, `status`, `priority`)
-- Add a "Tasks" section in AccountDetail for staff to create follow-ups (e.g., "Call client re: loss runs", "Follow up with carrier X")
-- Show overdue/upcoming tasks on the dashboard with a count badge
-- Filter pipeline cards to highlight accounts with overdue tasks
+#### Step 3: Create the invite email template
+A branded React Email template matching your provided copy:
+- Greeting with first name
+- Portal benefits list (underwriting details, documents, submission progress, quote tracking)
+- Portal link button
+- Contact info (916-672-2440)
+- 360 Risk Partners branding and website link
 
-**C. Centralized Document Hub per Account**
-- Currently documents only exist as message attachments — no organized view
-- Create a "Documents" tab in AccountDetail showing all uploaded files: cab cards, loss runs, message attachments, quote documents
-- Allow staff to upload documents directly (not just via messaging)
-- Categorize documents: Applications, Loss Runs, Cab Cards, Quotes, Misc
-- Mirror a read-only version on the client portal so clients see their uploaded docs
+#### Step 4: Register template and deploy
 
----
+#### Step 5: Wire up automatic sending
+When `InviteClientDialog.sendInvite` successfully creates an invitation, automatically call the email function with:
+- `templateName: 'client-portal-invite'`
+- `recipientEmail`: the invited client's email
+- `templateData`: `{ firstName, portalLink }` (derived from the invitation token)
+- `idempotencyKey`: `portal-invite-${invitation.id}`
 
-### Priority 2 — Automation & Notifications
+### Technical Details
 
-**D. Notification System**
-- Create a `notifications` table (`user_id`, `account_id`, `type`, `message`, `read`, `created_at`)
-- Trigger notifications on: new message received, carrier status changed to `info_requested`, new quote available, task due
-- Add a bell icon in the header with unread count badge
-- Notification dropdown showing recent items with click-to-navigate
+**Template location**: `supabase/functions/_shared/transactional-email-templates/client-portal-invite.tsx`
 
-**E. Automated Status Progression**
-- Auto-update account status from `pending_info` to `info_complete` when application reaches step 10 (review)
-- Auto-update to `quoting` when first quote is marked `submitted`
-- Auto-update to `quoted` when first quote is marked `quoted`
-- Keeps pipeline accurate without staff manually updating account statuses
+**Trigger point**: Inside `InviteClientDialog.tsx` `sendInvite.onSuccess`, after the invitation row is created, call `supabase.functions.invoke('send-transactional-email', ...)` with the invite URL and recipient email.
 
-**F. Email Notifications via Backend Function**
-- Send email when: client has a new message from agency, carrier requests additional info, a quote is ready
-- Use a backend function triggered by database webhooks
-- Keeps clients engaged without needing to constantly check the portal
+**Template data flow**: The invitation record already contains the `token` and `email`. The portal link is constructed as `${window.location.origin}/auth?invite=${token}`. The first name can be extracted from the email or passed as a field (may need to add a name input to the invite form).
 
----
+**Unsubscribe page**: A branded `/unsubscribe` page will be created as required by the email infrastructure.
 
-### Priority 3 — UX & Efficiency
+### First Step Required
+Before any of this can be built, we need to set up your sender email domain. Let's start there.
 
-**G. Proper Client Invitation Flow**
-- Currently just shows a URL — no actual invite mechanism
-- Add email invite: staff enters client email + selects account → sends branded invite email with signup link
-- On signup, auto-link the client to their account using an invite token
-- Eliminates manual `client_user_id` assignment
-
-**H. Advanced Pipeline Interactions**
-- Drag-and-drop cards between pipeline columns to change account status
-- Show a message count badge on pipeline cards for accounts with unread messages
-- Add hover preview showing key account details without clicking in
-- Mobile-responsive: stack pipeline columns vertically on small screens
-
-**I. Dashboard Analytics**
-- Conversion funnel: Lead → Pending → Complete → Quoting → Quoted → Bound with percentages
-- Aging report: accounts stuck in a status for too long (highlighted in red)
-- Revenue summary: total bound premiums, average premium, win rate
-- Time-period filtering (this week, month, quarter)
-
-**J. Quote Comparison for Clients**
-- Side-by-side comparison view when multiple quotes are available
-- Show coverage details, premiums, and carrier ratings
-- "Select Quote" button for clients to indicate their preferred option
-
----
-
-### Priority 4 — Polish
-
-**K. Renewal Tracking**
-- Flag accounts approaching `current_coverage_expiry` (30/60/90 day warnings)
-- Dashboard widget showing upcoming renewals
-- Auto-create a new "lead" for renewal when expiry is within 90 days
-
-**L. Search & Filtering Improvements**
-- Filter accounts by status, date range, assigned carrier, premium range
-- Sort by created date, company name, expiry date
-- Saved filter presets for common views ("My overdue tasks", "Quotes ready")
-
----
-
-### Suggested Implementation Order
-
-| Phase | Items | Effort |
-|-------|-------|--------|
-| Phase 1 | Activity Log (A), Automated Status (E), Client Invite (G) | Medium |
-| Phase 2 | Document Hub (C), Notifications (D), Pipeline UX (H) | Medium-High |
-| Phase 3 | Tasks (B), Email Notifications (F), Dashboard Analytics (I) | High |
-| Phase 4 | Quote Comparison (J), Renewals (K), Search/Filter (L) | Medium |
-
-Each phase builds on the previous one. Phase 1 fills the most critical operational gaps. Phase 2 adds the engagement layer. Phase 3 brings proactive workflow management. Phase 4 is competitive polish.
+<lov-actions>
+<lov-open-email-setup>Set up email domain</lov-open-email-setup>
+</lov-actions>
 
