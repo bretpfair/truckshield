@@ -2,14 +2,16 @@ import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Zap, CheckCircle2, XCircle, AlertTriangle, Info, RefreshCw } from "lucide-react";
-import type { Json } from "@/integrations/supabase/types";
+import { Zap, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface CarrierRow {
   id: string;
   name: string;
   am_best_rating: string | null;
+  notes: string | null;
+  appetite_guide: any;
   preferred_cargo_types: string[] | null;
   preferred_states: string[] | null;
   excluded_cargo_types: string[] | null;
@@ -24,161 +26,20 @@ interface CarrierRow {
   accepted_business_types: string[] | null;
   max_radius_pct_over500: number | null;
   requires_authority: boolean | null;
-  notes: string | null;
   is_active: boolean;
 }
 
-interface CriterionResult {
-  name: string;
-  status: "pass" | "fail" | "warn" | "na";
-  detail: string;
-}
-
-interface CarrierMatch {
-  carrier: CarrierRow;
+interface AIEvaluation {
+  carrier_id: string;
   score: number;
   tier: "strong" | "partial" | "poor";
-  criteria: CriterionResult[];
-  passCount: number;
-  failCount: number;
-  warnCount: number;
-  naCount: number;
+  summary: string;
+  strengths: string[];
+  concerns: string[];
 }
 
-function evaluateCarrier(account: any, carrier: CarrierRow): CarrierMatch {
-  const criteria: CriterionResult[] = [];
-
-  // 1. Cargo types
-  if (carrier.preferred_cargo_types?.length && account.cargo_types?.length) {
-    const overlap = account.cargo_types.filter((c: string) =>
-      carrier.preferred_cargo_types!.some((p) => p.toLowerCase() === c.toLowerCase())
-    );
-    if (overlap.length === account.cargo_types.length) {
-      criteria.push({ name: "Cargo Types", status: "pass", detail: `All ${overlap.length} cargo types match` });
-    } else if (overlap.length > 0) {
-      criteria.push({ name: "Cargo Types", status: "warn", detail: `${overlap.length}/${account.cargo_types.length} types match` });
-    } else {
-      criteria.push({ name: "Cargo Types", status: "fail", detail: "No cargo type overlap" });
-    }
-  } else {
-    criteria.push({ name: "Cargo Types", status: "na", detail: "Not enough data" });
-  }
-
-  // 2. Excluded cargo
-  if (carrier.excluded_cargo_types?.length && account.cargo_types?.length) {
-    const excluded = account.cargo_types.filter((c: string) =>
-      carrier.excluded_cargo_types!.some((e) => e.toLowerCase() === c.toLowerCase())
-    );
-    if (excluded.length > 0) {
-      criteria.push({ name: "Excluded Cargo", status: "fail", detail: `Carrier excludes: ${excluded.join(", ")}` });
-    } else {
-      criteria.push({ name: "Excluded Cargo", status: "pass", detail: "No excluded cargo" });
-    }
-  }
-
-  // 3. Operating states
-  if (carrier.preferred_states?.length && account.operating_states?.length) {
-    const overlap = account.operating_states.filter((s: string) =>
-      carrier.preferred_states!.some((p) => p.toLowerCase() === s.toLowerCase())
-    );
-    if (overlap.length === account.operating_states.length) {
-      criteria.push({ name: "Operating States", status: "pass", detail: `All ${overlap.length} states covered` });
-    } else if (overlap.length > 0) {
-      criteria.push({ name: "Operating States", status: "warn", detail: `${overlap.length}/${account.operating_states.length} states covered` });
-    } else {
-      criteria.push({ name: "Operating States", status: "fail", detail: "No state coverage overlap" });
-    }
-  } else {
-    criteria.push({ name: "Operating States", status: "na", detail: "Not enough data" });
-  }
-
-  // 4. Excluded states
-  if (carrier.excluded_states?.length && account.operating_states?.length) {
-    const excluded = account.operating_states.filter((s: string) =>
-      carrier.excluded_states!.some((e) => e.toLowerCase() === s.toLowerCase())
-    );
-    if (excluded.length > 0) {
-      criteria.push({ name: "Excluded States", status: "fail", detail: `Carrier excludes: ${excluded.join(", ")}` });
-    }
-  }
-
-  // 5. Fleet size
-  if (account.fleet_size != null) {
-    const min = carrier.min_fleet_size ?? 1;
-    const max = carrier.max_fleet_size ?? 9999;
-    if (account.fleet_size >= min && account.fleet_size <= max) {
-      criteria.push({ name: "Fleet Size", status: "pass", detail: `${account.fleet_size} units (range: ${min}-${max})` });
-    } else {
-      criteria.push({ name: "Fleet Size", status: "fail", detail: `${account.fleet_size} units outside ${min}-${max} range` });
-    }
-  } else {
-    criteria.push({ name: "Fleet Size", status: "na", detail: "Fleet size unknown" });
-  }
-
-  // 6. Claims history
-  if (account.number_of_claims != null) {
-    const maxClaims = carrier.max_claims_tolerance ?? 5;
-    if (account.number_of_claims <= maxClaims) {
-      criteria.push({ name: "Claims History", status: "pass", detail: `${account.number_of_claims} claims (max: ${maxClaims})` });
-    } else {
-      criteria.push({ name: "Claims History", status: "fail", detail: `${account.number_of_claims} claims exceeds ${maxClaims} limit` });
-    }
-  } else {
-    criteria.push({ name: "Claims History", status: "na", detail: "Claims data missing" });
-  }
-
-  // 7. Years in business
-  if (account.years_in_business != null && carrier.min_years_in_business) {
-    if (account.years_in_business >= carrier.min_years_in_business) {
-      criteria.push({ name: "Years in Business", status: "pass", detail: `${account.years_in_business} years (min: ${carrier.min_years_in_business})` });
-    } else {
-      criteria.push({ name: "Years in Business", status: "fail", detail: `${account.years_in_business} years below ${carrier.min_years_in_business} min` });
-    }
-  }
-
-  // 8. Authority age
-  if (account.date_of_authority && carrier.min_authority_age_months) {
-    const authDate = new Date(account.date_of_authority);
-    const monthsAge = Math.floor((Date.now() - authDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
-    if (monthsAge >= carrier.min_authority_age_months) {
-      criteria.push({ name: "Authority Age", status: "pass", detail: `${monthsAge} months (min: ${carrier.min_authority_age_months})` });
-    } else {
-      criteria.push({ name: "Authority Age", status: "fail", detail: `${monthsAge} months below ${carrier.min_authority_age_months} min` });
-    }
-  }
-
-  // 9. Annual revenue
-  if (account.annual_revenue != null || account.total_annual_revenue != null) {
-    const rev = Number(account.annual_revenue || account.total_annual_revenue || 0);
-    const minRev = Number(carrier.min_annual_revenue ?? 0);
-    const maxRev = Number(carrier.max_annual_revenue ?? 999999999);
-    if (rev >= minRev && rev <= maxRev) {
-      criteria.push({ name: "Annual Revenue", status: "pass", detail: `$${rev.toLocaleString()} (range: $${minRev.toLocaleString()}-$${maxRev.toLocaleString()})` });
-    } else {
-      criteria.push({ name: "Annual Revenue", status: "fail", detail: `$${rev.toLocaleString()} outside $${minRev.toLocaleString()}-$${maxRev.toLocaleString()} range` });
-    }
-  }
-
-  // 10. Authority requirement
-  if (carrier.requires_authority && !account.carrier_authority_number && !account.dot_number) {
-    criteria.push({ name: "Authority Required", status: "fail", detail: "No authority on file" });
-  }
-
-  // Calculate score — include "na" criteria in the denominator so missing data lowers confidence
-  const passCount = criteria.filter((c) => c.status === "pass").length;
-  const warnCount = criteria.filter((c) => c.status === "warn").length;
-  const failCount = criteria.filter((c) => c.status === "fail").length;
-  const naCount = criteria.filter((c) => c.status === "na").length;
-  const total = criteria.length || 1;
-  // na items count as 0.25 credit (unknown = slight penalty), warn = 0.5
-  const score = Math.round(((passCount + warnCount * 0.5 + naCount * 0.25) / total) * 100);
-
-  const tier = failCount > 0 && score < 70 ? (score >= 40 ? "partial" : "poor")
-    : score >= 70 ? "strong"
-    : score >= 40 ? "partial"
-    : "poor";
-
-  return { carrier, score, tier, criteria, passCount, failCount, warnCount, naCount };
+interface CarrierMatch extends AIEvaluation {
+  carrier: CarrierRow;
 }
 
 const tierColors = {
@@ -189,31 +50,57 @@ const tierColors = {
 
 const tierLabels = { strong: "Strong Match", partial: "Partial Match", poor: "Poor Match" };
 
-const statusIcon = {
-  pass: <CheckCircle2 className="h-3.5 w-3.5 text-success" />,
-  fail: <XCircle className="h-3.5 w-3.5 text-destructive" />,
-  warn: <AlertTriangle className="h-3.5 w-3.5 text-warning" />,
-  na: <Info className="h-3.5 w-3.5 text-muted-foreground" />,
-};
-
 interface Props {
   account: any;
   carriers: CarrierRow[];
+  drivers: any[];
+  powerUnits: any[];
+  trailers: any[];
+  lossHistory: any[];
   onGenerateQuote: (carrierId: string, score: number) => void;
   existingQuoteCarrierIds: string[];
 }
 
-const MarketGuidance = ({ account, carriers, onGenerateQuote, existingQuoteCarrierIds }: Props) => {
+const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, lossHistory, onGenerateQuote, existingQuoteCarrierIds }: Props) => {
   const [matches, setMatches] = useState<CarrierMatch[] | null>(null);
+  const [loading, setLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const { toast } = useToast();
 
-  const runCheck = useCallback(() => {
-    const results = carriers
-      .map((c) => evaluateCarrier(account, c))
-      .sort((a, b) => b.score - a.score);
-    setMatches(results);
-    setLastChecked(new Date());
-  }, [account, carriers]);
+  const runCheck = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-market-guidance", {
+        body: { account, carriers, drivers, powerUnits, trailers, lossHistory },
+      });
+
+      if (error) {
+        const status = (error as any)?.status;
+        if (status === 429) {
+          toast({ title: "Rate limited", description: "Please wait a moment and try again.", variant: "destructive" });
+        } else if (status === 402) {
+          toast({ title: "Credits exhausted", description: "Add funds in Settings > Workspace > Usage.", variant: "destructive" });
+        } else {
+          toast({ title: "Evaluation failed", description: error.message || "Unknown error", variant: "destructive" });
+        }
+        return;
+      }
+
+      const evaluations: AIEvaluation[] = data?.evaluations || [];
+      const carrierMap = new Map(carriers.map((c) => [c.id, c]));
+      const results: CarrierMatch[] = evaluations
+        .filter((e) => carrierMap.has(e.carrier_id))
+        .map((e) => ({ ...e, carrier: carrierMap.get(e.carrier_id)! }))
+        .sort((a, b) => b.score - a.score);
+
+      setMatches(results);
+      setLastChecked(new Date());
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to evaluate markets", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [account, carriers, drivers, powerUnits, trailers, lossHistory, toast]);
 
   const strongCount = matches?.filter((m) => m.tier === "strong").length ?? 0;
   const partialCount = matches?.filter((m) => m.tier === "partial").length ?? 0;
@@ -224,7 +111,7 @@ const MarketGuidance = ({ account, carriers, onGenerateQuote, existingQuoteCarri
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" /> Market Guidance
+              <Zap className="h-4 w-4 text-primary" /> AI Market Guidance
             </CardTitle>
             {matches ? (
               <p className="text-xs text-muted-foreground mt-1">
@@ -235,26 +122,32 @@ const MarketGuidance = ({ account, carriers, onGenerateQuote, existingQuoteCarri
               </p>
             ) : (
               <p className="text-xs text-muted-foreground mt-1">
-                Run a check to evaluate carriers against this account's data.
+                AI evaluates carriers against the full account data including drivers, equipment, and loss history.
               </p>
             )}
           </div>
-          <Button size="sm" onClick={runCheck} className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            {matches ? "Re-check Markets" : "Check Markets"}
+          <Button size="sm" onClick={runCheck} disabled={loading} className="gap-1.5">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {loading ? "Evaluating..." : matches ? "Re-check Markets" : "Check Markets"}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {!matches ? (
+        {loading && !matches ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
+            <p className="text-sm">AI is analyzing carrier appetite matches…</p>
+            <p className="text-xs opacity-60 mt-1">This may take a few seconds.</p>
+          </div>
+        ) : !matches ? (
           <div className="text-center py-8 text-muted-foreground">
             <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Click <strong>Check Markets</strong> to evaluate carrier appetite matches.</p>
+            <p className="text-sm">Click <strong>Check Markets</strong> to run an AI-powered carrier evaluation.</p>
           </div>
         ) : (
-          <TooltipProvider>
+          <>
             {matches.map((m) => (
-              <div key={m.carrier.id} className="rounded-lg border bg-card p-4 space-y-3">
+              <div key={m.carrier_id} className="rounded-lg border bg-card p-4 space-y-3">
                 {/* Header row */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -290,41 +183,40 @@ const MarketGuidance = ({ account, carriers, onGenerateQuote, existingQuoteCarri
                   )}
                 </div>
 
-                {/* Criteria breakdown */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
-                  {m.criteria.map((c) => (
-                    <Tooltip key={c.name}>
-                      <TooltipTrigger asChild>
-                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-default ${
-                          c.status === "pass" ? "bg-success/5" :
-                          c.status === "fail" ? "bg-destructive/5" :
-                          c.status === "warn" ? "bg-warning/5" :
-                          "bg-muted/30"
-                        }`}>
-                          {statusIcon[c.status]}
-                          <span className="truncate">{c.name}</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">
-                        <p className="text-xs">{c.detail}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
+                {/* AI Summary */}
+                <p className="text-sm text-muted-foreground leading-relaxed">{m.summary}</p>
 
-                {/* Summary */}
-                <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground">
-                  <span className="text-success">{m.passCount} pass</span>
-                  <span className="text-warning">{m.warnCount} warn</span>
-                  <span className="text-destructive">{m.failCount} fail</span>
-                  <span className="text-muted-foreground">{m.naCount} unknown</span>
+                {/* Strengths & Concerns */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {m.strengths.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-mono text-success uppercase tracking-wider">Strengths</p>
+                      {m.strengths.map((s, i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-xs">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success mt-0.5 shrink-0" />
+                          <span>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {m.concerns.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-mono text-destructive uppercase tracking-wider">Concerns</p>
+                      {m.concerns.map((c, i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-xs">
+                          <AlertTriangle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
+                          <span>{c}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
             {matches.length === 0 && (
-              <p className="text-muted-foreground text-sm text-center py-4">No carriers in the system yet.</p>
+              <p className="text-muted-foreground text-sm text-center py-4">No carriers evaluated.</p>
             )}
-          </TooltipProvider>
+          </>
         )}
       </CardContent>
     </Card>
