@@ -166,48 +166,78 @@ export type Database = {
       }
       carriers: {
         Row: {
+          accepted_business_types: string[] | null
           am_best_rating: string | null
           appetite_guide: Json | null
+          appetite_pdf_path: string | null
           created_at: string
+          excluded_cargo_types: string[] | null
+          excluded_states: string[] | null
           id: string
           is_active: boolean
+          max_annual_revenue: number | null
           max_claims_tolerance: number | null
           max_fleet_size: number | null
+          max_radius_pct_over500: number | null
+          min_annual_revenue: number | null
+          min_authority_age_months: number | null
           min_fleet_size: number | null
+          min_years_in_business: number | null
           name: string
           notes: string | null
           preferred_cargo_types: string[] | null
           preferred_states: string[] | null
+          requires_authority: boolean | null
           updated_at: string
         }
         Insert: {
+          accepted_business_types?: string[] | null
           am_best_rating?: string | null
           appetite_guide?: Json | null
+          appetite_pdf_path?: string | null
           created_at?: string
+          excluded_cargo_types?: string[] | null
+          excluded_states?: string[] | null
           id?: string
           is_active?: boolean
+          max_annual_revenue?: number | null
           max_claims_tolerance?: number | null
           max_fleet_size?: number | null
+          max_radius_pct_over500?: number | null
+          min_annual_revenue?: number | null
+          min_authority_age_months?: number | null
           min_fleet_size?: number | null
+          min_years_in_business?: number | null
           name: string
           notes?: string | null
           preferred_cargo_types?: string[] | null
           preferred_states?: string[] | null
+          requires_authority?: boolean | null
           updated_at?: string
         }
         Update: {
+          accepted_business_types?: string[] | null
           am_best_rating?: string | null
           appetite_guide?: Json | null
+          appetite_pdf_path?: string | null
           created_at?: string
+          excluded_cargo_types?: string[] | null
+          excluded_states?: string[] | null
           id?: string
           is_active?: boolean
+          max_annual_revenue?: number | null
           max_claims_tolerance?: number | null
           max_fleet_size?: number | null
+          max_radius_pct_over500?: number | null
+          min_annual_revenue?: number | null
+          min_authority_age_months?: number | null
           min_fleet_size?: number | null
+          min_years_in_business?: number | null
           name?: string
           notes?: string | null
           preferred_cargo_types?: string[] | null
           preferred_states?: string[] | null
+          requires_authority?: boolean | null
           updated_at?: string
         }
         Relationships: []
