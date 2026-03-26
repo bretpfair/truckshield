@@ -379,7 +379,7 @@ Deno.serve(async (req) => {
             model: v.vehicle_model || v.model || null,
             vin: v.vin || null,
             truck_type: v.vehicle_type || v.truck_type || null,
-            gvw_class: v.gvw || v.gvw_class || null,
+            gvw_class: normalizeGvw(v.gvw_string || v.gvw || v.gvw_class),
             garage_zip: v.garage_zip || null,
             titled_state: v.titled_state || null,
             ownership_type: v.ownership_type || "owned",
