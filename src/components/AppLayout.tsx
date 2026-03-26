@@ -3,12 +3,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import StaffDashboard from "@/pages/StaffDashboard";
 import ClientPortal from "@/pages/ClientPortal";
+import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
 import { Truck, LogOut, User, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
   const [viewAsClient, setViewAsClient] = useState(false);
+  const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -24,6 +26,16 @@ const AppLayout = () => {
   if (!user) return <Navigate to="/auth" replace />;
 
   const showClient = role !== "admin" || viewAsClient;
+
+  const handlePreviewClient = (accountId?: string) => {
+    setPreviewAccountId(accountId || null);
+    setViewAsClient(true);
+  };
+
+  const handleBackToStaff = () => {
+    setViewAsClient(false);
+    setPreviewAccountId(null);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -41,7 +53,7 @@ const AppLayout = () => {
               <Button
                 variant={viewAsClient ? "default" : "outline"}
                 size="sm"
-                onClick={() => setViewAsClient(!viewAsClient)}
+                onClick={() => viewAsClient ? handleBackToStaff() : handlePreviewClient()}
                 className="gap-1.5 text-xs"
               >
                 <Eye className="h-3 w-3" />
@@ -59,7 +71,15 @@ const AppLayout = () => {
         </div>
       </header>
       <main className="container px-4 py-6">
-        {showClient ? <ClientPortal /> : <StaffDashboard />}
+        {showClient ? (
+          previewAccountId ? (
+            <ClientPortalForAccount accountId={previewAccountId} />
+          ) : (
+            <ClientPortal />
+          )
+        ) : (
+          <StaffDashboard onPreviewClient={handlePreviewClient} />
+        )}
       </main>
     </div>
   );
