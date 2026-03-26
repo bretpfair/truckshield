@@ -147,6 +147,21 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     );
   }
 
+  const infoFields = [
+    { label: "DOT#", value: account.dot_number },
+    { label: "MC#", value: account.mc_number },
+    { label: "Fleet Size", value: account.fleet_size },
+    { label: "Years in Business", value: account.years_in_business },
+    { label: "Annual Revenue", value: account.annual_revenue ? `$${Number(account.annual_revenue).toLocaleString()}` : null },
+    { label: "Cargo Types", value: account.cargo_types?.join(", ") },
+    { label: "Operating States", value: account.operating_states?.join(", ") },
+    { label: "Claims", value: account.number_of_claims },
+    { label: "Loss History", value: account.loss_history_summary },
+    { label: "Coverage Expiry", value: account.current_coverage_expiry },
+    { label: "Business Type", value: account.business_type },
+    { label: "Authority Date", value: account.date_of_authority },
+  ];
+
   const contactFields = [
     { label: "Contact Name", value: clientProfile?.full_name || account.business_owner_name },
     { label: "Email", value: clientProfile?.email },
