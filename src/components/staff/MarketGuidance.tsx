@@ -163,15 +163,19 @@ function evaluateCarrier(account: any, carrier: CarrierRow): CarrierMatch {
     criteria.push({ name: "Authority Required", status: "fail", detail: "No authority on file" });
   }
 
-  // Calculate score
-  const scored = criteria.filter((c) => c.status !== "na");
-  const passCount = scored.filter((c) => c.status === "pass").length;
-  const warnCount = scored.filter((c) => c.status === "warn").length;
-  const failCount = scored.filter((c) => c.status === "fail").length;
-  const total = scored.length || 1;
-  const score = Math.round(((passCount + warnCount * 0.5) / total) * 100);
+  // Calculate score — include "na" criteria in the denominator so missing data lowers confidence
+  const passCount = criteria.filter((c) => c.status === "pass").length;
+  const warnCount = criteria.filter((c) => c.status === "warn").length;
+  const failCount = criteria.filter((c) => c.status === "fail").length;
+  const naCount = criteria.filter((c) => c.status === "na").length;
+  const total = criteria.length || 1;
+  // na items count as 0.25 credit (unknown = slight penalty), warn = 0.5
+  const score = Math.round(((passCount + warnCount * 0.5 + naCount * 0.25) / total) * 100);
 
-  const tier = score >= 70 ? "strong" : score >= 40 ? "partial" : "poor";
+  const tier = failCount > 0 && score < 70 ? (score >= 40 ? "partial" : "poor")
+    : score >= 70 ? "strong"
+    : score >= 40 ? "partial"
+    : "poor";
 
   return { carrier, score, tier, criteria, passCount, failCount, warnCount };
 }
