@@ -79,7 +79,18 @@ const CarrierManager = () => {
 
   const saveCarrier = useMutation({
     mutationFn: async () => {
-      const payload = buildPayload();
+      const payload: any = buildPayload();
+
+      // Upload logo if provided
+      if (logoFile) {
+        const logoPath = `logos/${Date.now()}-${logoFile.name}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("carrier-logos")
+          .upload(logoPath, logoFile);
+        if (uploadErr) throw uploadErr;
+        payload.logo_path = logoPath;
+      }
+
       if (editingId) {
         const { error } = await supabase.from("carriers").update(payload).eq("id", editingId);
         if (error) throw error;
@@ -113,12 +124,15 @@ const CarrierManager = () => {
     setEditingId(null);
     setForm(INITIAL_FORM);
     setPdfFile(null);
+    setLogoFile(null);
+    setLogoPreview(null);
   };
 
   const startEdit = (c: any) => {
     setEditingId(c.id);
     setForm({
       name: c.name,
+      website: c.website || "",
       am_best_rating: c.am_best_rating || "",
       preferred_cargo_types: c.preferred_cargo_types?.join(", ") || "",
       preferred_states: c.preferred_states?.join(", ") || "",
@@ -136,6 +150,12 @@ const CarrierManager = () => {
       requires_authority: c.requires_authority || false,
       notes: c.notes || "",
     });
+    if (c.logo_path) {
+      const { data } = supabase.storage.from("carrier-logos").getPublicUrl(c.logo_path);
+      setLogoPreview(data.publicUrl);
+    } else {
+      setLogoPreview(null);
+    }
     setShowForm(true);
   };
 
