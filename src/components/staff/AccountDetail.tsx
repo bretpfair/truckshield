@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -5,15 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Send, ClipboardList, Eye } from "lucide-react";
 import MarketGuidance from "./MarketGuidance";
+import ApplicationWizard from "@/components/application/ApplicationWizard";
 
 interface Props {
   accountId: string;
   onBack: () => void;
+  onPreviewClient?: (accountId: string) => void;
 }
 
-const AccountDetail = ({ accountId, onBack }: Props) => {
+const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
+  const [showWizard, setShowWizard] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -82,6 +86,17 @@ const AccountDetail = ({ accountId, onBack }: Props) => {
 
   if (!account) return null;
 
+  if (showWizard) {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <Button variant="ghost" size="sm" onClick={() => setShowWizard(false)} className="gap-1.5 text-muted-foreground">
+          ← Back to Account
+        </Button>
+        <ApplicationWizard account={account} />
+      </div>
+    );
+  }
+
   const infoFields = [
     { label: "DOT#", value: account.dot_number },
     { label: "MC#", value: account.mc_number },
@@ -107,6 +122,15 @@ const AccountDetail = ({ accountId, onBack }: Props) => {
         </Button>
         <h2 className="text-xl font-bold">{account.company_name}</h2>
         <Badge variant="outline">{account.status.replace(/_/g, " ")}</Badge>
+        <div className="flex-1" />
+        <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5">
+          <ClipboardList className="h-3.5 w-3.5" /> View Application
+        </Button>
+        {onPreviewClient && (
+          <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5">
+            <Eye className="h-3.5 w-3.5" /> Preview Client
+          </Button>
+        )}
       </div>
 
       {/* Account Info */}

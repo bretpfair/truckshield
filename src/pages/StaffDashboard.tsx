@@ -26,7 +26,11 @@ const statusColors: Record<string, string> = {
   declined: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-const StaffDashboard = () => {
+interface StaffDashboardProps {
+  onPreviewClient?: (accountId: string) => void;
+}
+
+const StaffDashboard = ({ onPreviewClient }: StaffDashboardProps = {}) => {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);
@@ -90,6 +94,7 @@ const StaffDashboard = () => {
       <AccountDetail
         accountId={selectedAccountId}
         onBack={() => setSelectedAccountId(null)}
+        onPreviewClient={onPreviewClient}
       />
     );
   }
