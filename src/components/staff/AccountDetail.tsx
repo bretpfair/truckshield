@@ -191,6 +191,10 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         <MarketGuidance
           account={account}
           carriers={carriers}
+          drivers={drivers || []}
+          powerUnits={powerUnits || []}
+          trailers={accountTrailers || []}
+          lossHistory={lossHistory || []}
           onGenerateQuote={(carrierId, score) => createQuote.mutate({ carrierId, score })}
           existingQuoteCarrierIds={existingQuoteCarrierIds}
         />
