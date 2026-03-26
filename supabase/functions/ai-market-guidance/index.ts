@@ -42,6 +42,7 @@ serve(async (req) => {
       general_questions: account.general_questions,
       mailing_state: account.mailing_state,
       county: account.county,
+      description_of_operations: account.operation_info?.notes || null,
     };
 
     // Build driver summary
