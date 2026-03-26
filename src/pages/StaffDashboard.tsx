@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import AccountDetail from "@/components/staff/AccountDetail";
 import CarrierManager from "@/components/staff/CarrierManager";
-import InviteClient from "@/components/staff/InviteClient";
+import InviteClientDialog from "@/components/staff/InviteClientDialog";
 import PdfUpload from "@/components/staff/PdfUpload";
 import PipelineView from "@/components/staff/PipelineView";
 import {
@@ -224,7 +224,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
         </TabsContent>
 
         <TabsContent value="invite">
-          <InviteClient />
+          <InviteClientDialog />
         </TabsContent>
       </Tabs>
     </div>

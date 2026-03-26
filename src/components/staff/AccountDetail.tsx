@@ -10,6 +10,8 @@ import { ArrowLeft, ClipboardList, Eye, Download } from "lucide-react";
 import { generateApplicationPdf } from "@/lib/generateApplicationPdf";
 import MarketGuidance from "./MarketGuidance";
 import SubmittedMarkets from "./SubmittedMarkets";
+import ActivityLog from "./ActivityLog";
+import InviteClientDialog from "./InviteClientDialog";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
 
@@ -257,6 +259,14 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           submittedCarrierIds={submittedCarrierIds}
         />
       )}
+
+      {/* Client Invite (if no client linked) */}
+      {!account.client_user_id && (
+        <InviteClientDialog accountId={accountId} />
+      )}
+
+      {/* Activity Log & Notes */}
+      <ActivityLog accountId={accountId} />
     </div>
   );
 };

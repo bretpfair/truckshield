@@ -58,15 +58,22 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
   const queryClient = useQueryClient();
 
   const updateStatus = useMutation({
-    mutationFn: async ({ quoteId, status }: { quoteId: string; status: string }) => {
+    mutationFn: async ({ quoteId, status, carrierName }: { quoteId: string; status: string; carrierName: string }) => {
       const { error } = await supabase
         .from("quotes")
         .update({ status })
         .eq("id", quoteId);
       if (error) throw error;
+      // Log activity
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${carrierName} status changed to ${statusConfig[status]?.label || status}`,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
       toast({ title: "Status updated" });
     },
   });
@@ -153,7 +160,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                   </Badge>
                   <Select
                     value={q.status}
-                    onValueChange={(val) => updateStatus.mutate({ quoteId: q.id, status: val })}
+                    onValueChange={(val) => updateStatus.mutate({ quoteId: q.id, status: val, carrierName: (q.carriers as any)?.name ?? "Carrier" })}
                   >
                     <SelectTrigger className="w-[140px] h-8 text-xs">
                       <SelectValue />
