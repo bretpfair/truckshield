@@ -9,6 +9,7 @@ import Auth from "./pages/Auth.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import PreviewClient from "./pages/PreviewClient.tsx";
+import PreviewStaff from "./pages/PreviewStaff.tsx";
 
 const queryClient = new QueryClient();
 
