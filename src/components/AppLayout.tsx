@@ -91,7 +91,7 @@ const AppLayout = () => {
           previewAccountId ? (
             <ClientPortalForAccount accountId={previewAccountId} />
           ) : (
-            <ClientPortal onSetMessagingAccount={(id) => { setMessagingAccountId(id); setMessagingOpen(true); }} />
+            <ClientPortal onSetMessagingAccount={(id) => setMessagingAccountId(id)} />
           )
         ) : (
           <StaffDashboard
