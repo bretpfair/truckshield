@@ -5,67 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Zap, Send } from "lucide-react";
-import type { Json } from "@/integrations/supabase/types";
+import { ArrowLeft, Send } from "lucide-react";
+import MarketGuidance from "./MarketGuidance";
 
 interface Props {
   accountId: string;
   onBack: () => void;
 }
-
-interface CarrierRow {
-  id: string;
-  name: string;
-  am_best_rating: string | null;
-  appetite_guide: Json | null;
-  preferred_cargo_types: string[] | null;
-  preferred_states: string[] | null;
-  min_fleet_size: number | null;
-  max_fleet_size: number | null;
-  max_claims_tolerance: number | null;
-  is_active: boolean;
-}
-
-const calculateScore = (account: any, carrier: CarrierRow): number => {
-  let score = 0;
-  let factors = 0;
-
-  // Cargo match
-  if (account.cargo_types?.length && carrier.preferred_cargo_types?.length) {
-    factors++;
-    const overlap = account.cargo_types.filter((c: string) =>
-      carrier.preferred_cargo_types!.includes(c)
-    ).length;
-    score += (overlap / Math.max(account.cargo_types.length, 1)) * 100;
-  }
-
-  // State match
-  if (account.operating_states?.length && carrier.preferred_states?.length) {
-    factors++;
-    const overlap = account.operating_states.filter((s: string) =>
-      carrier.preferred_states!.includes(s)
-    ).length;
-    score += (overlap / Math.max(account.operating_states.length, 1)) * 100;
-  }
-
-  // Fleet size
-  if (account.fleet_size && carrier.min_fleet_size != null && carrier.max_fleet_size != null) {
-    factors++;
-    if (account.fleet_size >= carrier.min_fleet_size && account.fleet_size <= carrier.max_fleet_size) {
-      score += 100;
-    }
-  }
-
-  // Claims
-  if (account.number_of_claims != null && carrier.max_claims_tolerance != null) {
-    factors++;
-    if (account.number_of_claims <= carrier.max_claims_tolerance) {
-      score += 100;
-    }
-  }
-
-  return factors > 0 ? Math.round(score / factors) : 0;
-};
 
 const AccountDetail = ({ accountId, onBack }: Props) => {
   const { user } = useAuth();
@@ -90,7 +36,7 @@ const AccountDetail = ({ accountId, onBack }: Props) => {
     queryFn: async () => {
       const { data, error } = await supabase.from("carriers").select("*").eq("is_active", true);
       if (error) throw error;
-      return data as CarrierRow[];
+      return data as any[];
     },
   });
 
@@ -134,10 +80,6 @@ const AccountDetail = ({ accountId, onBack }: Props) => {
     },
   });
 
-  const rankedCarriers = carriers
-    ?.map((c) => ({ ...c, score: calculateScore(account, c) }))
-    .sort((a, b) => b.score - a.score);
-
   if (!account) return null;
 
   const infoFields = [
@@ -151,7 +93,11 @@ const AccountDetail = ({ accountId, onBack }: Props) => {
     { label: "Claims", value: account.number_of_claims },
     { label: "Loss History", value: account.loss_history_summary },
     { label: "Coverage Expiry", value: account.current_coverage_expiry },
+    { label: "Business Type", value: account.business_type },
+    { label: "Authority Date", value: account.date_of_authority },
   ];
+
+  const existingQuoteCarrierIds = existingQuotes?.map((q: any) => q.carrier_id) || [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -180,46 +126,15 @@ const AccountDetail = ({ accountId, onBack }: Props) => {
         </CardContent>
       </Card>
 
-      {/* Carrier Matching */}
-      <Card className="glass-panel">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" /> Carrier Matching
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {rankedCarriers?.length ? (
-            <div className="space-y-2">
-              {rankedCarriers.map((c) => (
-                <div key={c.id} className="flex items-center justify-between p-3 rounded-md bg-secondary/50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 text-center">
-                      <span className={`text-lg font-bold font-mono ${c.score >= 70 ? "text-success" : c.score >= 40 ? "text-warning" : "text-destructive"}`}>
-                        {c.score}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium">{c.name}</p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {c.am_best_rating && `AM Best: ${c.am_best_rating}`}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => createQuote.mutate({ carrierId: c.id, score: c.score })}
-                  >
-                    Generate Quote
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">No carriers in the system yet. Add carriers in the Carriers tab.</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Market Guidance */}
+      {carriers && (
+        <MarketGuidance
+          account={account}
+          carriers={carriers}
+          onGenerateQuote={(carrierId, score) => createQuote.mutate({ carrierId, score })}
+          existingQuoteCarrierIds={existingQuoteCarrierIds}
+        />
+      )}
 
       {/* Existing Quotes */}
       {existingQuotes && existingQuotes.length > 0 && (
