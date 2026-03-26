@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,7 +11,7 @@ import {
   ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
-import AccountMessages from "@/components/messaging/AccountMessages";
+
 import { WIZARD_STEPS } from "@/components/application/constants";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -33,7 +33,11 @@ const quoteStatusConfig: Record<string, { label: string; color: string }> = {
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/20" },
 };
 
-const ClientPortal = () => {
+interface ClientPortalProps {
+  onSetMessagingAccount?: (accountId: string) => void;
+}
+
+const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
   const { user } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
 
@@ -50,6 +54,12 @@ const ClientPortal = () => {
   });
 
   const account = accounts?.[0];
+
+  useEffect(() => {
+    if (account?.id && onSetMessagingAccount) {
+      onSetMessagingAccount(account.id);
+    }
+  }, [account?.id, onSetMessagingAccount]);
 
   const { data: allQuotes } = useQuery({
     queryKey: ["client-all-quotes", account?.id],
@@ -310,8 +320,6 @@ const ClientPortal = () => {
         </CardContent>
       </Card>
 
-      {/* Messages */}
-      <AccountMessages accountId={account.id} isStaff={false} />
     </div>
   );
 };

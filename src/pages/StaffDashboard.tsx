@@ -29,9 +29,10 @@ const statusColors: Record<string, string> = {
 
 interface StaffDashboardProps {
   onPreviewClient?: (accountId: string) => void;
+  onOpenMessages?: (accountId: string) => void;
 }
 
-const StaffDashboard = ({ onPreviewClient }: StaffDashboardProps = {}) => {
+const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps = {}) => {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);

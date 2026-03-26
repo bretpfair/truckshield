@@ -4,13 +4,16 @@ import { Navigate } from "react-router-dom";
 import StaffDashboard from "@/pages/StaffDashboard";
 import ClientPortal from "@/pages/ClientPortal";
 import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
-import { Truck, LogOut, User, Eye } from "lucide-react";
+import { Truck, LogOut, User, Eye, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import MessagingSidebar from "@/components/messaging/MessagingSidebar";
 
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
   const [viewAsClient, setViewAsClient] = useState(false);
   const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
+  const [messagingOpen, setMessagingOpen] = useState(false);
+  const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -26,6 +29,7 @@ const AppLayout = () => {
   if (!user) return <Navigate to="/auth" replace />;
 
   const showClient = role !== "admin" || viewAsClient;
+  const isStaff = role === "admin" && !viewAsClient;
 
   const handlePreviewClient = (accountId?: string) => {
     setPreviewAccountId(accountId || null);
@@ -36,6 +40,9 @@ const AppLayout = () => {
     setViewAsClient(false);
     setPreviewAccountId(null);
   };
+
+  // Determine which account ID to use for messaging
+  const activeAccountId = messagingAccountId || previewAccountId;
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,6 +67,15 @@ const AppLayout = () => {
                 {viewAsClient ? "Back to Staff" : "Preview Client"}
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMessagingOpen(true)}
+              className="gap-1.5 text-xs"
+            >
+              <MessageSquare className="h-3 w-3" />
+              Messages
+            </Button>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">{user.email}</span>
@@ -75,12 +91,23 @@ const AppLayout = () => {
           previewAccountId ? (
             <ClientPortalForAccount accountId={previewAccountId} />
           ) : (
-            <ClientPortal />
+            <ClientPortal onSetMessagingAccount={(id) => setMessagingAccountId(id)} />
           )
         ) : (
-          <StaffDashboard onPreviewClient={handlePreviewClient} />
+          <StaffDashboard
+            onPreviewClient={handlePreviewClient}
+            onOpenMessages={(accountId) => { setMessagingAccountId(accountId); setMessagingOpen(true); }}
+          />
         )}
       </main>
+
+      {/* Messaging Sidebar */}
+      <MessagingSidebar
+        open={messagingOpen}
+        onOpenChange={setMessagingOpen}
+        accountId={activeAccountId}
+        isStaff={isStaff}
+      />
     </div>
   );
 };
