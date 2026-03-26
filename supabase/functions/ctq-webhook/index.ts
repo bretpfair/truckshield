@@ -6,6 +6,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/** Safely access nested properties like "basic_info.company_name" */
+function get(obj: Record<string, unknown>, path: string): unknown {
+  return path.split(".").reduce((cur: unknown, key: string) => {
+    if (cur && typeof cur === "object") return (cur as Record<string, unknown>)[key];
+    return undefined;
+  }, obj);
+}
+
+/** Calculate years from a date string to now */
+function yearsSince(dateStr: string | undefined | null): number | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -22,12 +38,20 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     console.log("CTQ raw payload:", JSON.stringify(payload));
 
-    // Derive a company name — fall back to DOT number or "Unknown Lead"
-    if (!payload.company_name) {
-      payload.company_name = payload.dot_number
-        ? `DOT ${payload.dot_number}`
-        : `Unknown Lead ${new Date().toISOString().slice(0, 10)}`;
-    }
+    // Extract fields from CTQ's nested structure
+    const bi = (path: string) => get(payload, `basic_info.${path}`);
+    const op = (path: string) => get(payload, `operation_info.${path}`);
+    const cl = (path: string) => get(payload, `coverage_and_limit.${path}`);
+
+    // Derive company name — CTQ may send it as basic_info.company_name or top-level
+    const companyName =
+      (bi("company_name") as string) ||
+      (payload.company_name as string) ||
+      (op("dot") ? `DOT ${op("dot")}` : null) ||
+      `Unknown Lead ${new Date().toISOString().slice(0, 10)}`;
+
+    const dotNumber = (op("dot") as string) || (payload.dot_number as string) || null;
+    const mcNumber = (op("mc") as string) || (payload.mc_number as string) || null;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -37,11 +61,11 @@ Deno.serve(async (req) => {
     let accountId: string | null = null;
     let isUpdate = false;
 
-    if (payload.dot_number) {
+    if (dotNumber) {
       const { data: existing } = await supabase
         .from("accounts")
         .select("id")
-        .eq("dot_number", String(payload.dot_number))
+        .eq("dot_number", String(dotNumber))
         .maybeSingle();
 
       if (existing) {
@@ -50,48 +74,71 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Map CTQ fields to accounts table
+    // Build coverage_selections from coverage_and_limit fields
+    const coverageSelections: Record<string, unknown> = {};
+    const coverageTypes = [
+      "bobtail_liability", "broadform_cargo", "collisions", "comprehensive",
+      "expanded_refigeration", "garagekeepers_legal_liability", "general_liability",
+      "hired_auto", "medical_payments", "non_trucking_liability", "on_hook_coverage",
+      "pip", "refrigeration_malfunction", "specified_causes_of_loss",
+      "trailer_interchange", "um_uim",
+    ];
+    for (const ct of coverageTypes) {
+      const limit = cl(`${ct}_limit`);
+      if (limit !== undefined) {
+        coverageSelections[ct] = {
+          enabled: !!limit,
+          value: cl(`${ct}_value`) ?? null,
+          deductible: cl(`${ct}_deductible`) ?? null,
+        };
+      }
+    }
+
+    // Map CTQ fields → accounts table
     const accountData: Record<string, unknown> = {
-      company_name: payload.company_name,
-      dba_name: payload.dba_name || null,
-      dot_number: payload.dot_number ? String(payload.dot_number) : null,
-      mc_number: payload.mc_number ? String(payload.mc_number) : null,
-      ein_tax_id: payload.ein_tax_id || null,
-      business_type: payload.business_type || null,
-      business_owner_name: payload.business_owner_name || null,
-      business_owner_dob: payload.business_owner_dob || null,
-      years_in_business: payload.years_in_business ?? null,
+      company_name: companyName,
+      dba_name: (bi("dba_name") as string) || payload.dba_name || null,
+      dot_number: dotNumber ? String(dotNumber) : null,
+      mc_number: mcNumber ? String(mcNumber) : null,
+      ein_tax_id: (bi("fein_number") as string) || payload.ein_tax_id || null,
+      business_type: (bi("business_type_string") as string) || payload.business_type || null,
+      business_owner_name: (bi("owner_name") as string) || payload.business_owner_name || null,
+      business_owner_dob: (bi("owner_dob") as string) || payload.business_owner_dob || null,
+      years_in_business: yearsSince(bi("business_starting_date") as string) ?? payload.years_in_business ?? null,
       date_of_authority: payload.date_of_authority || null,
       carrier_authority_number: payload.carrier_authority_number || null,
       carrier_authority_prefix: payload.carrier_authority_prefix || null,
-      mailing_address: payload.mailing_address || null,
-      mailing_city: payload.mailing_city || null,
-      mailing_state: payload.mailing_state || null,
-      mailing_zip: payload.mailing_zip || null,
+      mailing_address: (bi("garaging_address") as string) || payload.mailing_address || null,
+      mailing_city: (bi("city") as string) || payload.mailing_city || null,
+      mailing_state: (bi("state") as string) || payload.mailing_state || null,
+      mailing_zip: (bi("zip_code") as string) || payload.mailing_zip || null,
       county: payload.county || null,
+      annual_revenue: (op("annual_revenue") as number) ?? payload.annual_revenue ?? null,
+      total_annual_revenue: payload.total_annual_revenue ?? null,
+      projected_gross_receipts: payload.projected_gross_receipts ?? null,
+      total_subhaul_revenue: payload.total_subhaul_revenue ?? null,
+      requested_effective_date: (bi("desired_effective_date") as string) || payload.requested_effective_date || null,
+      current_coverage_expiry: (payload.renewal_date as string) || payload.current_coverage_expiry || null,
+      operating_states: payload.operating_states || null,
+      business_categories: payload.business_categories || null,
+      cargo_types: payload.cargo_types || null,
+      contractor_types: payload.contractor_types || null,
+      notes: (op("notes") as string) || payload.notes || null,
+      // Enriched fields
       fleet_size: payload.fleet_size ?? null,
       total_trucks: payload.total_trucks ?? null,
       total_drivers: payload.total_drivers ?? null,
       total_owned_trailers: payload.total_owned_trailers ?? null,
       total_nonowned_trailers: payload.total_nonowned_trailers ?? null,
       total_garage_locations: payload.total_garage_locations ?? null,
-      annual_revenue: payload.annual_revenue ?? null,
-      total_annual_revenue: payload.total_annual_revenue ?? null,
-      projected_gross_receipts: payload.projected_gross_receipts ?? null,
-      total_subhaul_revenue: payload.total_subhaul_revenue ?? null,
       number_of_claims: payload.number_of_claims ?? null,
-      requested_effective_date: payload.requested_effective_date || null,
-      current_coverage_expiry: payload.current_coverage_expiry || null,
-      operating_states: payload.operating_states || null,
-      business_categories: payload.business_categories || null,
-      cargo_types: payload.cargo_types || null,
-      contractor_types: payload.contractor_types || null,
       loss_history_summary: payload.loss_history_summary || null,
-      notes: payload.notes || null,
     };
 
     // JSON fields
-    if (payload.coverage_selections) {
+    if (Object.keys(coverageSelections).length > 0) {
+      accountData.coverage_selections = coverageSelections;
+    } else if (payload.coverage_selections) {
       accountData.coverage_selections = payload.coverage_selections;
     }
     if (payload.radius_operations) {
@@ -104,15 +151,32 @@ Deno.serve(async (req) => {
       accountData.general_questions = payload.general_questions;
     }
 
+    // Store operation info as general_questions if not already set
+    if (!accountData.general_questions) {
+      const opQuestions: Record<string, unknown> = {};
+      const opFields = [
+        "operation_description_string", "pull", "radius_of_operation",
+        "range_of_operation", "major_cities", "cover_all_vehicles",
+        "federal_or_state_filings_required", "is_risk_cancelled_in_last_three_years",
+        "is_risk_covered", "is_there_any_broker_authority", "non_employee_passengers",
+        "years_insured_owned_commercial_equipment", "annual_mileage",
+      ];
+      for (const f of opFields) {
+        const val = op(f);
+        if (val !== undefined && val !== null) opQuestions[f] = val;
+      }
+      if (Object.keys(opQuestions).length > 0) {
+        accountData.general_questions = opQuestions;
+      }
+    }
+
     if (isUpdate && accountId) {
-      // Update existing account
       const { error } = await supabase
         .from("accounts")
         .update(accountData)
         .eq("id", accountId);
       if (error) throw new Error(`Account update failed: ${error.message}`);
     } else {
-      // Create new account with 'lead' status
       accountData.status = "lead";
       const { data, error } = await supabase
         .from("accounts")
@@ -123,36 +187,44 @@ Deno.serve(async (req) => {
       accountId = data.id;
     }
 
-    // Insert drivers
-    if (Array.isArray(payload.drivers) && payload.drivers.length > 0) {
-      // Clear existing drivers on update
+    // Insert drivers from CTQ's drivers[] array
+    const ctqDrivers = Array.isArray(payload.drivers) ? payload.drivers : [];
+    if (ctqDrivers.length > 0) {
       if (isUpdate) {
         await supabase.from("drivers").delete().eq("account_id", accountId!);
       }
 
-      const driverRows = payload.drivers.map((d: Record<string, unknown>, i: number) => ({
-        account_id: accountId,
-        first_name: d.first_name || null,
-        last_name: d.last_name || null,
-        date_of_birth: d.date_of_birth || null,
-        license_number: d.license_number || null,
-        license_state: d.license_state || null,
-        license_type: d.license_type || null,
-        driver_type: d.driver_type || null,
-        experience_years: d.experience_years ?? null,
-        experience_months: d.experience_months ?? null,
-        date_hired_year: d.date_hired_year ?? null,
-        date_hired_month: d.date_hired_month ?? null,
-        original_issue_year: d.original_issue_year ?? null,
-        original_issue_month: d.original_issue_month ?? null,
-        num_violations: d.num_violations ?? 0,
-        violations: d.violations || [],
-        num_accidents: d.num_accidents ?? 0,
-        accidents: d.accidents || [],
-        lapse_suspension: d.lapse_suspension || null,
-        lapse_explanation: d.lapse_explanation || null,
-        sort_order: i,
-      }));
+      const driverRows = ctqDrivers.map((d: Record<string, unknown>, i: number) => {
+        // CTQ sends full_name; split into first/last
+        const fullName = (d.full_name as string) || "";
+        const nameParts = fullName.trim().split(/\s+/);
+        const firstName = d.first_name || nameParts[0] || null;
+        const lastName = d.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(" ") : null);
+
+        return {
+          account_id: accountId,
+          first_name: firstName,
+          last_name: lastName,
+          date_of_birth: d.dob || d.date_of_birth || null,
+          license_number: d.license_number || null,
+          license_state: d.license_state || null,
+          license_type: d.license_type || null,
+          driver_type: d.is_owner_operator ? "owner_operator" : (d.driver_type || null),
+          experience_years: d.years_experience ?? d.experience_years ?? null,
+          experience_months: d.experience_months ?? null,
+          date_hired_year: d.date_hired_year ?? null,
+          date_hired_month: d.date_hired_month ?? null,
+          original_issue_year: d.original_issue_year ?? null,
+          original_issue_month: d.original_issue_month ?? null,
+          num_violations: d.num_violations ?? 0,
+          violations: d.violations || [],
+          num_accidents: d.num_accidents ?? 0,
+          accidents: d.accidents || [],
+          lapse_suspension: d.lapse_suspension || null,
+          lapse_explanation: d.lapse_explanation || null,
+          sort_order: i,
+        };
+      });
 
       const { error } = await supabase.from("drivers").insert(driverRows);
       if (error) throw new Error(`Drivers insert failed: ${error.message}`);
@@ -228,17 +300,25 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Insert loss history
-    if (Array.isArray(payload.loss_history) && payload.loss_history.length > 0) {
+    // Insert loss history from CTQ's losses[] array
+    const ctqLosses = Array.isArray(payload.losses) ? payload.losses : [];
+    if (ctqLosses.length > 0) {
       if (isUpdate) {
         await supabase.from("loss_history").delete().eq("account_id", accountId!);
       }
 
-      const lossRows = payload.loss_history.map((l: Record<string, unknown>) => ({
+      const lossRows = ctqLosses.map((l: Record<string, unknown>) => ({
         account_id: accountId,
         coverage_type: l.coverage_type || "auto_liability",
         no_prior_coverage: l.no_prior_coverage ?? false,
-        policy_terms: l.policy_terms || [],
+        policy_terms: l.policy_terms || [{
+          start_date: l.policy_start_date || null,
+          end_date: l.policy_end_date || null,
+          premium: l.premium_amount || null,
+          claims: l.number_of_claims || null,
+          total_paid_reserved: l.total_paid_and_reserved || null,
+          policy_numbers: l.policy_numbers || null,
+        }],
         cancelled_nonrenewed: l.cancelled_nonrenewed ?? false,
         cancellation_reason: l.cancellation_reason || null,
         cancellation_reason_other: l.cancellation_reason_other || null,
@@ -267,6 +347,26 @@ Deno.serve(async (req) => {
 
       const { error } = await supabase.from("garage_locations").insert(garageRows);
       if (error) throw new Error(`Garage locations insert failed: ${error.message}`);
+    }
+
+    // If no explicit garage_locations but we have garaging_address, create one
+    if (
+      (!payload.garage_locations || payload.garage_locations.length === 0) &&
+      bi("garaging_address")
+    ) {
+      if (isUpdate) {
+        await supabase.from("garage_locations").delete().eq("account_id", accountId!);
+      }
+      const { error } = await supabase.from("garage_locations").insert({
+        account_id: accountId,
+        address: bi("garaging_address") as string,
+        city: bi("city") as string || null,
+        state: bi("state") as string || null,
+        zip: bi("zip_code") as string || null,
+        is_principal: true,
+        sort_order: 0,
+      });
+      if (error) console.error("Garage location insert warning:", error.message);
     }
 
     return new Response(
