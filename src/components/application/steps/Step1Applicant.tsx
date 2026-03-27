@@ -1,8 +1,13 @@
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { US_STATES, BUSINESS_CATEGORIES, CONTRACTOR_TYPES, BUSINESS_TYPES } from "../constants";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Search, Loader2 } from "lucide-react";
 
 interface StepProps {
   account: any;
@@ -12,11 +17,63 @@ interface StepProps {
 }
 
 const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
   const toggleArrayItem = (field: string, item: string) => {
     const arr: string[] = formData[field] || [];
     updateFormData({
       [field]: arr.includes(item) ? arr.filter((i: string) => i !== item) : [...arr, item],
     });
+  };
+
+  const handleDotLookup = async () => {
+    const dotNumber = formData.dot_number?.trim();
+    if (!dotNumber) {
+      toast.error("Please enter a DOT number first");
+      return;
+    }
+
+    setIsLookingUp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fmcsa-lookup", {
+        body: { dotNumber },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Lookup failed");
+
+      const carrier = data.data;
+      const updates: Record<string, any> = {};
+
+      // Only fill fields that have data from FMCSA
+      if (carrier.company_name) updates.company_name = carrier.company_name;
+      if (carrier.dba_name) updates.dba_name = carrier.dba_name;
+      if (carrier.mc_number) updates.mc_number = carrier.mc_number;
+      if (carrier.mailing_address) updates.mailing_address = carrier.mailing_address;
+      if (carrier.mailing_city) updates.mailing_city = carrier.mailing_city;
+      if (carrier.mailing_state) updates.mailing_state = carrier.mailing_state;
+      if (carrier.mailing_zip) updates.mailing_zip = carrier.mailing_zip;
+      if (carrier.contact_phone) updates.contact_phone = carrier.contact_phone;
+      if (carrier.contact_email) updates.contact_email = carrier.contact_email;
+      if (carrier.total_trucks != null) updates.total_trucks = carrier.total_trucks;
+      if (carrier.total_drivers != null) updates.total_drivers = carrier.total_drivers;
+
+      if (Object.keys(updates).length > 0) {
+        updateFormData(updates);
+        toast.success(`Imported data for ${carrier.company_name || "DOT " + dotNumber}`, {
+          description: `${Object.keys(updates).length} fields auto-filled from SAFER`,
+        });
+      } else {
+        toast.warning("Carrier found but no mappable data returned");
+      }
+    } catch (err: any) {
+      console.error("DOT lookup error:", err);
+      toast.error("DOT Lookup Failed", {
+        description: err.message || "Could not retrieve carrier data",
+      });
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   return (
@@ -33,7 +90,20 @@ const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
         </div>
         <div className="space-y-2">
           <Label>DOT Number</Label>
-          <Input value={formData.dot_number || ""} onChange={(e) => updateFormData({ dot_number: e.target.value })} placeholder="1234567" />
+          <div className="flex gap-2">
+            <Input value={formData.dot_number || ""} onChange={(e) => updateFormData({ dot_number: e.target.value })} placeholder="1234567" />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDotLookup}
+              disabled={isLookingUp || !formData.dot_number?.trim()}
+              className="shrink-0 font-mono text-xs"
+            >
+              {isLookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <span className="ml-1.5 hidden sm:inline">SAFER</span>
+            </Button>
+          </div>
         </div>
         <div className="space-y-2">
           <Label>MC Number (If applicable)</Label>
