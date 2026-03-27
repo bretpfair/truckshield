@@ -19,16 +19,31 @@ const Auth = () => {
   const staffInviteToken = searchParams.get("staff_invite");
   const { toast } = useToast();
 
-  // If arriving with invite token, default to signup
+  // If arriving with any invite token, default to signup
   useEffect(() => {
-    if (inviteToken) setIsLogin(false);
-  }, [inviteToken]);
+    if (inviteToken || staffInviteToken) setIsLogin(false);
+  }, [inviteToken, staffInviteToken]);
+
+  // Accept staff invitation helper
+  const acceptStaffInvitation = async () => {
+    if (!staffInviteToken) return;
+    try {
+      const { data, error } = await supabase.rpc("accept_staff_invitation", { p_token: staffInviteToken });
+      if (error) throw error;
+      if (data && typeof data === "object" && "error" in (data as any)) {
+        toast({ title: "Invitation issue", description: (data as any).error, variant: "destructive" });
+      } else {
+        toast({ title: "Welcome to the team!", description: "You now have staff access." });
+      }
+    } catch (err: any) {
+      console.error("Staff invite acceptance error:", err);
+    }
+  };
 
   // Handle returning from email verification link — detect existing session on mount
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        // Already authenticated (e.g. returning from email verification)
         if (inviteToken) {
           try {
             await supabase.rpc("accept_invitation", { p_token: inviteToken });
@@ -36,10 +51,13 @@ const Auth = () => {
             console.error("Auto invite acceptance error:", err);
           }
         }
+        if (staffInviteToken) {
+          await acceptStaffInvitation();
+        }
         navigate("/");
       }
     });
-  }, [inviteToken, navigate]);
+  }, [inviteToken, staffInviteToken, navigate]);
 
   const acceptInvitation = async () => {
     if (!inviteToken) return;
