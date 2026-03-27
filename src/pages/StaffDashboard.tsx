@@ -111,6 +111,52 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
       if (c.total_trucks != null) accountData.total_trucks = c.total_trucks;
       if (c.total_drivers != null) accountData.total_drivers = c.total_drivers;
 
+      // Map FMCSA cargo carried to commodity_info
+      if (Array.isArray(c.cargo_carried) && c.cargo_carried.length > 0) {
+        const COMMODITY_OPTIONS = [
+          "Agricultural/Farm Supplies", "Beverages", "Building Materials", "Chemicals",
+          "Coal/Coke", "Commodities Dry Bulk", "Construction", "Dirt / Sand / Gravel",
+          "Drive/Tow away", "Fresh Produce", "Garbage/Refuse", "General Freight",
+          "Grain, Feed, Hay", "Household Goods", "Intermodal Cont.", "Liquids/Gases",
+          "Livestock", "Logs, Poles, Beams, Lumber", "Machinery, Large Objects", "Meat",
+          "Metal: sheets, coils, rolls", "Mobile Homes", "Motor Vehicles", "Oilfield Equipment",
+          "Paper Products", "Passengers", "Refrigerated Food", "US Mail", "Utilities",
+          "Water Well", "Other",
+        ];
+        // Normalize for matching
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+        const optionMap = new Map(COMMODITY_OPTIONS.map((o) => [normalize(o), o]));
+
+        const matched: string[] = [];
+        for (const raw of c.cargo_carried as string[]) {
+          const norm = normalize(raw);
+          // Direct match or partial match
+          const exact = optionMap.get(norm);
+          if (exact) {
+            matched.push(exact);
+          } else {
+            // Try partial matching
+            for (const [key, val] of optionMap) {
+              if (norm.includes(key) || key.includes(norm)) {
+                if (!matched.includes(val)) matched.push(val);
+                break;
+              }
+            }
+          }
+        }
+
+        if (matched.length > 0) {
+          const pctEach = Math.floor(100 / matched.length);
+          const remainder = 100 - pctEach * matched.length;
+          const selected: Record<string, string> = {};
+          matched.forEach((m, i) => {
+            selected[m] = String(pctEach + (i === 0 ? remainder : 0));
+          });
+          accountData.commodity_info = { selected_commodities: selected };
+          accountData.cargo_types = matched;
+        }
+      }
+
       setDotLookupResult(accountData);
     } catch (err: any) {
       console.error("DOT lookup error:", err);
