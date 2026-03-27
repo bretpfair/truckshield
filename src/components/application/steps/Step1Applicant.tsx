@@ -140,7 +140,30 @@ const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
         </div>
         <div className="space-y-2">
           <Label>Current Coverage Expiry Date</Label>
-          <Input type="date" value={formData.current_coverage_expiry || ""} onChange={(e) => updateFormData({ current_coverage_expiry: e.target.value })} />
+          <Input
+            type="date"
+            value={formData.current_coverage_expiry || ""}
+            onChange={(e) => updateFormData({ current_coverage_expiry: e.target.value })}
+            disabled={!!(formData.general_questions as any)?.new_venture}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const current = (formData.general_questions as any)?.new_venture || false;
+              const newVal = !current;
+              updateFormData({
+                general_questions: { ...(formData.general_questions || {}), new_venture: newVal },
+                ...(newVal ? { current_coverage_expiry: null } : {}),
+              });
+            }}
+            className={`mt-1 px-3 py-1.5 text-xs font-mono rounded-md border transition-colors w-full ${
+              (formData.general_questions as any)?.new_venture
+                ? "bg-primary/20 border-primary/40 text-primary"
+                : "bg-secondary border-border text-muted-foreground hover:border-primary/20"
+            }`}
+          >
+            {(formData.general_questions as any)?.new_venture ? "✓ " : ""}N/A — New Venture / No Prior Coverage
+          </button>
         </div>
       </div>
 
