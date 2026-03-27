@@ -42,7 +42,7 @@ interface StorageFile {
   created_at?: string;
 }
 
-const Step8LossHistory = ({ account }: StepProps) => {
+const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
