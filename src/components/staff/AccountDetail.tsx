@@ -299,19 +299,90 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     );
   }
 
+  // Derive summary fields from related tables when account-level fields are empty
+  const derivedFleetSize = account.fleet_size || account.total_trucks || powerUnits?.length || null;
+  const derivedDriverCount = account.total_drivers || drivers?.length || null;
+
+  // Derive cargo types from commodity_info rows if account.cargo_types is empty
+  const derivedCargoTypes = (() => {
+    if (account.cargo_types?.length) return account.cargo_types.join(", ");
+    const ci = account.commodity_info as any;
+    if (ci?.commodities && Array.isArray(ci.commodities)) {
+      const types = ci.commodities.map((c: any) => c.type).filter(Boolean);
+      if (types.length) return types.join(", ");
+    }
+    return null;
+  })();
+
+  // Derive operating states from radius_operations
+  const derivedOperatingStates = (() => {
+    if (account.operating_states?.length) return account.operating_states.join(", ");
+    const ro = account.radius_operations as any;
+    if (Array.isArray(ro) && ro.length > 0) {
+      const states = ro.map((r: any) => r.state).filter(Boolean);
+      if (states.length) return [...new Set(states)].join(", ");
+    }
+    // Fallback: derive from garage locations
+    if (garageLocations?.length) {
+      const states = garageLocations.map((g) => g.state).filter(Boolean);
+      if (states.length) return [...new Set(states)].join(", ");
+    }
+    return null;
+  })();
+
+  // Derive claims count from loss_history
+  const derivedClaims = (() => {
+    if (account.number_of_claims != null && account.number_of_claims > 0) return account.number_of_claims;
+    if (lossHistory?.length) {
+      let total = 0;
+      for (const lh of lossHistory) {
+        const terms = lh.policy_terms as any[];
+        if (Array.isArray(terms)) {
+          for (const term of terms) {
+            total += (Number(term.num_claims) || 0);
+          }
+        }
+      }
+      return total > 0 ? total : 0;
+    }
+    return account.number_of_claims;
+  })();
+
+  // Derive loss history summary
+  const derivedLossHistorySummary = (() => {
+    if (account.loss_history_summary) return account.loss_history_summary;
+    if (lossHistory?.length) {
+      const noPrior = lossHistory.every((lh) => lh.no_prior_coverage);
+      if (noPrior) return "No prior coverage";
+      const types = lossHistory.map((lh) => lh.coverage_type).filter(Boolean);
+      return types.length ? `${types.length} coverage type(s): ${types.join(", ")}` : null;
+    }
+    return null;
+  })();
+
+  // Derive annual revenue from commodity_info or projected_gross_receipts
+  const derivedRevenue = (() => {
+    if (account.annual_revenue) return `$${Number(account.annual_revenue).toLocaleString()}`;
+    if (account.projected_gross_receipts) return `$${Number(account.projected_gross_receipts).toLocaleString()}`;
+    const ci = account.commodity_info as any;
+    if (ci?.projected_gross_receipts) return `$${Number(ci.projected_gross_receipts).toLocaleString()}`;
+    return null;
+  })();
+
   const infoFields = [
     { label: "DOT#", value: account.dot_number },
     { label: "MC#", value: account.mc_number },
-    { label: "Fleet Size", value: account.fleet_size },
+    { label: "Fleet Size", value: derivedFleetSize },
     { label: "Years in Business", value: account.years_in_business },
-    { label: "Annual Revenue", value: account.annual_revenue ? `$${Number(account.annual_revenue).toLocaleString()}` : null },
-    { label: "Cargo Types", value: account.cargo_types?.join(", ") },
-    { label: "Operating States", value: account.operating_states?.join(", ") },
-    { label: "Claims", value: account.number_of_claims },
-    { label: "Loss History", value: account.loss_history_summary },
+    { label: "Annual Revenue", value: derivedRevenue },
+    { label: "Cargo Types", value: derivedCargoTypes },
+    { label: "Operating States", value: derivedOperatingStates },
+    { label: "Claims", value: derivedClaims },
+    { label: "Loss History", value: derivedLossHistorySummary },
     { label: "Coverage Expiry", value: account.current_coverage_expiry },
     { label: "Business Type", value: account.business_type },
     { label: "Authority Date", value: account.date_of_authority },
+    { label: "Total Drivers", value: derivedDriverCount },
   ];
 
   const contactFields = [
