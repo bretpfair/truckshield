@@ -42,6 +42,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
   const [newDotNumber, setNewDotNumber] = useState("");
   const [newCompanyName, setNewCompanyName] = useState("");
   const [isDotLookingUp, setIsDotLookingUp] = useState(false);
+  const [dotLookupResult, setDotLookupResult] = useState<Record<string, any> | null>(null);
   const [viewMode, setViewMode] = useState<"pipeline" | "list">("pipeline");
   const { user } = useAuth();
   const { toast } = useToast();
@@ -81,12 +82,14 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
     setNewAccountMode("dot");
     setNewDotNumber("");
     setNewCompanyName("");
+    setDotLookupResult(null);
   };
 
-  const handleDotLookupAndCreate = async () => {
+  const handleDotLookup = async () => {
     const dot = newDotNumber.trim();
     if (!dot) return;
     setIsDotLookingUp(true);
+    setDotLookupResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("fmcsa-lookup", {
         body: { dotNumber: dot },
@@ -108,15 +111,20 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
       if (c.total_trucks != null) accountData.total_trucks = c.total_trucks;
       if (c.total_drivers != null) accountData.total_drivers = c.total_drivers;
 
-      const fieldCount = Object.keys(accountData).length - 1; // minus dot_number
-      createAccount.mutate(accountData);
-      sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${accountData.company_name || "DOT " + dot}`);
+      setDotLookupResult(accountData);
     } catch (err: any) {
       console.error("DOT lookup error:", err);
       sonnerToast.error("DOT Lookup Failed", { description: err.message || "Could not retrieve carrier data" });
     } finally {
       setIsDotLookingUp(false);
     }
+  };
+
+  const handleConfirmDotCreate = () => {
+    if (!dotLookupResult) return;
+    createAccount.mutate(dotLookupResult);
+    const fieldCount = Object.keys(dotLookupResult).length - 1;
+    sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${dotLookupResult.company_name || "DOT " + dotLookupResult.dot_number}`);
   };
 
   const filtered = accounts?.filter((a) =>
@@ -213,7 +221,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
           {showNewAccount && (
             <Card className="glass-panel">
               <CardContent className="p-4 space-y-3">
-                {newAccountMode === "dot" ? (
+                {newAccountMode === "dot" && !dotLookupResult ? (
                   <>
                     <p className="text-sm font-semibold">Enter DOT Number to auto-fill from SAFER</p>
                     <div className="flex gap-3">
@@ -222,11 +230,11 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
                         value={newDotNumber}
                         onChange={(e) => setNewDotNumber(e.target.value)}
                         className="flex-1"
-                        onKeyDown={(e) => e.key === "Enter" && newDotNumber.trim() && handleDotLookupAndCreate()}
+                        onKeyDown={(e) => e.key === "Enter" && newDotNumber.trim() && handleDotLookup()}
                       />
-                      <Button onClick={handleDotLookupAndCreate} disabled={!newDotNumber.trim() || isDotLookingUp}>
-                        {isDotLookingUp ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        {isDotLookingUp ? "Looking up..." : "Create from DOT"}
+                      <Button onClick={handleDotLookup} disabled={!newDotNumber.trim() || isDotLookingUp}>
+                        {isDotLookingUp ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                        {isDotLookingUp ? "Looking up..." : "Lookup DOT"}
                       </Button>
                       <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
                     </div>
@@ -237,6 +245,38 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
                     >
                       No DOT or Manual Entry
                     </button>
+                  </>
+                ) : newAccountMode === "dot" && dotLookupResult ? (
+                  <>
+                    <p className="text-sm font-semibold">SAFER Lookup Results — DOT# {dotLookupResult.dot_number}</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm bg-secondary/50 rounded-lg p-4 border border-border">
+                      {[
+                        { label: "Company Name", value: dotLookupResult.company_name },
+                        { label: "DBA", value: dotLookupResult.dba_name },
+                        { label: "MC Number", value: dotLookupResult.mc_number },
+                        { label: "Address", value: [dotLookupResult.mailing_address, dotLookupResult.mailing_city, dotLookupResult.mailing_state, dotLookupResult.mailing_zip].filter(Boolean).join(", ") },
+                        { label: "Phone", value: dotLookupResult.contact_phone },
+                        { label: "Email", value: dotLookupResult.contact_email },
+                        { label: "Power Units", value: dotLookupResult.total_trucks },
+                        { label: "Drivers", value: dotLookupResult.total_drivers },
+                      ]
+                        .filter((f) => f.value)
+                        .map((f) => (
+                          <div key={f.label}>
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{f.label}</span>
+                            <p className="font-medium truncate">{f.value}</p>
+                          </div>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-3 pt-1">
+                      <Button onClick={handleConfirmDotCreate}>
+                        <Plus className="h-4 w-4 mr-2" /> Create Account
+                      </Button>
+                      <Button variant="outline" onClick={() => setDotLookupResult(null)}>
+                        ← New Lookup
+                      </Button>
+                      <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                    </div>
                   </>
                 ) : (
                   <>
