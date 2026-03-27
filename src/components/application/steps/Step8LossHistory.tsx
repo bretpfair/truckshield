@@ -47,7 +47,16 @@ const Step8LossHistory = ({ account }: StepProps) => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [noPriorCoverage, setNoPriorCoverage] = useState(false);
+  const [noPriorCoverage, setNoPriorCoverageState] = useState(
+    () => !!(formData.general_questions as any)?.new_venture
+  );
+
+  const setNoPriorCoverage = (val: boolean) => {
+    setNoPriorCoverageState(val);
+    updateFormData({
+      general_questions: { ...(formData.general_questions || {}), new_venture: val },
+    });
+  };
   const [yearDataMap, setYearDataMap] = useState<Record<string, YearData>>(() =>
     Object.fromEntries(YEAR_RANGES.map((yr) => [yr.label, emptyYearData()]))
   );
