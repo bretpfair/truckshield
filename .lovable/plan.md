@@ -1,52 +1,35 @@
 
 
-## Automated Client Portal Invite Email
+## Fix: Attach Auto-Status Triggers to Pipeline
 
-### Current State
-- Account creation exists in `StaffDashboard.tsx` — inserts a row into `accounts` with just `company_name` and `created_by`
-- `InviteClientDialog` creates a `client_invitations` row with a token and generates a portal link, but no email is sent — the link is just copied to clipboard
-- The existing `send-notification-email` edge function creates in-app notifications but does not actually send emails
-- **No email domain is configured** — email infrastructure needs to be set up first
+### Problem
+The `auto_update_account_status()` function exists with correct logic but no triggers are attached, so quote status changes don't propagate to account pipeline status.
 
-### What Needs to Happen
+### Solution
+Create a database migration that attaches triggers:
 
-#### Step 1: Set up email domain
-You'll need to configure a sender domain so emails can actually be sent from your app. This is the domain your clients will see in their inbox (e.g., `notify@360riskpartners.com`).
+1. **Trigger on `accounts` table** — fires on UPDATE, calls `auto_update_account_status()` when `application_step` changes (moves account from `pending_info` → `info_complete` when step reaches 10).
 
-#### Step 2: Set up email infrastructure
-Backend queue and processing pipeline for reliable email delivery with retries.
+2. **Trigger on `quotes` table** — fires on INSERT and UPDATE, calls `auto_update_account_status()` to handle:
+   - Quote submitted → account moves to `quoting`
+   - Quote marked `quoted` → account moves to `quoted`
+   - Quote marked `bound` → account moves to `bound`
 
-#### Step 3: Create the invite email template
-A branded React Email template matching your provided copy:
-- Greeting with first name
-- Portal benefits list (underwriting details, documents, submission progress, quote tracking)
-- Portal link button
-- Contact info (916-672-2440)
-- 360 Risk Partners branding and website link
+### Migration SQL
+```sql
+CREATE TRIGGER trg_auto_status_accounts
+  BEFORE UPDATE ON public.accounts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.auto_update_account_status();
 
-#### Step 4: Register template and deploy
+CREATE TRIGGER trg_auto_status_quotes
+  AFTER INSERT OR UPDATE ON public.quotes
+  FOR EACH ROW
+  EXECUTE FUNCTION public.auto_update_account_status();
+```
 
-#### Step 5: Wire up automatic sending
-When `InviteClientDialog.sendInvite` successfully creates an invitation, automatically call the email function with:
-- `templateName: 'client-portal-invite'`
-- `recipientEmail`: the invited client's email
-- `templateData`: `{ firstName, portalLink }` (derived from the invitation token)
-- `idempotencyKey`: `portal-invite-${invitation.id}`
+The `accounts` trigger uses BEFORE UPDATE (since it modifies `NEW.status` directly), while the `quotes` trigger uses AFTER (since it runs an UPDATE on the accounts table).
 
-### Technical Details
-
-**Template location**: `supabase/functions/_shared/transactional-email-templates/client-portal-invite.tsx`
-
-**Trigger point**: Inside `InviteClientDialog.tsx` `sendInvite.onSuccess`, after the invitation row is created, call `supabase.functions.invoke('send-transactional-email', ...)` with the invite URL and recipient email.
-
-**Template data flow**: The invitation record already contains the `token` and `email`. The portal link is constructed as `${window.location.origin}/auth?invite=${token}`. The first name can be extracted from the email or passed as a field (may need to add a name input to the invite form).
-
-**Unsubscribe page**: A branded `/unsubscribe` page will be created as required by the email infrastructure.
-
-### First Step Required
-Before any of this can be built, we need to set up your sender email domain. Let's start there.
-
-<lov-actions>
-<lov-open-email-setup>Set up email domain</lov-open-email-setup>
-</lov-actions>
+### Result
+After this migration, any quote status change made in a customer record will immediately reflect on the pipeline dashboard — no manual status updates needed.
 
