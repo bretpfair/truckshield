@@ -325,6 +325,18 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
             <XCircle className="h-3.5 w-3.5" /> Close / Lost
           </Button>
         )}
+        {account.dot_number && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleSaferUpdate}
+            disabled={isSaferUpdating}
+          >
+            {isSaferUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {isSaferUpdating ? "Updating..." : "Update from SAFER"}
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5">
           <ClipboardList className="h-3.5 w-3.5" /> View Application
         </Button>
