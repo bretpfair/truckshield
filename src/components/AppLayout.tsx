@@ -103,12 +103,14 @@ const AppLayout = () => {
           )}
         </main>
 
-        <MessagingSidebar
-          expanded={messagingExpanded}
-          onToggle={() => setMessagingExpanded(!messagingExpanded)}
-          accountId={activeAccountId}
-          isStaff={isStaff}
-        />
+        {activeAccountId && (
+          <MessagingSidebar
+            expanded={messagingExpanded}
+            onToggle={() => setMessagingExpanded(!messagingExpanded)}
+            accountId={activeAccountId}
+            isStaff={isStaff}
+          />
+        )}
       </div>
     </div>
   );
