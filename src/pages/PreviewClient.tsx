@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,28 @@ import {
 } from "lucide-react";
 import { WIZARD_STEPS } from "@/components/application/constants";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+
+const getCarrierLogoUrl = (logoPath: string | null) => {
+  if (!logoPath) return null;
+  const { data } = supabase.storage.from("carrier-logos").getPublicUrl(logoPath);
+  return data?.publicUrl || null;
+};
+
+const CarrierAvatar = ({ carrier, fallbackClass }: { carrier: any; fallbackClass?: string }) => {
+  const logoUrl = getCarrierLogoUrl(carrier?.logo_path);
+  if (logoUrl) {
+    return (
+      <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden border border-border">
+        <img src={logoUrl} alt={carrier?.name || "Carrier"} className="h-6 w-6 object-contain" />
+      </div>
+    );
+  }
+  return (
+    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${fallbackClass || "bg-primary/10"}`}>
+      <Building className="h-4 w-4 text-primary" />
+    </div>
+  );
+};
 
 const MOCK_ACCOUNT = {
   id: "preview-mock-id",
@@ -72,14 +95,14 @@ const MOCK_ACCOUNT = {
 const MOCK_QUOTES = [
   {
     id: "q1",
-    carriers: { name: "Great West Casualty" },
+    carriers: { name: "Canal Insurance", logo_path: "canal-insurance.png" },
     premium_estimate: 42500,
     published_at: "2026-03-20T00:00:00Z",
     expires_at: "2026-04-20T00:00:00Z",
   },
   {
     id: "q2",
-    carriers: { name: "Canal Insurance" },
+    carriers: { name: "Cover Whale", logo_path: "logos/coverwhale-logo.png" },
     premium_estimate: 38900,
     published_at: "2026-03-22T00:00:00Z",
     expires_at: "2026-04-22T00:00:00Z",
@@ -87,10 +110,10 @@ const MOCK_QUOTES = [
 ];
 
 const MOCK_REVIEWING_CARRIERS = [
-  { id: "r1", carriers: { name: "Progressive Commercial" } },
-  { id: "r2", carriers: { name: "Sentry Insurance" } },
-  { id: "r3", carriers: { name: "National Interstate" } },
-  { id: "r4", carriers: { name: "Northland Insurance" } },
+  { id: "r1", carriers: { name: "Progressive", logo_path: "progressive.png" } },
+  { id: "r2", carriers: { name: "Kemper", logo_path: "kemper-logo.png" } },
+  { id: "r3", carriers: { name: "Nirvana", logo_path: "nirvana.png" } },
+  { id: "r4", carriers: { name: "Berkshire Hathaway Homestate", logo_path: "berkshire-breeze-logo.png" } },
 ];
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -259,9 +282,7 @@ const PreviewClient = () => {
                     key={q.id}
                     className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border"
                   >
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Building className="h-4 w-4 text-primary" />
-                    </div>
+                    <CarrierAvatar carrier={q.carriers} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-foreground truncate">{q.carriers.name}</p>
                       <p className="text-[11px] text-muted-foreground font-mono">Under review</p>
