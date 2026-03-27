@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
+import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,9 +38,92 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
+  const [isSaferUpdating, setIsSaferUpdating] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const handleSaferUpdate = async () => {
+    if (!account?.dot_number) {
+      sonnerToast.error("No DOT number on this account");
+      return;
+    }
+    setIsSaferUpdating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fmcsa-lookup", {
+        body: { dotNumber: account.dot_number },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Lookup failed");
+
+      const c = data.data;
+      const updateFields: Record<string, any> = {};
+      if (c.company_name) updateFields.company_name = c.company_name;
+      if (c.dba_name) updateFields.dba_name = c.dba_name;
+      if (c.mc_number) updateFields.mc_number = c.mc_number;
+      if (c.mailing_address) updateFields.mailing_address = c.mailing_address;
+      if (c.mailing_city) updateFields.mailing_city = c.mailing_city;
+      if (c.mailing_state) updateFields.mailing_state = c.mailing_state;
+      if (c.mailing_zip) updateFields.mailing_zip = c.mailing_zip;
+      if (c.contact_phone) updateFields.contact_phone = c.contact_phone;
+      if (c.contact_email) updateFields.contact_email = c.contact_email;
+      if (c.total_trucks != null) updateFields.total_trucks = c.total_trucks;
+      if (c.total_drivers != null) updateFields.total_drivers = c.total_drivers;
+
+      // Map cargo carried to commodity_info
+      if (Array.isArray(c.cargo_carried) && c.cargo_carried.length > 0) {
+        const COMMODITY_OPTIONS = [
+          "Agricultural/Farm Supplies", "Beverages", "Building Materials", "Chemicals",
+          "Coal/Coke", "Commodities Dry Bulk", "Construction", "Dirt / Sand / Gravel",
+          "Drive/Tow away", "Fresh Produce", "Garbage/Refuse", "General Freight",
+          "Grain, Feed, Hay", "Household Goods", "Intermodal Cont.", "Liquids/Gases",
+          "Livestock", "Logs, Poles, Beams, Lumber", "Machinery, Large Objects", "Meat",
+          "Metal: sheets, coils, rolls", "Mobile Homes", "Motor Vehicles", "Oilfield Equipment",
+          "Paper Products", "Passengers", "Refrigerated Food", "US Mail", "Utilities",
+          "Water Well", "Other",
+        ];
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+        const optionMap = new Map(COMMODITY_OPTIONS.map((o) => [normalize(o), o]));
+        const matched: string[] = [];
+        for (const raw of c.cargo_carried as string[]) {
+          const norm = normalize(raw);
+          const exact = optionMap.get(norm);
+          if (exact) { matched.push(exact); }
+          else {
+            for (const [key, val] of optionMap) {
+              if (norm.includes(key) || key.includes(norm)) {
+                if (!matched.includes(val)) matched.push(val);
+                break;
+              }
+            }
+          }
+        }
+        if (matched.length > 0) {
+          const pctEach = Math.floor(100 / matched.length);
+          const remainder = 100 - pctEach * matched.length;
+          const selected: Record<string, string> = {};
+          matched.forEach((m, i) => { selected[m] = String(pctEach + (i === 0 ? remainder : 0)); });
+          updateFields.commodity_info = { selected_commodities: selected };
+          updateFields.cargo_types = matched;
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from("accounts")
+        .update(updateFields)
+        .eq("id", accountId);
+      if (updateError) throw updateError;
+
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      const fieldCount = Object.keys(updateFields).length;
+      sonnerToast.success(`Updated ${fieldCount} fields from SAFER`);
+    } catch (err: any) {
+      sonnerToast.error("SAFER Update Failed", { description: err.message });
+    } finally {
+      setIsSaferUpdating(false);
+    }
+  };
 
   const deleteAccount = useMutation({
     mutationFn: async () => {
@@ -239,6 +323,18 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
             onClick={() => setShowCloseLostDialog(true)}
           >
             <XCircle className="h-3.5 w-3.5" /> Close / Lost
+          </Button>
+        )}
+        {account.dot_number && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleSaferUpdate}
+            disabled={isSaferUpdating}
+          >
+            {isSaferUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {isSaferUpdating ? "Updating..." : "Update from SAFER"}
           </Button>
         )}
         <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5">
