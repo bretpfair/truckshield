@@ -212,17 +212,57 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
 
           {showNewAccount && (
             <Card className="glass-panel">
-              <CardContent className="p-4 flex gap-3">
-                <Input
-                  placeholder="Company name"
-                  value={newCompanyName}
-                  onChange={(e) => setNewCompanyName(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={() => createAccount.mutate(newCompanyName)} disabled={!newCompanyName}>
-                  Create
-                </Button>
-                <Button variant="ghost" onClick={() => setShowNewAccount(false)}>Cancel</Button>
+              <CardContent className="p-4 space-y-3">
+                {newAccountMode === "dot" ? (
+                  <>
+                    <p className="text-sm font-semibold">Enter DOT Number to auto-fill from SAFER</p>
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="DOT Number (e.g. 1234567)"
+                        value={newDotNumber}
+                        onChange={(e) => setNewDotNumber(e.target.value)}
+                        className="flex-1"
+                        onKeyDown={(e) => e.key === "Enter" && newDotNumber.trim() && handleDotLookupAndCreate()}
+                      />
+                      <Button onClick={handleDotLookupAndCreate} disabled={!newDotNumber.trim() || isDotLookingUp}>
+                        {isDotLookingUp ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        {isDotLookingUp ? "Looking up..." : "Create from DOT"}
+                      </Button>
+                      <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewAccountMode("manual")}
+                      className="text-xs text-muted-foreground hover:text-primary underline underline-offset-2 transition-colors"
+                    >
+                      No DOT or Manual Entry
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold">Manual Account Creation</p>
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="Company name"
+                        value={newCompanyName}
+                        onChange={(e) => setNewCompanyName(e.target.value)}
+                        className="flex-1"
+                        onKeyDown={(e) => e.key === "Enter" && newCompanyName && createAccount.mutate({ company_name: newCompanyName })}
+                      />
+                      <Button onClick={() => createAccount.mutate({ company_name: newCompanyName })} disabled={!newCompanyName}>
+                        Create
+                      </Button>
+                      <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewAccountMode("dot")}
+                      className="text-xs text-muted-foreground hover:text-primary underline underline-offset-2 transition-colors"
+                    >
+                      ← Back to DOT Lookup
+                    </button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
