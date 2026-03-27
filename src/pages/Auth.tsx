@@ -23,6 +23,24 @@ const Auth = () => {
     if (inviteToken) setIsLogin(false);
   }, [inviteToken]);
 
+  // Handle returning from email verification — detect session and redirect
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        // User just confirmed email and got a session
+        if (inviteToken) {
+          try {
+            await supabase.rpc("accept_invitation", { p_token: inviteToken });
+          } catch (err) {
+            console.error("Auto invite acceptance error:", err);
+          }
+        }
+        navigate("/");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [inviteToken, navigate]);
+
   const acceptInvitation = async () => {
     if (!inviteToken) return;
     try {
