@@ -17,14 +17,14 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const staffInviteToken = searchParams.get("staff_invite");
-  const mode = searchParams.get("mode"); // "staff" for staff login
+  const mode = searchParams.get("mode");
   const { toast } = useToast();
 
-  // Staff mode: password login/signup (only via staff_invite or explicit ?mode=staff)
   const isStaffFlow = !!(staffInviteToken || mode === "staff");
   const [isLogin, setIsLogin] = useState(true);
+  const [staffUseMagicLink, setStaffUseMagicLink] = useState(false);
+  const [staffMagicLinkSent, setStaffMagicLinkSent] = useState(false);
 
-  // If arriving with staff invite, default to signup
   useEffect(() => {
     if (staffInviteToken) setIsLogin(false);
   }, [staffInviteToken]);
@@ -61,7 +61,7 @@ const Auth = () => {
     }
   };
 
-  // Handle returning from email verification / magic link — detect existing session on mount
+  // Detect existing session on mount
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
@@ -114,20 +114,37 @@ const Auth = () => {
     setLoading(false);
   };
 
-  // --- CLIENT: magic link ---
-  const handleMagicLink = async (e: React.FormEvent) => {
+  // --- STAFF: magic link ---
+  const handleStaffMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    const redirectTo = inviteToken
-      ? `${window.location.origin}/auth?invite=${inviteToken}`
-      : `${window.location.origin}/auth`;
-
+    const redirectTo = staffInviteToken
+      ? `${window.location.origin}/auth?staff_invite=${staffInviteToken}&mode=staff`
+      : `${window.location.origin}/auth?mode=staff`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirectTo },
     });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setStaffMagicLinkSent(true);
+      toast({ title: "Check your email", description: "We sent you a magic link to sign in." });
+    }
+    setLoading(false);
+  };
 
+  // --- CLIENT: magic link ---
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const redirectTo = inviteToken
+      ? `${window.location.origin}/auth?invite=${inviteToken}`
+      : `${window.location.origin}/auth`;
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -167,87 +184,153 @@ const Auth = () => {
             <Shield className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">
               {isStaffFlow
-                ? (isLogin ? "Staff Sign In" : "Create Staff Account")
+                ? (staffUseMagicLink || staffMagicLinkSent
+                    ? "Staff Sign In"
+                    : isLogin ? "Staff Sign In" : "Create Staff Account")
                 : "Sign In"}
             </h2>
           </div>
 
-          {/* ====== STAFF FLOW: password-based ====== */}
+          {/* ====== STAFF FLOW ====== */}
           {isStaffFlow ? (
             <>
-              <form onSubmit={handleStaffSubmit} className="space-y-4">
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="John Doe"
-                      required={!isLogin}
-                    />
+              {staffMagicLinkSent ? (
+                <div className="text-center space-y-4 py-4">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Mail className="h-6 w-6 text-primary" />
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  {isLogin ? "Sign In" : "Create Account"}
-                </Button>
-              </form>
-
-              <div className="mt-4 text-center space-y-2">
-                {isLogin && (
+                  <div>
+                    <p className="font-medium text-foreground">Check your email</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      We sent a sign-in link to <span className="font-medium text-foreground">{email}</span>
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={async () => {
-                      if (!email) {
-                        toast({ title: "Enter your email first", variant: "destructive" });
-                        return;
-                      }
-                      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                        redirectTo: `${window.location.origin}/reset-password`,
-                      });
-                      if (error) {
-                        toast({ title: "Error", description: error.message, variant: "destructive" });
-                      } else {
-                        toast({ title: "Check your email", description: "Password reset link sent." });
-                      }
-                    }}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors block w-full"
+                    onClick={() => { setStaffMagicLinkSent(false); setStaffUseMagicLink(false); }}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
-                    Forgot password?
+                    Use a different method
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
-                </button>
-              </div>
+                </div>
+              ) : staffUseMagicLink ? (
+                <>
+                  <form onSubmit={handleStaffMagicLink} className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Enter your email and we'll send you a link to sign in — no password needed.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@company.com"
+                        required
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
+                      Send Magic Link
+                    </Button>
+                  </form>
+                  <div className="mt-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setStaffUseMagicLink(false)}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Sign in with password instead
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <form onSubmit={handleStaffSubmit} className="space-y-4">
+                    {!isLogin && (
+                      <div className="space-y-2">
+                        <Label htmlFor="fullName">Full Name</Label>
+                        <Input
+                          id="fullName"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="John Doe"
+                          required={!isLogin}
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@company.com"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {isLogin ? "Sign In" : "Create Account"}
+                    </Button>
+                  </form>
+
+                  <div className="mt-4 text-center space-y-2">
+                    {isLogin && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setStaffUseMagicLink(true)}
+                          className="text-sm text-muted-foreground hover:text-primary transition-colors block w-full"
+                        >
+                          Sign in with magic link instead
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!email) {
+                              toast({ title: "Enter your email first", variant: "destructive" });
+                              return;
+                            }
+                            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                              redirectTo: `${window.location.origin}/reset-password`,
+                            });
+                            if (error) {
+                              toast({ title: "Error", description: error.message, variant: "destructive" });
+                            } else {
+                              toast({ title: "Check your email", description: "Password reset link sent." });
+                            }
+                          }}
+                          className="text-sm text-muted-foreground hover:text-primary transition-colors block w-full"
+                        >
+                          Forgot password?
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsLogin(!isLogin)}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             /* ====== CLIENT FLOW: magic link ====== */
