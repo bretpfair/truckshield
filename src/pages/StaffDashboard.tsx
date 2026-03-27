@@ -82,12 +82,14 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
     setNewAccountMode("dot");
     setNewDotNumber("");
     setNewCompanyName("");
+    setDotLookupResult(null);
   };
 
-  const handleDotLookupAndCreate = async () => {
+  const handleDotLookup = async () => {
     const dot = newDotNumber.trim();
     if (!dot) return;
     setIsDotLookingUp(true);
+    setDotLookupResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("fmcsa-lookup", {
         body: { dotNumber: dot },
@@ -109,15 +111,20 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
       if (c.total_trucks != null) accountData.total_trucks = c.total_trucks;
       if (c.total_drivers != null) accountData.total_drivers = c.total_drivers;
 
-      const fieldCount = Object.keys(accountData).length - 1; // minus dot_number
-      createAccount.mutate(accountData);
-      sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${accountData.company_name || "DOT " + dot}`);
+      setDotLookupResult(accountData);
     } catch (err: any) {
       console.error("DOT lookup error:", err);
       sonnerToast.error("DOT Lookup Failed", { description: err.message || "Could not retrieve carrier data" });
     } finally {
       setIsDotLookingUp(false);
     }
+  };
+
+  const handleConfirmDotCreate = () => {
+    if (!dotLookupResult) return;
+    createAccount.mutate(dotLookupResult);
+    const fieldCount = Object.keys(dotLookupResult).length - 1;
+    sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${dotLookupResult.company_name || "DOT " + dotLookupResult.dot_number}`);
   };
 
   const filtered = accounts?.filter((a) =>
