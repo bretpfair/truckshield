@@ -28,6 +28,32 @@ export async function sendClientInvite({
     .maybeSingle();
 
   if (existingInvite) {
+    // Resend the email for the existing pending invitation
+    const { data: invite } = await supabase
+      .from("client_invitations")
+      .select("id, token")
+      .eq("id", existingInvite.id)
+      .single();
+
+    if (invite) {
+      const portalLink = `${window.location.origin}/auth?invite=${invite.token}`;
+      const firstName = normalizedEmail
+        .split("@")[0]
+        .replace(/[._-]/g, " ")
+        .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+      await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "client-portal-invite",
+          recipientEmail: normalizedEmail,
+          idempotencyKey: `portal-invite-resend-${invite.id}-${Date.now()}`,
+          templateData: { firstName, portalLink, companyName },
+        },
+      });
+
+      return { sent: true, message: `Invite resent to ${normalizedEmail}` };
+    }
+
     return { sent: false, message: "An invite is already pending for this email" };
   }
 
