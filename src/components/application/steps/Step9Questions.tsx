@@ -56,39 +56,44 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
       {/* Auto Liability Questions */}
       <div className="space-y-3">
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Auto Liability Questions</Label>
-        {AUTO_LIABILITY_QUESTIONS.map((q) => (
-          <div key={q.id} className="p-3 rounded-md bg-secondary/30 border border-border space-y-2">
-            <p className="text-sm">{q.text}</p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <YesNoCheckboxes qId={q.id} current={questions[q.id]?.answer || ""} />
-              {q.hasExplain && questions[q.id]?.answer === "Yes" && (
-                <Input
-                  className="flex-1 min-w-[200px]"
-                  placeholder="Please explain..."
-                  value={questions[q.id]?.explanation || ""}
-                  onChange={(e) => setAnswer(q.id, { ...questions[q.id], explanation: e.target.value })}
-                />
-              )}
-              {(q as any).hasDate && questions[q.id]?.answer === "Yes" && (
-                <Input
-                  type="date"
-                  className="w-40"
-                  value={questions[q.id]?.date || ""}
-                  onChange={(e) => setAnswer(q.id, { ...questions[q.id], date: e.target.value })}
-                />
-              )}
-              {(q as any).hasNumber && (
-                <Input
-                  type="number"
-                  className="w-32"
-                  placeholder="0"
-                  value={questions[q.id]?.value || ""}
-                  onChange={(e) => setAnswer(q.id, { ...questions[q.id], value: e.target.value })}
-                />
-              )}
+        {AUTO_LIABILITY_QUESTIONS.map((q) => {
+          const isNumberOnly = (q as any).hasNumber && !q.hasExplain && !(q as any).hasDate;
+          return (
+            <div key={q.id} className="p-3 rounded-md bg-secondary/30 border border-border space-y-2">
+              <p className="text-sm">{q.text}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                {!isNumberOnly && (
+                  <YesNoCheckboxes qId={q.id} current={questions[q.id]?.answer || ""} />
+                )}
+                {q.hasExplain && questions[q.id]?.answer === "Yes" && (
+                  <Input
+                    className="flex-1 min-w-[200px]"
+                    placeholder="Please explain..."
+                    value={questions[q.id]?.explanation || ""}
+                    onChange={(e) => setAnswer(q.id, { ...questions[q.id], explanation: e.target.value })}
+                  />
+                )}
+                {(q as any).hasDate && questions[q.id]?.answer === "Yes" && (
+                  <Input
+                    type="date"
+                    className="w-40"
+                    value={questions[q.id]?.date || ""}
+                    onChange={(e) => setAnswer(q.id, { ...questions[q.id], date: e.target.value })}
+                  />
+                )}
+                {(q as any).hasNumber && (
+                  <Input
+                    type="number"
+                    className="w-32"
+                    placeholder="0"
+                    value={questions[q.id]?.value || ""}
+                    onChange={(e) => setAnswer(q.id, { ...questions[q.id], value: e.target.value })}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Revenue & Credit */}
