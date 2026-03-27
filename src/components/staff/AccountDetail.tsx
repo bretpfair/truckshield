@@ -39,6 +39,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isSaferUpdating, setIsSaferUpdating] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
