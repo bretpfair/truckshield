@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast as sonnerToast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +16,7 @@ import PdfUpload from "@/components/staff/PdfUpload";
 import PipelineView from "@/components/staff/PipelineView";
 import DashboardAnalytics from "@/components/staff/DashboardAnalytics";
 import {
-  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3,
+  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3, Loader2,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -37,7 +38,10 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);
+  const [newAccountMode, setNewAccountMode] = useState<"dot" | "manual">("dot");
+  const [newDotNumber, setNewDotNumber] = useState("");
   const [newCompanyName, setNewCompanyName] = useState("");
+  const [isDotLookingUp, setIsDotLookingUp] = useState(false);
   const [viewMode, setViewMode] = useState<"pipeline" | "list">("pipeline");
   const { user } = useAuth();
   const { toast } = useToast();
