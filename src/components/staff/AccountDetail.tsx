@@ -120,6 +120,19 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       const fieldCount = Object.keys(updateFields).length;
       sonnerToast.success(`Updated ${fieldCount} fields from SAFER`);
+
+      // Auto-invite if contact_email was just added
+      if (updateFields.contact_email && !account?.contact_email) {
+        try {
+          const result = await sendClientInvite({
+            accountId,
+            email: updateFields.contact_email,
+            invitedBy: user?.id,
+            companyName: updateFields.company_name || account?.company_name,
+          });
+          if (result.sent) sonnerToast.success("Client invite auto-sent", { description: result.message });
+        } catch { /* non-fatal */ }
+      }
     } catch (err: any) {
       sonnerToast.error("SAFER Update Failed", { description: err.message });
     } finally {
