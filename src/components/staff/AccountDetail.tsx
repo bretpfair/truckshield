@@ -270,7 +270,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
       {/* Client Invite (if no client linked) */}
       {!account.client_user_id && (
-        <InviteClientDialog accountId={accountId} />
+        <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
       )}
 
       {/* Activity Log & Notes */}
