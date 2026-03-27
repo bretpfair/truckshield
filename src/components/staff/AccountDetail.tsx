@@ -355,7 +355,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
       const noPrior = lossHistory.every((lh) => lh.no_prior_coverage);
       if (noPrior) return "No prior coverage";
       const types = lossHistory.map((lh) => lh.coverage_type).filter(Boolean);
-      return types.length ? `${types.length} coverage type(s): ${types.join(", ")}` : null;
+      return types.length ? `${types.length} line(s): ${types.map(t => t.replace(/_/g, " ")).join(", ")}` : null;
     }
     return null;
   })();
