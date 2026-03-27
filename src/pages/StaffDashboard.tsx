@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast as sonnerToast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +16,7 @@ import PdfUpload from "@/components/staff/PdfUpload";
 import PipelineView from "@/components/staff/PipelineView";
 import DashboardAnalytics from "@/components/staff/DashboardAnalytics";
 import {
-  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3,
+  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3, Loader2,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -37,7 +38,10 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);
+  const [newAccountMode, setNewAccountMode] = useState<"dot" | "manual">("dot");
+  const [newDotNumber, setNewDotNumber] = useState("");
   const [newCompanyName, setNewCompanyName] = useState("");
+  const [isDotLookingUp, setIsDotLookingUp] = useState(false);
   const [viewMode, setViewMode] = useState<"pipeline" | "list">("pipeline");
   const { user } = useAuth();
   const { toast } = useToast();
@@ -56,21 +60,64 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
   });
 
   const createAccount = useMutation({
-    mutationFn: async (companyName: string) => {
+    mutationFn: async (accountData: Record<string, any>) => {
       const { error } = await supabase.from("accounts").insert({
-        company_name: companyName,
+        company_name: accountData.company_name || "New Account",
         created_by: user!.id,
+        ...accountData,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      setShowNewAccount(false);
-      setNewCompanyName("");
+      resetNewAccountForm();
       toast({ title: "Account created" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const resetNewAccountForm = () => {
+    setShowNewAccount(false);
+    setNewAccountMode("dot");
+    setNewDotNumber("");
+    setNewCompanyName("");
+  };
+
+  const handleDotLookupAndCreate = async () => {
+    const dot = newDotNumber.trim();
+    if (!dot) return;
+    setIsDotLookingUp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fmcsa-lookup", {
+        body: { dotNumber: dot },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Lookup failed");
+
+      const c = data.data;
+      const accountData: Record<string, any> = { dot_number: dot };
+      if (c.company_name) accountData.company_name = c.company_name;
+      if (c.dba_name) accountData.dba_name = c.dba_name;
+      if (c.mc_number) accountData.mc_number = c.mc_number;
+      if (c.mailing_address) accountData.mailing_address = c.mailing_address;
+      if (c.mailing_city) accountData.mailing_city = c.mailing_city;
+      if (c.mailing_state) accountData.mailing_state = c.mailing_state;
+      if (c.mailing_zip) accountData.mailing_zip = c.mailing_zip;
+      if (c.contact_phone) accountData.contact_phone = c.contact_phone;
+      if (c.contact_email) accountData.contact_email = c.contact_email;
+      if (c.total_trucks != null) accountData.total_trucks = c.total_trucks;
+      if (c.total_drivers != null) accountData.total_drivers = c.total_drivers;
+
+      const fieldCount = Object.keys(accountData).length - 1; // minus dot_number
+      createAccount.mutate(accountData);
+      sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${accountData.company_name || "DOT " + dot}`);
+    } catch (err: any) {
+      console.error("DOT lookup error:", err);
+      sonnerToast.error("DOT Lookup Failed", { description: err.message || "Could not retrieve carrier data" });
+    } finally {
+      setIsDotLookingUp(false);
+    }
+  };
 
   const filtered = accounts?.filter((a) =>
     a.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -165,17 +212,57 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
 
           {showNewAccount && (
             <Card className="glass-panel">
-              <CardContent className="p-4 flex gap-3">
-                <Input
-                  placeholder="Company name"
-                  value={newCompanyName}
-                  onChange={(e) => setNewCompanyName(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={() => createAccount.mutate(newCompanyName)} disabled={!newCompanyName}>
-                  Create
-                </Button>
-                <Button variant="ghost" onClick={() => setShowNewAccount(false)}>Cancel</Button>
+              <CardContent className="p-4 space-y-3">
+                {newAccountMode === "dot" ? (
+                  <>
+                    <p className="text-sm font-semibold">Enter DOT Number to auto-fill from SAFER</p>
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="DOT Number (e.g. 1234567)"
+                        value={newDotNumber}
+                        onChange={(e) => setNewDotNumber(e.target.value)}
+                        className="flex-1"
+                        onKeyDown={(e) => e.key === "Enter" && newDotNumber.trim() && handleDotLookupAndCreate()}
+                      />
+                      <Button onClick={handleDotLookupAndCreate} disabled={!newDotNumber.trim() || isDotLookingUp}>
+                        {isDotLookingUp ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        {isDotLookingUp ? "Looking up..." : "Create from DOT"}
+                      </Button>
+                      <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewAccountMode("manual")}
+                      className="text-xs text-muted-foreground hover:text-primary underline underline-offset-2 transition-colors"
+                    >
+                      No DOT or Manual Entry
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold">Manual Account Creation</p>
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="Company name"
+                        value={newCompanyName}
+                        onChange={(e) => setNewCompanyName(e.target.value)}
+                        className="flex-1"
+                        onKeyDown={(e) => e.key === "Enter" && newCompanyName && createAccount.mutate({ company_name: newCompanyName })}
+                      />
+                      <Button onClick={() => createAccount.mutate({ company_name: newCompanyName })} disabled={!newCompanyName}>
+                        Create
+                      </Button>
+                      <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewAccountMode("dot")}
+                      className="text-xs text-muted-foreground hover:text-primary underline underline-offset-2 transition-colors"
+                    >
+                      ← Back to DOT Lookup
+                    </button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
