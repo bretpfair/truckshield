@@ -129,9 +129,11 @@ const Auth = () => {
         </div>
 
         <div className="glass-panel rounded-lg p-8">
-          {inviteToken && (
+          {(inviteToken || staffInviteToken) && (
             <div className="mb-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm text-primary">
-              You've been invited to join TruckShield. {isLogin ? "Sign in" : "Create an account"} to access your portal.
+              {staffInviteToken
+                ? `You've been invited to join the TruckShield team. ${isLogin ? "Sign in" : "Create an account"} to get started.`
+                : `You've been invited to join TruckShield. ${isLogin ? "Sign in" : "Create an account"} to access your portal.`}
             </div>
           )}
           <div className="flex items-center gap-2 mb-6">
