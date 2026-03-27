@@ -116,6 +116,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Extract contact info
+    const contactEmail = (bi("email") as string) || (bi("contact_email") as string) || (payload.contact_email as string) || null;
+    const contactPhone = (bi("phone") as string) || (bi("contact_phone") as string) || (payload.contact_phone as string) || null;
+
     // Map CTQ fields → accounts table
     const accountData: Record<string, unknown> = {
       company_name: companyName,
@@ -146,6 +150,8 @@ Deno.serve(async (req) => {
       cargo_types: payload.cargo_types || null,
       contractor_types: payload.contractor_types || null,
       notes: (op("notes") as string) || payload.notes || null,
+      contact_email: contactEmail,
+      contact_phone: contactPhone,
       // Enriched fields
       fleet_size: payload.fleet_size ?? null,
       total_trucks: payload.total_trucks ?? null,
