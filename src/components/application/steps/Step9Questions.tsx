@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AUTO_LIABILITY_QUESTIONS, GL_QUESTIONS } from "../constants";
 
 interface StepProps {
@@ -19,6 +19,33 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
   const coverage = formData.coverage_selections || {};
   const hasGL = coverage.general_liability && coverage.general_liability !== "No Coverage";
 
+  const YesNoCheckboxes = ({ qId, current }: { qId: string; current: string }) => (
+    <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1.5">
+        <Checkbox
+          id={`${qId}-yes`}
+          checked={current === "Yes"}
+          onCheckedChange={(checked) => {
+            if (checked) setAnswer(qId, { ...questions[qId], answer: "Yes" });
+            else setAnswer(qId, { ...questions[qId], answer: "" });
+          }}
+        />
+        <Label htmlFor={`${qId}-yes`} className="text-sm font-normal cursor-pointer">Yes</Label>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Checkbox
+          id={`${qId}-no`}
+          checked={current === "No"}
+          onCheckedChange={(checked) => {
+            if (checked) setAnswer(qId, { ...questions[qId], answer: "No" });
+            else setAnswer(qId, { ...questions[qId], answer: "" });
+          }}
+        />
+        <Label htmlFor={`${qId}-no`} className="text-sm font-normal cursor-pointer">No</Label>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -32,17 +59,11 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
         {AUTO_LIABILITY_QUESTIONS.map((q) => (
           <div key={q.id} className="p-3 rounded-md bg-secondary/30 border border-border space-y-2">
             <p className="text-sm">{q.text}</p>
-            <div className="flex items-center gap-3">
-              <Select value={questions[q.id]?.answer || ""} onValueChange={(v) => setAnswer(q.id, { ...questions[q.id], answer: v })}>
-                <SelectTrigger className="w-24"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Yes">Yes</SelectItem>
-                  <SelectItem value="No">No</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-3 flex-wrap">
+              <YesNoCheckboxes qId={q.id} current={questions[q.id]?.answer || ""} />
               {q.hasExplain && questions[q.id]?.answer === "Yes" && (
                 <Input
-                  className="flex-1"
+                  className="flex-1 min-w-[200px]"
                   placeholder="Please explain..."
                   value={questions[q.id]?.explanation || ""}
                   onChange={(e) => setAnswer(q.id, { ...questions[q.id], explanation: e.target.value })}
@@ -92,13 +113,7 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
           {GL_QUESTIONS.map((q) => (
             <div key={q.id} className="p-3 rounded-md bg-secondary/30 border border-border space-y-2">
               <p className="text-sm">{q.text}</p>
-              <Select value={questions[q.id]?.answer || ""} onValueChange={(v) => setAnswer(q.id, { ...questions[q.id], answer: v })}>
-                <SelectTrigger className="w-24"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Yes">Yes</SelectItem>
-                  <SelectItem value="No">No</SelectItem>
-                </SelectContent>
-              </Select>
+              <YesNoCheckboxes qId={q.id} current={questions[q.id]?.answer || ""} />
             </div>
           ))}
         </div>
