@@ -16,9 +16,9 @@ const statusLabels: Record<string, string> = {
 
 const statusMessages: Record<string, string> = {
   submitted: 'Your application has been submitted to the carrier for review. We will keep you updated as things progress.',
-  reviewing: 'The carrier is currently reviewing your application. No action is needed from you at this time — we'll notify you as soon as there's an update.',
+  reviewing: 'The carrier is currently reviewing your application. No action is needed from you at this time. We will notify you as soon as there is an update.',
   quoted: 'Great news! A quote has been received for your trucking insurance. Log in to your portal to view the details and premium.',
-  declined: 'Unfortunately, this carrier has declined to provide a quote at this time. Don't worry — we are continuing to work with other markets to find you the best coverage.',
+  declined: 'Unfortunately, this carrier has declined to provide a quote at this time. Do not worry, we are continuing to work with other markets to find you the best coverage.',
   bound: 'Congratulations! Your policy has been bound. Log in to your portal for the full details.',
 }
 
