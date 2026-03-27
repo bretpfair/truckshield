@@ -16,8 +16,21 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
-const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
+const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [dotDuplicate, setDotDuplicate] = useState<{ company_name: string; id: string } | null>(null);
+
+  const checkDotDuplicate = async (dotNumber: string) => {
+    const clean = dotNumber.trim();
+    if (!clean) { setDotDuplicate(null); return; }
+    const { data } = await supabase
+      .from("accounts")
+      .select("id, company_name")
+      .eq("dot_number", clean)
+      .neq("id", account?.id || "")
+      .limit(1);
+    setDotDuplicate(data && data.length > 0 ? data[0] : null);
+  };
 
   const toggleArrayItem = (field: string, item: string) => {
     const arr: string[] = formData[field] || [];
