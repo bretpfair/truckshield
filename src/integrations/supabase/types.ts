@@ -606,6 +606,54 @@ export type Database = {
           },
         ]
       }
+      info_requests: {
+        Row: {
+          account_id: string
+          carrier_name: string
+          created_at: string
+          id: string
+          quote_id: string
+          request_details: string
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          account_id: string
+          carrier_name: string
+          created_at?: string
+          id?: string
+          quote_id: string
+          request_details: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Update: {
+          account_id?: string
+          carrier_name?: string
+          created_at?: string
+          id?: string
+          quote_id?: string
+          request_details?: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_requests_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_requests_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loss_history: {
         Row: {
           account_id: string

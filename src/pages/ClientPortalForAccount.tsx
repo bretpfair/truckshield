@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   FileText, Truck, Shield, Clock, CheckCircle2,
   ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertCircle, AlertTriangle,
@@ -39,6 +46,7 @@ interface Props {
 
 const ClientPortalForAccount = ({ accountId }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
+  const [showInfoRequestDialog, setShowInfoRequestDialog] = useState(false);
 
   const { data: account, isLoading } = useQuery({
     queryKey: ["account", accountId],
@@ -58,6 +66,27 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
       return data;
     },
   });
+
+  const { data: pendingInfoRequests } = useQuery({
+    queryKey: ["info-requests", accountId],
+    enabled: !!account,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("info_requests")
+        .select("*")
+        .eq("account_id", accountId)
+        .eq("status", "pending");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Show info request dialog on mount when pending requests exist
+  useEffect(() => {
+    if (pendingInfoRequests && pendingInfoRequests.length > 0) {
+      setShowInfoRequestDialog(true);
+    }
+  }, [pendingInfoRequests]);
 
   const reviewingQuotes = allQuotes?.filter((q: any) => ["submitted", "reviewing"].includes(q.status)) ?? [];
   const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
@@ -205,17 +234,24 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {actionNeededQuotes.map((q: any) => (
-                <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-                  <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+              {actionNeededQuotes.map((q: any) => {
+                const infoReq = pendingInfoRequests?.find((ir: any) => ir.quote_id === q.id);
+                return (
+                  <div key={q.id} className="flex items-start gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
+                    <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
+                      {infoReq ? (
+                        <p className="text-xs text-amber-700 mt-1">{infoReq.request_details}</p>
+                      ) : (
+                        <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
-                    <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -287,6 +323,36 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
       {/* Documents */}
       <DocumentHub accountId={accountId} readOnly={false} />
 
+      {/* Pending Info Requests Popup */}
+      <Dialog open={showInfoRequestDialog} onOpenChange={setShowInfoRequestDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Action Required — Additional Information Needed
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+            <p className="text-sm text-muted-foreground">
+              The following carriers need more information before they can provide a quote. Please review and provide the requested details.
+            </p>
+            {pendingInfoRequests?.map((ir: any) => (
+              <div key={ir.id} className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-2">
+                <p className="font-semibold text-sm">{ir.carrier_name}</p>
+                <p className="text-sm text-foreground">{ir.request_details}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">
+                  Requested {new Date(ir.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowInfoRequestDialog(false)}>
+              I Understand
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

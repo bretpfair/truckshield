@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -21,9 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, DollarSign, FileText, Clock, CheckCircle2, XCircle, Send } from "lucide-react";
-
-import { AlertTriangle } from "lucide-react";
+import { Upload, DollarSign, FileText, Clock, CheckCircle2, XCircle, Send, AlertTriangle } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   submitted: { label: "Submitted", color: "bg-primary/10 text-primary border-primary/20", icon: Send },
@@ -51,9 +50,12 @@ interface Props {
 
 const SubmittedMarkets = ({ accountId, quotes }: Props) => {
   const [uploadDialog, setUploadDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [infoRequestDialog, setInfoRequestDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [infoRequestDetails, setInfoRequestDetails] = useState("");
   const [premiumAmount, setPremiumAmount] = useState("");
   const [quoteFile, setQuoteFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [submittingInfoRequest, setSubmittingInfoRequest] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,7 +66,6 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
         .update({ status })
         .eq("id", quoteId);
       if (error) throw error;
-      // Log activity
       await supabase.from("activity_log").insert({
         account_id: accountId,
         action_type: "quote_update",
@@ -77,6 +78,102 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
       toast({ title: "Status updated" });
     },
   });
+
+  const handleStatusChange = (quoteId: string, status: string, carrierName: string) => {
+    if (status === "info_requested") {
+      setInfoRequestDialog({ quoteId, carrierName });
+      setInfoRequestDetails("");
+      return;
+    }
+    updateStatus.mutate({ quoteId, status, carrierName });
+  };
+
+  const handleSubmitInfoRequest = async () => {
+    if (!infoRequestDialog || !infoRequestDetails.trim()) return;
+    setSubmittingInfoRequest(true);
+
+    try {
+      // Update quote status
+      const { error: quoteError } = await supabase
+        .from("quotes")
+        .update({ status: "info_requested" })
+        .eq("id", infoRequestDialog.quoteId);
+      if (quoteError) throw quoteError;
+
+      // Insert info request record
+      const { error: irError } = await supabase.from("info_requests").insert({
+        account_id: accountId,
+        quote_id: infoRequestDialog.quoteId,
+        carrier_name: infoRequestDialog.carrierName,
+        request_details: infoRequestDetails.trim(),
+      });
+      if (irError) throw irError;
+
+      // Log activity
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${infoRequestDialog.carrierName} status changed to Additional Info Requested`,
+      });
+
+      // Get account to find client info for notification + email
+      const { data: account } = await supabase
+        .from("accounts")
+        .select("client_user_id, contact_email, company_name")
+        .eq("id", accountId)
+        .single();
+
+      // Create in-app notification for client
+      if (account?.client_user_id) {
+        await supabase.from("notifications").insert({
+          user_id: account.client_user_id,
+          account_id: accountId,
+          type: "info_requested",
+          title: "Additional Information Requested",
+          message: `${infoRequestDialog.carrierName} has requested additional information: ${infoRequestDetails.trim()}`,
+        });
+      }
+
+      // Send email notification to client
+      const clientEmail = account?.contact_email;
+      if (clientEmail) {
+        // Get client name if available
+        let firstName: string | undefined;
+        if (account?.client_user_id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", account.client_user_id)
+            .single();
+          firstName = profile?.full_name?.split(" ")[0];
+        }
+
+        await supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "additional-info-request",
+            recipientEmail: clientEmail,
+            idempotencyKey: `info-request-${infoRequestDialog.quoteId}-${Date.now()}`,
+            templateData: {
+              firstName,
+              carrierName: infoRequestDialog.carrierName,
+              requestDetails: infoRequestDetails.trim(),
+              portalLink: `${window.location.origin}/client`,
+            },
+          },
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      toast({ title: "Info request sent", description: "Client has been notified" });
+      setInfoRequestDialog(null);
+      setInfoRequestDetails("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingInfoRequest(false);
+    }
+  };
 
   const handleUploadQuote = async () => {
     if (!uploadDialog || !premiumAmount) return;
@@ -160,7 +257,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                   </Badge>
                   <Select
                     value={q.status}
-                    onValueChange={(val) => updateStatus.mutate({ quoteId: q.id, status: val, carrierName: (q.carriers as any)?.name ?? "Carrier" })}
+                    onValueChange={(val) => handleStatusChange(q.id, val, (q.carriers as any)?.name ?? "Carrier")}
                   >
                     <SelectTrigger className="w-[140px] h-8 text-xs">
                       <SelectValue />
@@ -196,6 +293,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
         </CardContent>
       </Card>
 
+      {/* Upload Quote Dialog */}
       <Dialog open={!!uploadDialog} onOpenChange={(open) => !open && setUploadDialog(null)}>
         <DialogContent>
           <DialogHeader>
@@ -228,6 +326,43 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
             <Button variant="ghost" onClick={() => setUploadDialog(null)}>Cancel</Button>
             <Button onClick={handleUploadQuote} disabled={!premiumAmount || uploading}>
               {uploading ? "Uploading..." : "Save Quote"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Additional Info Request Dialog */}
+      <Dialog open={!!infoRequestDialog} onOpenChange={(open) => !open && setInfoRequestDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Additional Info Required — {infoRequestDialog?.carrierName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Please describe the information the carrier is requesting. The client will be notified via email and in-app notification.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="info-details">What information is needed?</Label>
+              <Textarea
+                id="info-details"
+                placeholder="e.g. Updated loss runs for the past 3 years, current driver MVRs..."
+                value={infoRequestDetails}
+                onChange={(e) => setInfoRequestDetails(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setInfoRequestDialog(null)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitInfoRequest}
+              disabled={!infoRequestDetails.trim() || submittingInfoRequest}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {submittingInfoRequest ? "Sending..." : "Send Request & Notify Client"}
             </Button>
           </DialogFooter>
         </DialogContent>

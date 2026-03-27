@@ -44,7 +44,9 @@ interface Props {
   onSelectAccount: (id: string) => void;
 }
 
-const PipelineView = ({ accounts, onSelectAccount }: Props) => {
+const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
+  // Exclude closed/lost accounts from pipeline
+  const accounts = rawAccounts.filter((a) => a.status !== "closed_lost");
   // Fetch unread message counts per account
   const { data: messageCounts } = useQuery({
     queryKey: ["message-counts"],
