@@ -10,7 +10,9 @@ export interface TemplateEntry {
 }
 
 import { template as clientPortalInvite } from './client-portal-invite.tsx'
+import { template as additionalInfoRequest } from './additional-info-request.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'client-portal-invite': clientPortalInvite,
+  'additional-info-request': additionalInfoRequest,
 }
