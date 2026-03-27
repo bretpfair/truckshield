@@ -190,7 +190,7 @@ const Step6Trailers = ({ account }: StepProps) => {
         </div>
       ))}
 
-      <Button onClick={() => saveMutation.mutate()} className="w-full">Save Trailers</Button>
+      
     </div>
   );
 };
