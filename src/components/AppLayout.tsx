@@ -104,6 +104,8 @@ const AppLayout = () => {
             <StaffDashboard
               onPreviewClient={handlePreviewClient}
               onOpenMessages={(accountId) => { setMessagingAccountId(accountId); setMessagingExpanded(true); }}
+              navigateToAccountId={staffNavigateAccountId}
+              onNavigateHandled={() => setStaffNavigateAccountId(null)}
             />
           )}
         </main>
