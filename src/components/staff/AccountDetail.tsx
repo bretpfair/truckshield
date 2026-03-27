@@ -378,7 +378,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
     { label: "Cargo Types", value: derivedCargoTypes },
     { label: "Operating States", value: derivedOperatingStates },
     { label: "Claims", value: derivedClaims },
-    { label: "Loss History", value: derivedLossHistorySummary },
+    { label: "Line(s) of Coverage", value: derivedLossHistorySummary },
     { label: "Coverage Expiry", value: account.current_coverage_expiry },
     { label: "Business Type", value: account.business_type },
     { label: "Authority Date", value: account.date_of_authority },
