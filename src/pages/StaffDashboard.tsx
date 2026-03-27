@@ -59,6 +59,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
     }
   }, [navigateToAccountId, onNavigateHandled]);
 
+  const { data: accounts, isLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
       const { data, error } = await supabase
