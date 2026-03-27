@@ -23,6 +23,8 @@ const Auth = () => {
   // Staff mode: password login/signup (only via staff_invite or explicit ?mode=staff)
   const isStaffFlow = !!(staffInviteToken || mode === "staff");
   const [isLogin, setIsLogin] = useState(true);
+  const [staffUseMagicLink, setStaffUseMagicLink] = useState(false);
+  const [staffMagicLinkSent, setStaffMagicLinkSent] = useState(false);
 
   // If arriving with staff invite, default to signup
   useEffect(() => {
