@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_dot_number_unique ON public.accounts (dot_number) WHERE dot_number IS NOT NULL AND dot_number != '';
