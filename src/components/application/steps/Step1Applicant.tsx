@@ -104,7 +104,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         <div className="space-y-2">
           <Label>DOT Number</Label>
           <div className="flex gap-2">
-            <Input value={formData.dot_number || ""} onChange={(e) => updateFormData({ dot_number: e.target.value })} placeholder="1234567" />
+            <Input value={formData.dot_number || ""} onChange={(e) => { updateFormData({ dot_number: e.target.value }); checkDotDuplicate(e.target.value); }} placeholder="1234567" />
             <Button
               type="button"
               variant="outline"
