@@ -168,8 +168,8 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
   const contactFields = [
     { label: "Contact Name", value: clientProfile?.full_name || account.business_owner_name },
-    { label: "Email", value: clientProfile?.email },
-    { label: "Phone", value: clientProfile?.phone },
+    { label: "Email", value: clientProfile?.email || account.contact_email },
+    { label: "Phone", value: clientProfile?.phone || account.contact_phone },
     { label: "Mailing Address", value: [account.mailing_address, account.mailing_city, account.mailing_state, account.mailing_zip].filter(Boolean).join(", ") || null },
   ];
 
