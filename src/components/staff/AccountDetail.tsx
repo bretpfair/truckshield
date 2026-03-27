@@ -6,7 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ClipboardList, Eye, Download } from "lucide-react";
+import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { generateApplicationPdf } from "@/lib/generateApplicationPdf";
 import MarketGuidance from "./MarketGuidance";
 import SubmittedMarkets from "./SubmittedMarkets";
@@ -25,9 +35,48 @@ interface Props {
 
 const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const deleteAccount = useMutation({
+    mutationFn: async () => {
+      // Delete related records first, then the account (CASCADE handles most, but explicit for safety)
+      const { error } = await supabase.from("accounts").delete().eq("id", accountId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast({ title: "Account deleted" });
+      onBack();
+    },
+    onError: (err: any) => {
+      toast({ title: "Error deleting account", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const closeLostAccount = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("accounts").update({ status: "closed_lost" }).eq("id", accountId);
+      if (error) throw error;
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "status_change",
+        description: "Account marked as Closed/Lost",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      toast({ title: "Account marked as Closed/Lost" });
+      onBack();
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   const { data: account } = useQuery({
     queryKey: ["account", accountId],
@@ -175,13 +224,23 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
         <h2 className="text-xl font-bold">{account.company_name}</h2>
         <Badge variant="outline">{account.status.replace(/_/g, " ")}</Badge>
         <div className="flex-1" />
+        {account.status !== "closed_lost" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-warning border-warning/30 hover:bg-warning/10"
+            onClick={() => setShowCloseLostDialog(true)}
+          >
+            <XCircle className="h-3.5 w-3.5" /> Close / Lost
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5">
           <ClipboardList className="h-3.5 w-3.5" /> View Application
         </Button>
@@ -207,6 +266,14 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
             <Eye className="h-3.5 w-3.5" /> Preview Client
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+          onClick={() => setShowDeleteDialog(true)}
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Delete
+        </Button>
       </div>
 
       {/* Account Info with Contact */}
@@ -275,6 +342,45 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
       {/* Activity Log & Notes */}
       <ActivityLog accountId={accountId} />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{account.company_name}</strong>? This will remove all associated data including quotes, drivers, vehicles, and documents. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteAccount.mutate()}
+            >
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Close/Lost Confirmation */}
+      <AlertDialog open={showCloseLostDialog} onOpenChange={setShowCloseLostDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as Closed / Lost</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove <strong>{account.company_name}</strong> from the active pipeline. The record will be preserved but no longer appear in your pipeline view.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => closeLostAccount.mutate()}>
+              Confirm Close / Lost
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
