@@ -51,7 +51,14 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: accounts, isLoading } = useQuery({
+  // Handle external navigation from notification clicks
+  useEffect(() => {
+    if (navigateToAccountId) {
+      setSelectedAccountId(navigateToAccountId);
+      onNavigateHandled?.();
+    }
+  }, [navigateToAccountId, onNavigateHandled]);
+
     queryKey: ["accounts"],
     queryFn: async () => {
       const { data, error } = await supabase
