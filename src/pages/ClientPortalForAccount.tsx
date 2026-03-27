@@ -234,17 +234,24 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {actionNeededQuotes.map((q: any) => (
-                <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-                  <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+              {actionNeededQuotes.map((q: any) => {
+                const infoReq = pendingInfoRequests?.find((ir: any) => ir.quote_id === q.id);
+                return (
+                  <div key={q.id} className="flex items-start gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
+                    <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
+                      {infoReq ? (
+                        <p className="text-xs text-amber-700 mt-1">{infoReq.request_details}</p>
+                      ) : (
+                        <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
-                    <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
