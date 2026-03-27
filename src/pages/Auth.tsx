@@ -5,24 +5,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Truck, Shield } from "lucide-react";
+import { Truck, Shield, Mail, Loader2 } from "lucide-react";
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
   const staffInviteToken = searchParams.get("staff_invite");
+  const mode = searchParams.get("mode"); // "staff" for staff login
   const { toast } = useToast();
 
-  // If arriving with any invite token, default to signup
+  // Staff mode: password login/signup (only via staff_invite or explicit ?mode=staff)
+  const isStaffFlow = !!(staffInviteToken || mode === "staff");
+  const [isLogin, setIsLogin] = useState(true);
+
+  // If arriving with staff invite, default to signup
   useEffect(() => {
-    if (inviteToken || staffInviteToken) setIsLogin(false);
-  }, [inviteToken, staffInviteToken]);
+    if (staffInviteToken) setIsLogin(false);
+  }, [staffInviteToken]);
 
   // Accept staff invitation helper
   const acceptStaffInvitation = async () => {
@@ -40,25 +45,7 @@ const Auth = () => {
     }
   };
 
-  // Handle returning from email verification link — detect existing session on mount
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        if (inviteToken) {
-          try {
-            await supabase.rpc("accept_invitation", { p_token: inviteToken });
-          } catch (err) {
-            console.error("Auto invite acceptance error:", err);
-          }
-        }
-        if (staffInviteToken) {
-          await acceptStaffInvitation();
-        }
-        navigate("/");
-      }
-    });
-  }, [inviteToken, staffInviteToken, navigate]);
-
+  // Accept client invitation helper
   const acceptInvitation = async () => {
     if (!inviteToken) return;
     try {
@@ -74,7 +61,23 @@ const Auth = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handle returning from email verification / magic link — detect existing session on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        if (inviteToken) {
+          try { await acceptInvitation(); } catch {}
+        }
+        if (staffInviteToken) {
+          await acceptStaffInvitation();
+        }
+        navigate("/");
+      }
+    });
+  }, [inviteToken, staffInviteToken, navigate]);
+
+  // --- STAFF: password-based login/signup ---
+  const handleStaffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -83,7 +86,6 @@ const Auth = () => {
       if (error) {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });
       } else {
-        if (inviteToken) await acceptInvitation();
         if (staffInviteToken) await acceptStaffInvitation();
         navigate("/");
       }
@@ -94,23 +96,43 @@ const Auth = () => {
         options: {
           data: { full_name: fullName },
           emailRedirectTo: window.location.origin + (
-            staffInviteToken ? `/auth?staff_invite=${staffInviteToken}` :
-            inviteToken ? `/auth?invite=${inviteToken}` : ""
+            staffInviteToken ? `/auth?staff_invite=${staffInviteToken}` : ""
           ),
         },
       });
       if (error) {
         toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
       } else {
-        // If auto-confirmed (session exists), accept invite immediately
         if (signUpData.session) {
-          if (inviteToken) await acceptInvitation();
           if (staffInviteToken) await acceptStaffInvitation();
           navigate("/");
         } else {
           toast({ title: "Account created", description: "Check your email to verify your account." });
         }
       }
+    }
+    setLoading(false);
+  };
+
+  // --- CLIENT: magic link ---
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const redirectTo = inviteToken
+      ? `${window.location.origin}/auth?invite=${inviteToken}`
+      : `${window.location.origin}/auth`;
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setMagicLinkSent(true);
+      toast({ title: "Check your email", description: "We sent you a magic link to sign in." });
     }
     setLoading(false);
   };
@@ -129,90 +151,163 @@ const Auth = () => {
         </div>
 
         <div className="glass-panel rounded-lg p-8">
-          {(inviteToken || staffInviteToken) && (
+          {/* Invite banners */}
+          {staffInviteToken && (
             <div className="mb-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm text-primary">
-              {staffInviteToken
-                ? `You've been invited to join the TruckShield team. ${isLogin ? "Sign in" : "Create an account"} to get started.`
-                : `You've been invited to join TruckShield. ${isLogin ? "Sign in" : "Create an account"} to access your portal.`}
+              You've been invited to join the TruckShield team. {isLogin ? "Sign in" : "Create an account"} to get started.
             </div>
           )}
+          {inviteToken && (
+            <div className="mb-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm text-primary">
+              You've been invited to join TruckShield. Enter your email below to sign in.
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mb-6">
             <Shield className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">{isLogin ? "Sign In" : "Create Account"}</h2>
+            <h2 className="text-lg font-semibold">
+              {isStaffFlow
+                ? (isLogin ? "Staff Sign In" : "Create Staff Account")
+                : "Sign In"}
+            </h2>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="John Doe"
-                  required={!isLogin}
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
-            </Button>
-          </form>
+          {/* ====== STAFF FLOW: password-based ====== */}
+          {isStaffFlow ? (
+            <>
+              <form onSubmit={handleStaffSubmit} className="space-y-4">
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input
+                      id="fullName"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="John Doe"
+                      required={!isLogin}
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isLogin ? "Sign In" : "Create Account"}
+                </Button>
+              </form>
 
-          <div className="mt-4 text-center space-y-2">
-            {isLogin && (
+              <div className="mt-4 text-center space-y-2">
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!email) {
+                        toast({ title: "Enter your email first", variant: "destructive" });
+                        return;
+                      }
+                      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                        redirectTo: `${window.location.origin}/reset-password`,
+                      });
+                      if (error) {
+                        toast({ title: "Error", description: error.message, variant: "destructive" });
+                      } else {
+                        toast({ title: "Check your email", description: "Password reset link sent." });
+                      }
+                    }}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors block w-full"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ====== CLIENT FLOW: magic link ====== */
+            <>
+              {magicLinkSent ? (
+                <div className="text-center space-y-4 py-4">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Mail className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">Check your email</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      We sent a sign-in link to <span className="font-medium text-foreground">{email}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMagicLinkSent(false)}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleMagicLink} className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Enter your email and we'll send you a link to sign in — no password needed.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@company.com"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
+                    Send Magic Link
+                  </Button>
+                </form>
+              )}
+            </>
+          )}
+
+          {/* Staff login link for admins who visit /auth directly */}
+          {!isStaffFlow && (
+            <div className="mt-6 pt-4 border-t border-border text-center">
               <button
                 type="button"
-                onClick={async () => {
-                  if (!email) {
-                    toast({ title: "Enter your email first", variant: "destructive" });
-                    return;
-                  }
-                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: `${window.location.origin}/reset-password`,
-                  });
-                  if (error) {
-                    toast({ title: "Error", description: error.message, variant: "destructive" });
-                  } else {
-                    toast({ title: "Check your email", description: "Password reset link sent." });
-                  }
-                }}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors block w-full"
+                onClick={() => navigate("/auth?mode=staff")}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
               >
-                Forgot password?
+                Staff login →
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
