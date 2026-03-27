@@ -42,6 +42,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
   const [newDotNumber, setNewDotNumber] = useState("");
   const [newCompanyName, setNewCompanyName] = useState("");
   const [isDotLookingUp, setIsDotLookingUp] = useState(false);
+  const [dotLookupResult, setDotLookupResult] = useState<Record<string, any> | null>(null);
   const [viewMode, setViewMode] = useState<"pipeline" | "list">("pipeline");
   const { user } = useAuth();
   const { toast } = useToast();
