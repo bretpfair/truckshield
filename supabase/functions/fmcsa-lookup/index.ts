@@ -55,19 +55,22 @@ Deno.serve(async (req) => {
     const cleanDot = dotNumber.toString().replace(/\D/g, "");
     console.log("Looking up DOT number:", cleanDot);
 
-    const fmcsaUrl = `https://mobile.fmcsa.dot.gov/qc/services/carriers/${cleanDot}?webKey=${apiKey}`;
-    const response = await fetch(fmcsaUrl);
+    // Fetch carrier details and cargo carried in parallel
+    const [carrierRes, cargoRes] = await Promise.all([
+      fetch(`https://mobile.fmcsa.dot.gov/qc/services/carriers/${cleanDot}?webKey=${apiKey}`),
+      fetch(`https://mobile.fmcsa.dot.gov/qc/services/carriers/${cleanDot}/cargo-carried?webKey=${apiKey}`),
+    ]);
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("FMCSA API error:", response.status, text);
+    if (!carrierRes.ok) {
+      const text = await carrierRes.text();
+      console.error("FMCSA API error:", carrierRes.status, text);
       return new Response(
-        JSON.stringify({ error: `FMCSA API returned ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: `FMCSA API returned ${carrierRes.status}` }),
+        { status: carrierRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const data = await response.json();
+    const data = await carrierRes.json();
     const carrier = data?.content?.carrier;
 
     if (!carrier) {
@@ -76,6 +79,24 @@ Deno.serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Parse cargo carried
+    let cargoTypes: string[] = [];
+    try {
+      if (cargoRes.ok) {
+        const cargoData = await cargoRes.json();
+        const cargoList = cargoData?.content?.cargoCarried;
+        if (Array.isArray(cargoList)) {
+          cargoTypes = cargoList
+            .map((c: any) => c.cargoClassDesc || c.cargoCarriedDesc || "")
+            .filter(Boolean);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not parse cargo carried:", e);
+    }
+
+    console.log("Cargo types from FMCSA:", cargoTypes);
 
     // Map FMCSA response to our form fields
     const mapped = {
@@ -91,12 +112,10 @@ Deno.serve(async (req) => {
       contact_email: carrier.emailAddress || null,
       total_trucks: carrier.totalPowerUnits != null ? parseInt(carrier.totalPowerUnits) : null,
       total_drivers: carrier.totalDrivers != null ? parseInt(carrier.totalDrivers) : null,
-      // Additional useful fields
       carrier_operation: carrier.carrierOperation || null,
       allow_to_operate: carrier.allowToOperate || null,
       out_of_service: carrier.outOfService || null,
-      // Cargo carried info from FMCSA
-      cargo_carried: carrier.cargoCarried || null,
+      cargo_carried: cargoTypes,
     };
 
     console.log("Mapped carrier data for DOT", cleanDot);
