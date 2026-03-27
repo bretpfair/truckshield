@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import AccountDetail from "@/components/staff/AccountDetail";
 import CarrierManager from "@/components/staff/CarrierManager";
 import InviteClientDialog from "@/components/staff/InviteClientDialog";
+import InviteStaffDialog from "@/components/staff/InviteStaffDialog";
 import PdfUpload from "@/components/staff/PdfUpload";
 import PipelineView from "@/components/staff/PipelineView";
 import DashboardAnalytics from "@/components/staff/DashboardAnalytics";
@@ -266,6 +267,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
             <BarChart3 className="h-3 w-3 mr-1" /> Analytics
           </TabsTrigger>
           <TabsTrigger value="invite">Invite Client</TabsTrigger>
+          <TabsTrigger value="invite-staff">Invite Staff</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-4">
@@ -495,6 +497,10 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
 
         <TabsContent value="invite">
           <InviteClientDialog />
+        </TabsContent>
+
+        <TabsContent value="invite-staff">
+          <InviteStaffDialog />
         </TabsContent>
       </Tabs>
     </div>

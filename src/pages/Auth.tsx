@@ -16,6 +16,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
+  const staffInviteToken = searchParams.get("staff_invite");
   const { toast } = useToast();
 
   // If arriving with invite token, default to signup
