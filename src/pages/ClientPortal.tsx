@@ -1,6 +1,28 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+
+const getCarrierLogoUrl = (logoPath: string | null) => {
+  if (!logoPath) return null;
+  const { data } = supabase.storage.from("carrier-logos").getPublicUrl(logoPath);
+  return data?.publicUrl || null;
+};
+
+const CarrierAvatar = ({ carrier, fallbackClass }: { carrier: any; fallbackClass?: string }) => {
+  const logoUrl = getCarrierLogoUrl(carrier?.logo_path);
+  if (logoUrl) {
+    return (
+      <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden border border-border">
+        <img src={logoUrl} alt={carrier?.name || "Carrier"} className="h-6 w-6 object-contain" />
+      </div>
+    );
+  }
+  return (
+    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${fallbackClass || "bg-primary/10"}`}>
+      <Building className="h-4 w-4 text-primary" />
+    </div>
+  );
+};
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +89,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quotes")
-        .select("*, carriers(name)")
+        .select("*, carriers(name, logo_path)")
         .eq("account_id", account!.id);
       if (error) throw error;
       return data;
@@ -227,9 +249,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {actionNeededQuotes.map((q: any) => (
                 <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-                  <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  </div>
+                  <CarrierAvatar carrier={q.carriers} fallbackClass="bg-amber-500/20" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
                     <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
@@ -257,9 +277,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
                 const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.submitted;
                 return (
                   <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 border border-border">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Building className="h-4 w-4 text-primary" />
-                    </div>
+                    <CarrierAvatar carrier={q.carriers} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
                       <p className="text-[11px] text-muted-foreground font-mono">{cfg.label}</p>
