@@ -117,6 +117,12 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
               <span className="ml-1.5 hidden sm:inline">SAFER</span>
             </Button>
           </div>
+          {dotDuplicate && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-warning/10 border border-warning/30 text-warning text-xs font-mono col-span-1 md:col-span-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>DOT# already exists on account <strong>"{dotDuplicate.company_name}"</strong></span>
+            </div>
+          )}
         </div>
         <div className="space-y-2">
           <Label>MC Number (If applicable)</Label>
