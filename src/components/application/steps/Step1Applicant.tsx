@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { US_STATES, BUSINESS_CATEGORIES, CONTRACTOR_TYPES, BUSINESS_TYPES } from "../constants";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, AlertTriangle } from "lucide-react";
 
 interface StepProps {
   account: any;
