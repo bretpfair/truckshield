@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
-import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail } from "lucide-react";
+import { sendClientInvite } from "@/lib/sendClientInvite";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isSaferUpdating, setIsSaferUpdating] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -118,6 +120,19 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       const fieldCount = Object.keys(updateFields).length;
       sonnerToast.success(`Updated ${fieldCount} fields from SAFER`);
+
+      // Auto-invite if contact_email was just added
+      if (updateFields.contact_email && !account?.contact_email) {
+        try {
+          const result = await sendClientInvite({
+            accountId,
+            email: updateFields.contact_email,
+            invitedBy: user?.id,
+            companyName: updateFields.company_name || account?.company_name,
+          });
+          if (result.sent) sonnerToast.success("Client invite auto-sent", { description: result.message });
+        } catch { /* non-fatal */ }
+      }
     } catch (err: any) {
       sonnerToast.error("SAFER Update Failed", { description: err.message });
     } finally {
@@ -357,6 +372,38 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         >
           <Download className="h-3.5 w-3.5" /> Download Application
         </Button>
+        {account.contact_email && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={isSendingInvite}
+            onClick={async () => {
+              setIsSendingInvite(true);
+              try {
+                const result = await sendClientInvite({
+                  accountId,
+                  email: account.contact_email!,
+                  invitedBy: user?.id,
+                  companyName: account.company_name,
+                });
+                if (result.sent) {
+                  sonnerToast.success(result.message);
+                  queryClient.invalidateQueries({ queryKey: ["invitations"] });
+                } else {
+                  sonnerToast.info(result.message);
+                }
+              } catch (err: any) {
+                sonnerToast.error("Failed to send invite", { description: err.message });
+              } finally {
+                setIsSendingInvite(false);
+              }
+            }}
+          >
+            {isSendingInvite ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+            Send Invite
+          </Button>
+        )}
         {onPreviewClient && (
           <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5">
             <Eye className="h-3.5 w-3.5" /> Preview Client
