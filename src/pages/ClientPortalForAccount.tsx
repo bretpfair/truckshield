@@ -46,6 +46,7 @@ interface Props {
 
 const ClientPortalForAccount = ({ accountId }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
+  const [showInfoRequestDialog, setShowInfoRequestDialog] = useState(false);
 
   const { data: account, isLoading } = useQuery({
     queryKey: ["account", accountId],
@@ -65,6 +66,27 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
       return data;
     },
   });
+
+  const { data: pendingInfoRequests } = useQuery({
+    queryKey: ["info-requests", accountId],
+    enabled: !!account,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("info_requests")
+        .select("*")
+        .eq("account_id", accountId)
+        .eq("status", "pending");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Show info request dialog on mount when pending requests exist
+  useEffect(() => {
+    if (pendingInfoRequests && pendingInfoRequests.length > 0) {
+      setShowInfoRequestDialog(true);
+    }
+  }, [pendingInfoRequests]);
 
   const reviewingQuotes = allQuotes?.filter((q: any) => ["submitted", "reviewing"].includes(q.status)) ?? [];
   const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
