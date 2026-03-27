@@ -60,21 +60,64 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
   });
 
   const createAccount = useMutation({
-    mutationFn: async (companyName: string) => {
+    mutationFn: async (accountData: Record<string, any>) => {
       const { error } = await supabase.from("accounts").insert({
-        company_name: companyName,
+        company_name: accountData.company_name || "New Account",
         created_by: user!.id,
+        ...accountData,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      setShowNewAccount(false);
-      setNewCompanyName("");
+      resetNewAccountForm();
       toast({ title: "Account created" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  const resetNewAccountForm = () => {
+    setShowNewAccount(false);
+    setNewAccountMode("dot");
+    setNewDotNumber("");
+    setNewCompanyName("");
+  };
+
+  const handleDotLookupAndCreate = async () => {
+    const dot = newDotNumber.trim();
+    if (!dot) return;
+    setIsDotLookingUp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fmcsa-lookup", {
+        body: { dotNumber: dot },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Lookup failed");
+
+      const c = data.data;
+      const accountData: Record<string, any> = { dot_number: dot };
+      if (c.company_name) accountData.company_name = c.company_name;
+      if (c.dba_name) accountData.dba_name = c.dba_name;
+      if (c.mc_number) accountData.mc_number = c.mc_number;
+      if (c.mailing_address) accountData.mailing_address = c.mailing_address;
+      if (c.mailing_city) accountData.mailing_city = c.mailing_city;
+      if (c.mailing_state) accountData.mailing_state = c.mailing_state;
+      if (c.mailing_zip) accountData.mailing_zip = c.mailing_zip;
+      if (c.contact_phone) accountData.contact_phone = c.contact_phone;
+      if (c.contact_email) accountData.contact_email = c.contact_email;
+      if (c.total_trucks != null) accountData.total_trucks = c.total_trucks;
+      if (c.total_drivers != null) accountData.total_drivers = c.total_drivers;
+
+      const fieldCount = Object.keys(accountData).length - 1; // minus dot_number
+      createAccount.mutate(accountData);
+      sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${accountData.company_name || "DOT " + dot}`);
+    } catch (err: any) {
+      console.error("DOT lookup error:", err);
+      sonnerToast.error("DOT Lookup Failed", { description: err.message || "Could not retrieve carrier data" });
+    } finally {
+      setIsDotLookingUp(false);
+    }
+  };
 
   const filtered = accounts?.filter((a) =>
     a.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
