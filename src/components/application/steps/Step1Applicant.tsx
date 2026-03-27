@@ -144,22 +144,6 @@ const Step1Applicant = ({ formData, updateFormData }: StepProps) => {
         </div>
       </div>
 
-      {/* Carrier Authority */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Carrier Authority Prefix</Label>
-          <Select value={formData.carrier_authority_prefix || ""} onValueChange={(v) => updateFormData({ carrier_authority_prefix: v })}>
-            <SelectTrigger><SelectValue placeholder="Select prefix" /></SelectTrigger>
-            <SelectContent>
-              {CARRIER_AUTHORITY_PREFIXES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Carrier Authority Number</Label>
-          <Input value={formData.carrier_authority_number || ""} onChange={(e) => updateFormData({ carrier_authority_number: e.target.value })} />
-        </div>
-      </div>
 
       {/* Business Categories */}
       <div className="space-y-2">
