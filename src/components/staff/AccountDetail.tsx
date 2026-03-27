@@ -372,6 +372,38 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         >
           <Download className="h-3.5 w-3.5" /> Download Application
         </Button>
+        {account.contact_email && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={isSendingInvite}
+            onClick={async () => {
+              setIsSendingInvite(true);
+              try {
+                const result = await sendClientInvite({
+                  accountId,
+                  email: account.contact_email!,
+                  invitedBy: user?.id,
+                  companyName: account.company_name,
+                });
+                if (result.sent) {
+                  sonnerToast.success(result.message);
+                  queryClient.invalidateQueries({ queryKey: ["invitations"] });
+                } else {
+                  sonnerToast.info(result.message);
+                }
+              } catch (err: any) {
+                sonnerToast.error("Failed to send invite", { description: err.message });
+              } finally {
+                setIsSendingInvite(false);
+              }
+            }}
+          >
+            {isSendingInvite ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+            Send Invite
+          </Button>
+        )}
         {onPreviewClient && (
           <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5">
             <Eye className="h-3.5 w-3.5" /> Preview Client
