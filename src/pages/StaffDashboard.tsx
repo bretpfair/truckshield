@@ -260,37 +260,61 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
                     </button>
                   </>
                 ) : newAccountMode === "dot" && dotLookupResult ? (
-                  <>
-                    <p className="text-sm font-semibold">SAFER Lookup Results — DOT# {dotLookupResult.dot_number}</p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm bg-secondary/50 rounded-lg p-4 border border-border">
-                      {[
-                        { label: "Company Name", value: dotLookupResult.company_name },
-                        { label: "DBA", value: dotLookupResult.dba_name },
-                        { label: "MC Number", value: dotLookupResult.mc_number },
-                        { label: "Address", value: [dotLookupResult.mailing_address, dotLookupResult.mailing_city, dotLookupResult.mailing_state, dotLookupResult.mailing_zip].filter(Boolean).join(", ") },
-                        { label: "Phone", value: dotLookupResult.contact_phone },
-                        { label: "Email", value: dotLookupResult.contact_email },
-                        { label: "Power Units", value: dotLookupResult.total_trucks },
-                        { label: "Drivers", value: dotLookupResult.total_drivers },
-                      ]
-                        .filter((f) => f.value)
-                        .map((f) => (
-                          <div key={f.label}>
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{f.label}</span>
-                            <p className="font-medium truncate">{f.value}</p>
+                  (() => {
+                    const normalizedDot = dotLookupResult.dot_number?.replace(/\D/g, "");
+                    const existingAccount = accounts?.find((a) => a.dot_number?.replace(/\D/g, "") === normalizedDot);
+                    return (
+                      <>
+                        <p className="text-sm font-semibold">SAFER Lookup Results — DOT# {dotLookupResult.dot_number}</p>
+                        {existingAccount && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-warning/10 border border-warning/30 text-warning text-sm">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            <span>
+                              An account for <strong>"{existingAccount.company_name}"</strong> already exists with this DOT number.
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-auto shrink-0 text-xs border-warning/30 text-warning hover:bg-warning/10"
+                              onClick={() => { resetNewAccountForm(); setSelectedAccountId(existingAccount.id); }}
+                            >
+                              View Account
+                            </Button>
                           </div>
-                        ))}
-                    </div>
-                    <div className="flex items-center gap-3 pt-1">
-                      <Button onClick={handleConfirmDotCreate}>
-                        <Plus className="h-4 w-4 mr-2" /> Create Account
-                      </Button>
-                      <Button variant="outline" onClick={() => setDotLookupResult(null)}>
-                        ← New Lookup
-                      </Button>
-                      <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
-                    </div>
-                  </>
+                        )}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm bg-secondary/50 rounded-lg p-4 border border-border">
+                          {[
+                            { label: "Company Name", value: dotLookupResult.company_name },
+                            { label: "DBA", value: dotLookupResult.dba_name },
+                            { label: "MC Number", value: dotLookupResult.mc_number },
+                            { label: "Address", value: [dotLookupResult.mailing_address, dotLookupResult.mailing_city, dotLookupResult.mailing_state, dotLookupResult.mailing_zip].filter(Boolean).join(", ") },
+                            { label: "Phone", value: dotLookupResult.contact_phone },
+                            { label: "Email", value: dotLookupResult.contact_email },
+                            { label: "Power Units", value: dotLookupResult.total_trucks },
+                            { label: "Drivers", value: dotLookupResult.total_drivers },
+                          ]
+                            .filter((f) => f.value)
+                            .map((f) => (
+                              <div key={f.label}>
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{f.label}</span>
+                                <p className="font-medium truncate">{f.value}</p>
+                              </div>
+                            ))}
+                        </div>
+                        <div className="flex items-center gap-3 pt-1">
+                          {!existingAccount && (
+                            <Button onClick={handleConfirmDotCreate}>
+                              <Plus className="h-4 w-4 mr-2" /> Create Account
+                            </Button>
+                          )}
+                          <Button variant="outline" onClick={() => setDotLookupResult(null)}>
+                            ← New Lookup
+                          </Button>
+                          <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                        </div>
+                      </>
+                    );
+                  })()
                 ) : (
                   <>
                     <p className="text-sm font-semibold">Manual Account Creation</p>
