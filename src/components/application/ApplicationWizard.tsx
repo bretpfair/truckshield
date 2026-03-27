@@ -52,10 +52,57 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
         .eq("id", account.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async (_: void, variables: Record<string, any>) => {
       queryClient.invalidateQueries({ queryKey: ["client-accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["account", account.id] });
       setAutoSaveStatus("saved");
       setTimeout(() => setAutoSaveStatus("idle"), 2000);
+
+      // Auto-send invite if contact_email was just added and no client linked
+      const newEmail = variables.contact_email;
+      const hadEmail = account.contact_email;
+      if (newEmail && !hadEmail && !account.client_user_id) {
+        try {
+          // Check no existing pending invitation
+          const { data: existingInvite } = await supabase
+            .from("client_invitations")
+            .select("id")
+            .eq("account_id", account.id)
+            .eq("status", "pending")
+            .maybeSingle();
+
+          if (!existingInvite) {
+            const { data: invitation, error: invErr } = await supabase
+              .from("client_invitations")
+              .insert({
+                account_id: account.id,
+                email: newEmail.trim().toLowerCase(),
+                invited_by: (await supabase.auth.getUser()).data.user?.id,
+              })
+              .select()
+              .single();
+
+            if (!invErr && invitation) {
+              const portalLink = `${window.location.origin}/auth?invite=${invitation.token}`;
+              const firstName = variables.business_owner_name?.split(/\s+/)[0]
+                || newEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+              await supabase.functions.invoke("send-transactional-email", {
+                body: {
+                  templateName: "client-portal-invite",
+                  recipientEmail: newEmail.trim().toLowerCase(),
+                  idempotencyKey: `portal-invite-${invitation.id}`,
+                  templateData: { firstName, portalLink },
+                },
+              });
+
+              toast({ title: "Client invite sent", description: `Portal invite auto-sent to ${newEmail}` });
+            }
+          }
+        } catch {
+          // Non-fatal: don't block the save
+        }
+      }
     },
     onError: (e: Error) => toast({ title: "Error saving", description: e.message, variant: "destructive" }),
   });
