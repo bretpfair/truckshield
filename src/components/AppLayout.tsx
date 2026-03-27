@@ -15,6 +15,7 @@ const AppLayout = () => {
   const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
   const [messagingExpanded, setMessagingExpanded] = useState(true);
   const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
+  const [staffNavigateAccountId, setStaffNavigateAccountId] = useState<string | null>(null);
 
   if (loading) {
     return (
