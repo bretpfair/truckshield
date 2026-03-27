@@ -122,9 +122,22 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
 
   const handleConfirmDotCreate = () => {
     if (!dotLookupResult) return;
+    const dot = dotLookupResult.dot_number;
+    const existing = accounts?.find((a) => a.dot_number === dot);
+    if (existing) {
+      sonnerToast.warning(`Duplicate DOT# ${dot}`, {
+        description: `An account for "${existing.company_name}" already exists with this DOT number.`,
+        action: {
+          label: "View Account",
+          onClick: () => { resetNewAccountForm(); setSelectedAccountId(existing.id); },
+        },
+        duration: 8000,
+      });
+      return;
+    }
     createAccount.mutate(dotLookupResult);
     const fieldCount = Object.keys(dotLookupResult).length - 1;
-    sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${dotLookupResult.company_name || "DOT " + dotLookupResult.dot_number}`);
+    sonnerToast.success(`Imported ${fieldCount} fields from SAFER for ${dotLookupResult.company_name || "DOT " + dot}`);
   };
 
   const filtered = accounts?.filter((a) =>
