@@ -71,10 +71,14 @@ const AppLayout = () => {
             <NotificationBell
               onNavigateToAccount={(accountId) => {
                 if (role === "admin") {
+                  // Stay on staff dashboard, navigate to the account detail
                   setViewAsClient(false);
                   setPreviewAccountId(null);
+                  setStaffNavigateAccountId(accountId);
                 }
+                // Open messaging sidebar for this account
                 setMessagingAccountId(accountId);
+                setMessagingExpanded(true);
               }}
             />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
