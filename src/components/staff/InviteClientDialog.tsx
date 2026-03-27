@@ -13,6 +13,7 @@ import { UserPlus, Copy, Check, Mail, Clock, CheckCircle2 } from "lucide-react";
 
 interface Props {
   accountId?: string;
+  defaultEmail?: string;
 }
 
 const statusBadge: Record<string, { label: string; color: string }> = {
@@ -21,8 +22,8 @@ const statusBadge: Record<string, { label: string; color: string }> = {
   expired: { label: "Expired", color: "bg-muted text-muted-foreground" },
 };
 
-const InviteClientDialog = ({ accountId }: Props) => {
-  const [email, setEmail] = useState("");
+const InviteClientDialog = ({ accountId, defaultEmail }: Props) => {
+  const [email, setEmail] = useState(defaultEmail || "");
   const [selectedAccountId, setSelectedAccountId] = useState(accountId || "");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const { user } = useAuth();

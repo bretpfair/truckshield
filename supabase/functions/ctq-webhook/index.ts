@@ -116,6 +116,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Extract contact info
+    const contactEmail = (bi("email") as string) || (bi("contact_email") as string) || (payload.contact_email as string) || null;
+    const contactPhone = (bi("phone") as string) || (bi("contact_phone") as string) || (payload.contact_phone as string) || null;
+
     // Map CTQ fields → accounts table
     const accountData: Record<string, unknown> = {
       company_name: companyName,
@@ -146,6 +150,8 @@ Deno.serve(async (req) => {
       cargo_types: payload.cargo_types || null,
       contractor_types: payload.contractor_types || null,
       notes: (op("notes") as string) || payload.notes || null,
+      contact_email: contactEmail,
+      contact_phone: contactPhone,
       // Enriched fields
       fleet_size: payload.fleet_size ?? null,
       total_trucks: payload.total_trucks ?? null,
@@ -485,11 +491,62 @@ Deno.serve(async (req) => {
       if (error) console.error("Garage location insert warning:", error.message);
     }
 
+    // Auto-send client portal invite if contact_email is present and no client linked
+    if (contactEmail && !isUpdate) {
+      try {
+        // Check no existing invitation for this account
+        const { data: existingInvite } = await supabase
+          .from("client_invitations")
+          .select("id")
+          .eq("account_id", accountId!)
+          .eq("status", "pending")
+          .maybeSingle();
+
+        if (!existingInvite) {
+          const { data: invitation, error: invErr } = await supabase
+            .from("client_invitations")
+            .insert({
+              account_id: accountId!,
+              email: contactEmail.trim().toLowerCase(),
+            })
+            .select()
+            .single();
+
+          if (!invErr && invitation) {
+            const portalLink = `https://truckshield.lovable.app/auth?invite=${invitation.token}`;
+            const firstName = (accountData.business_owner_name as string)?.split(/\s+/)[0]
+              || contactEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+            await supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "client-portal-invite",
+                recipientEmail: contactEmail.trim().toLowerCase(),
+                idempotencyKey: `portal-invite-${invitation.id}`,
+                templateData: { firstName, portalLink },
+              },
+            });
+
+            await supabase.from("activity_log").insert({
+              account_id: accountId!,
+              action_type: "client_linked",
+              description: `Auto-invitation sent to ${contactEmail} (via CTQ webhook)`,
+            });
+
+            console.log(`Auto-invite sent to ${contactEmail} for account ${accountId}`);
+          }
+        }
+      } catch (inviteErr) {
+        // Don't fail the webhook if invite fails
+        console.error("Auto-invite error (non-fatal):", inviteErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         account_id: accountId,
         action: isUpdate ? "updated" : "created",
+        auto_invited: !isUpdate && !!contactEmail,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
