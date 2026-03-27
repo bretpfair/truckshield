@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast as sonnerToast } from "sonner";
+import { sendClientInvite } from "@/lib/sendClientInvite";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,17 +63,31 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
 
   const createAccount = useMutation({
     mutationFn: async (accountData: Record<string, any>) => {
-      const { error } = await supabase.from("accounts").insert({
+      const { data, error } = await supabase.from("accounts").insert({
         company_name: accountData.company_name || "New Account",
         created_by: user!.id,
         ...accountData,
-      });
+      }).select().single();
       if (error) throw error;
+      return { account: data, hadEmail: !!accountData.contact_email };
     },
-    onSuccess: () => {
+    onSuccess: async ({ account: newAccount, hadEmail }) => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       resetNewAccountForm();
       toast({ title: "Account created" });
+
+      // Auto-invite if contact_email was included
+      if (hadEmail && newAccount.contact_email) {
+        try {
+          const result = await sendClientInvite({
+            accountId: newAccount.id,
+            email: newAccount.contact_email,
+            invitedBy: user?.id,
+            companyName: newAccount.company_name,
+          });
+          if (result.sent) sonnerToast.success("Client invite auto-sent", { description: result.message });
+        } catch { /* non-fatal */ }
+      }
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
