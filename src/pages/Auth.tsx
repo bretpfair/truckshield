@@ -16,18 +16,34 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite");
+  const staffInviteToken = searchParams.get("staff_invite");
   const { toast } = useToast();
 
-  // If arriving with invite token, default to signup
+  // If arriving with any invite token, default to signup
   useEffect(() => {
-    if (inviteToken) setIsLogin(false);
-  }, [inviteToken]);
+    if (inviteToken || staffInviteToken) setIsLogin(false);
+  }, [inviteToken, staffInviteToken]);
+
+  // Accept staff invitation helper
+  const acceptStaffInvitation = async () => {
+    if (!staffInviteToken) return;
+    try {
+      const { data, error } = await supabase.rpc("accept_staff_invitation", { p_token: staffInviteToken });
+      if (error) throw error;
+      if (data && typeof data === "object" && "error" in (data as any)) {
+        toast({ title: "Invitation issue", description: (data as any).error, variant: "destructive" });
+      } else {
+        toast({ title: "Welcome to the team!", description: "You now have staff access." });
+      }
+    } catch (err: any) {
+      console.error("Staff invite acceptance error:", err);
+    }
+  };
 
   // Handle returning from email verification link — detect existing session on mount
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        // Already authenticated (e.g. returning from email verification)
         if (inviteToken) {
           try {
             await supabase.rpc("accept_invitation", { p_token: inviteToken });
@@ -35,10 +51,13 @@ const Auth = () => {
             console.error("Auto invite acceptance error:", err);
           }
         }
+        if (staffInviteToken) {
+          await acceptStaffInvitation();
+        }
         navigate("/");
       }
     });
-  }, [inviteToken, navigate]);
+  }, [inviteToken, staffInviteToken, navigate]);
 
   const acceptInvitation = async () => {
     if (!inviteToken) return;
@@ -65,6 +84,7 @@ const Auth = () => {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });
       } else {
         if (inviteToken) await acceptInvitation();
+        if (staffInviteToken) await acceptStaffInvitation();
         navigate("/");
       }
     } else {
@@ -73,15 +93,19 @@ const Auth = () => {
         password,
         options: {
           data: { full_name: fullName },
-          emailRedirectTo: window.location.origin + (inviteToken ? `/auth?invite=${inviteToken}` : ""),
+          emailRedirectTo: window.location.origin + (
+            staffInviteToken ? `/auth?staff_invite=${staffInviteToken}` :
+            inviteToken ? `/auth?invite=${inviteToken}` : ""
+          ),
         },
       });
       if (error) {
         toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
       } else {
         // If auto-confirmed (session exists), accept invite immediately
-        if (signUpData.session && inviteToken) {
-          await acceptInvitation();
+        if (signUpData.session) {
+          if (inviteToken) await acceptInvitation();
+          if (staffInviteToken) await acceptStaffInvitation();
           navigate("/");
         } else {
           toast({ title: "Account created", description: "Check your email to verify your account." });
@@ -105,9 +129,11 @@ const Auth = () => {
         </div>
 
         <div className="glass-panel rounded-lg p-8">
-          {inviteToken && (
+          {(inviteToken || staffInviteToken) && (
             <div className="mb-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm text-primary">
-              You've been invited to join TruckShield. {isLogin ? "Sign in" : "Create an account"} to access your portal.
+              {staffInviteToken
+                ? `You've been invited to join the TruckShield team. ${isLogin ? "Sign in" : "Create an account"} to get started.`
+                : `You've been invited to join TruckShield. ${isLogin ? "Sign in" : "Create an account"} to access your portal.`}
             </div>
           )}
           <div className="flex items-center gap-2 mb-6">
