@@ -1,14 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef, DragEvent } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, MessageSquare } from "lucide-react";
+import { Building2, MessageSquare, GripVertical } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { useToast } from "@/hooks/use-toast";
 
 const pipelineColumns = [
   { key: "lead", label: "Lead", color: "text-muted-foreground" },
@@ -45,9 +47,13 @@ interface Props {
 }
 
 const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
-  // Exclude closed/lost accounts from pipeline
   const accounts = rawAccounts.filter((a) => a.status !== "closed_lost");
-  // Fetch unread message counts per account
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const dragAccountId = useRef<string | null>(null);
+  const dragSourceStatus = useRef<string | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: messageCounts } = useQuery({
     queryKey: ["message-counts"],
     queryFn: async () => {
@@ -65,10 +71,80 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     },
   });
 
+  const moveAccount = useMutation({
+    mutationFn: async ({ accountId, newStatus }: { accountId: string; newStatus: string }) => {
+      const { error } = await supabase
+        .from("accounts")
+        .update({ status: newStatus })
+        .eq("id", accountId);
+      if (error) throw error;
+      const account = accounts.find((a) => a.id === accountId);
+      const label = pipelineColumns.find((c) => c.key === newStatus)?.label ?? newStatus;
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "status_change",
+        description: `${account?.company_name ?? "Account"} moved to ${label}`,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast({ title: "Account moved" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error moving account", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleDragStart = (e: DragEvent, accountId: string, currentStatus: string) => {
+    dragAccountId.current = accountId;
+    dragSourceStatus.current = currentStatus;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", accountId);
+    // Add a slight delay to allow the drag image to render
+    const target = e.currentTarget as HTMLElement;
+    target.style.opacity = "0.5";
+  };
+
+  const handleDragEnd = (e: DragEvent) => {
+    const target = e.currentTarget as HTMLElement;
+    target.style.opacity = "1";
+    dragAccountId.current = null;
+    dragSourceStatus.current = null;
+    setDragOverCol(null);
+  };
+
+  const handleDragOver = (e: DragEvent, colKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverCol !== colKey) {
+      setDragOverCol(colKey);
+    }
+  };
+
+  const handleDragLeave = (e: DragEvent, colKey: string) => {
+    // Only clear if actually leaving the column (not entering a child)
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    const currentTarget = e.currentTarget as HTMLElement;
+    if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+      if (dragOverCol === colKey) {
+        setDragOverCol(null);
+      }
+    }
+  };
+
+  const handleDrop = (e: DragEvent, colKey: string) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    const accountId = dragAccountId.current;
+    if (!accountId || dragSourceStatus.current === colKey) return;
+    moveAccount.mutate({ accountId, newStatus: colKey });
+  };
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 min-h-[400px]">
       {pipelineColumns.map((col) => {
         const colAccounts = accounts.filter((a) => a.status === col.key);
+        const isOver = dragOverCol === col.key;
         return (
           <div key={col.key} className="flex flex-col">
             <div className="flex items-center justify-between mb-2 px-1">
@@ -79,7 +155,14 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                 {colAccounts.length}
               </Badge>
             </div>
-            <ScrollArea className={`flex-1 rounded-lg border p-2 ${statusColors[col.key] ?? "bg-secondary/30 border-border"}`}>
+            <ScrollArea
+              className={`flex-1 rounded-lg border p-2 transition-colors duration-150 ${
+                statusColors[col.key] ?? "bg-secondary/30 border-border"
+              } ${isOver ? "ring-2 ring-primary/50 border-primary/40" : ""}`}
+              onDragOver={(e) => handleDragOver(e, col.key)}
+              onDragLeave={(e) => handleDragLeave(e, col.key)}
+              onDrop={(e) => handleDrop(e, col.key)}
+            >
               <div className="space-y-2">
                 {colAccounts.map((account) => {
                   const msgCount = messageCounts?.[account.id] || 0;
@@ -87,12 +170,15 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                     <HoverCard key={account.id} openDelay={400} closeDelay={100}>
                       <HoverCardTrigger asChild>
                         <Card
-                          className="cursor-pointer hover:border-primary/30 transition-colors bg-card"
+                          className="cursor-grab active:cursor-grabbing hover:border-primary/30 transition-colors bg-card"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, account.id, col.key)}
+                          onDragEnd={handleDragEnd}
                           onClick={() => onSelectAccount(account.id)}
                         >
                           <CardContent className="p-3">
                             <div className="flex items-start gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                              <GripVertical className="h-4 w-4 text-muted-foreground/40 mt-0.5 shrink-0" />
                               <div className="min-w-0 flex-1">
                                 <p className="font-semibold text-sm truncate">{account.company_name}</p>
                                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono mt-0.5">
