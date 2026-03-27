@@ -323,6 +323,36 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
       {/* Documents */}
       <DocumentHub accountId={accountId} readOnly={false} />
 
+      {/* Pending Info Requests Popup */}
+      <Dialog open={showInfoRequestDialog} onOpenChange={setShowInfoRequestDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Action Required — Additional Information Needed
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+            <p className="text-sm text-muted-foreground">
+              The following carriers need more information before they can provide a quote. Please review and provide the requested details.
+            </p>
+            {pendingInfoRequests?.map((ir: any) => (
+              <div key={ir.id} className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-2">
+                <p className="font-semibold text-sm">{ir.carrier_name}</p>
+                <p className="text-sm text-foreground">{ir.request_details}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">
+                  Requested {new Date(ir.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowInfoRequestDialog(false)}>
+              I Understand
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
