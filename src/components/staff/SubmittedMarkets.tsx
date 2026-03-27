@@ -71,6 +71,46 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
         action_type: "quote_update",
         description: `${carrierName} status changed to ${statusConfig[status]?.label || status}`,
       });
+
+      // Send carrier status change email to client (info_requested has its own flow)
+      if (status !== "info_requested") {
+        try {
+          const { data: account } = await supabase
+            .from("accounts")
+            .select("client_user_id, contact_email")
+            .eq("id", accountId)
+            .single();
+
+          const clientEmail = account?.contact_email;
+          if (clientEmail) {
+            let firstName: string | undefined;
+            if (account?.client_user_id) {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("full_name")
+                .eq("user_id", account.client_user_id)
+                .single();
+              firstName = profile?.full_name?.split(" ")[0];
+            }
+
+            await supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "carrier-status-change",
+                recipientEmail: clientEmail,
+                idempotencyKey: `carrier-status-${quoteId}-${status}-${Date.now()}`,
+                templateData: {
+                  firstName,
+                  carrierName,
+                  newStatus: status,
+                  portalLink: `${window.location.origin}/client`,
+                },
+              },
+            });
+          }
+        } catch (emailErr) {
+          console.error("Failed to send status change email:", emailErr);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
