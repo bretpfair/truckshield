@@ -16,7 +16,7 @@ import PdfUpload from "@/components/staff/PdfUpload";
 import PipelineView from "@/components/staff/PipelineView";
 import DashboardAnalytics from "@/components/staff/DashboardAnalytics";
 import {
-  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3, Loader2,
+  Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3, Loader2, AlertTriangle,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
