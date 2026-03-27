@@ -84,6 +84,7 @@ const Auth = () => {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });
       } else {
         if (inviteToken) await acceptInvitation();
+        if (staffInviteToken) await acceptStaffInvitation();
         navigate("/");
       }
     } else {
@@ -92,15 +93,19 @@ const Auth = () => {
         password,
         options: {
           data: { full_name: fullName },
-          emailRedirectTo: window.location.origin + (inviteToken ? `/auth?invite=${inviteToken}` : ""),
+          emailRedirectTo: window.location.origin + (
+            staffInviteToken ? `/auth?staff_invite=${staffInviteToken}` :
+            inviteToken ? `/auth?invite=${inviteToken}` : ""
+          ),
         },
       });
       if (error) {
         toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
       } else {
         // If auto-confirmed (session exists), accept invite immediately
-        if (signUpData.session && inviteToken) {
-          await acceptInvitation();
+        if (signUpData.session) {
+          if (inviteToken) await acceptInvitation();
+          if (staffInviteToken) await acceptStaffInvitation();
           navigate("/");
         } else {
           toast({ title: "Account created", description: "Check your email to verify your account." });
