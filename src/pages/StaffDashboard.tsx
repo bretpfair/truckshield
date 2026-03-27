@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,9 +33,11 @@ const statusColors: Record<string, string> = {
 interface StaffDashboardProps {
   onPreviewClient?: (accountId: string) => void;
   onOpenMessages?: (accountId: string) => void;
+  navigateToAccountId?: string | null;
+  onNavigateHandled?: () => void;
 }
 
-const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps = {}) => {
+const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, onNavigateHandled }: StaffDashboardProps = {}) => {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);
@@ -48,6 +50,14 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Handle external navigation from notification clicks
+  useEffect(() => {
+    if (navigateToAccountId) {
+      setSelectedAccountId(navigateToAccountId);
+      onNavigateHandled?.();
+    }
+  }, [navigateToAccountId, onNavigateHandled]);
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ["accounts"],

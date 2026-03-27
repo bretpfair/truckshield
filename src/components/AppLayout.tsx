@@ -15,6 +15,7 @@ const AppLayout = () => {
   const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
   const [messagingExpanded, setMessagingExpanded] = useState(true);
   const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
+  const [staffNavigateAccountId, setStaffNavigateAccountId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -70,10 +71,14 @@ const AppLayout = () => {
             <NotificationBell
               onNavigateToAccount={(accountId) => {
                 if (role === "admin") {
+                  // Stay on staff dashboard, navigate to the account detail
                   setViewAsClient(false);
                   setPreviewAccountId(null);
+                  setStaffNavigateAccountId(accountId);
                 }
+                // Open messaging sidebar for this account
                 setMessagingAccountId(accountId);
+                setMessagingExpanded(true);
               }}
             />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -99,6 +104,8 @@ const AppLayout = () => {
             <StaffDashboard
               onPreviewClient={handlePreviewClient}
               onOpenMessages={(accountId) => { setMessagingAccountId(accountId); setMessagingExpanded(true); }}
+              navigateToAccountId={staffNavigateAccountId}
+              onNavigateHandled={() => setStaffNavigateAccountId(null)}
             />
           )}
         </main>
