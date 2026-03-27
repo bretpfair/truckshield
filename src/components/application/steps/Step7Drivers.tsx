@@ -228,7 +228,7 @@ const Step7Drivers = ({ account }: StepProps) => {
         </div>
       ))}
 
-      <Button onClick={() => saveMutation.mutate()} className="w-full">Save Drivers</Button>
+      
     </div>
   );
 };
