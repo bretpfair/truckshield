@@ -272,14 +272,40 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
                             <span>
                               An account for <strong>"{existingAccount.company_name}"</strong> already exists with this DOT number.
                             </span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="ml-auto shrink-0 text-xs border-warning/30 text-warning hover:bg-warning/10"
-                              onClick={() => { resetNewAccountForm(); setSelectedAccountId(existingAccount.id); }}
-                            >
-                              View Account
-                            </Button>
+                            <div className="ml-auto flex items-center gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs border-primary/30 text-primary hover:bg-primary/10"
+                                onClick={async () => {
+                                  try {
+                                    const { dot_number, ...updateFields } = dotLookupResult;
+                                    const { error } = await supabase
+                                      .from("accounts")
+                                      .update(updateFields)
+                                      .eq("id", existingAccount.id);
+                                    if (error) throw error;
+                                    queryClient.invalidateQueries({ queryKey: ["accounts"] });
+                                    const fieldCount = Object.keys(updateFields).length;
+                                    sonnerToast.success(`Updated ${fieldCount} fields on "${existingAccount.company_name}" from SAFER`);
+                                    resetNewAccountForm();
+                                    setSelectedAccountId(existingAccount.id);
+                                  } catch (err: any) {
+                                    sonnerToast.error("Update failed", { description: err.message });
+                                  }
+                                }}
+                              >
+                                Update from SAFER
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs border-warning/30 text-warning hover:bg-warning/10"
+                                onClick={() => { resetNewAccountForm(); setSelectedAccountId(existingAccount.id); }}
+                              >
+                                View Account
+                              </Button>
+                            </div>
                           </div>
                         )}
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm bg-secondary/50 rounded-lg p-4 border border-border">
