@@ -364,6 +364,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages }: StaffDashboardProps
                             { label: "Email", value: dotLookupResult.contact_email },
                             { label: "Power Units", value: dotLookupResult.total_trucks },
                             { label: "Drivers", value: dotLookupResult.total_drivers },
+                            { label: "Cargo Carried", value: dotLookupResult.cargo_types?.join(", ") },
                           ]
                             .filter((f) => f.value)
                             .map((f) => (
