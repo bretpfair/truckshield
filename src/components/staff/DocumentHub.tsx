@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -59,6 +66,9 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
   const [category, setCategory] = useState("all");
   const [uploadCategory, setUploadCategory] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -95,15 +105,29 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
     },
   });
 
-  const handleUpload = async (files: FileList | null) => {
+  const openUploadDialog = () => {
+    setUploadCategory("");
+    setPendingFiles([]);
+    setShowUploadDialog(true);
+  };
+
+  const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    setPendingFiles(Array.from(files));
+  };
+
+  const handleConfirmUpload = async () => {
     if (!uploadCategory) {
       toast({ title: "Select a document type", description: "Please choose a category before uploading", variant: "destructive" });
       return;
     }
+    if (pendingFiles.length === 0) {
+      toast({ title: "No files selected", variant: "destructive" });
+      return;
+    }
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      for (const file of pendingFiles) {
         const filePath = `${accountId}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("account-documents")
@@ -120,7 +144,6 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
         });
         if (dbError) throw dbError;
 
-        // Log activity
         await supabase.from("activity_log").insert({
           account_id: accountId,
           user_id: user!.id,
@@ -131,6 +154,8 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
       queryClient.invalidateQueries({ queryKey: ["account_documents", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
       toast({ title: "Document(s) uploaded" });
+      setShowUploadDialog(false);
+      setPendingFiles([]);
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
@@ -158,6 +183,7 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
   };
 
   return (
+    <>
     <Card className="glass-panel">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -180,32 +206,9 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
           </Select>
 
           {!readOnly && (
-            <>
-              <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                <SelectTrigger className={`w-[160px] h-8 text-xs ${!uploadCategory ? "border-destructive/50" : ""}`}>
-                  <SelectValue placeholder="Select type *" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.filter(c => c.value !== "all").map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className={!uploadCategory ? "pointer-events-none opacity-50" : "cursor-pointer"}>
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" asChild disabled={uploading || !uploadCategory}>
-                  <span>
-                    <Upload className="h-3 w-3" /> {uploading ? "Uploading..." : "Upload"}
-                  </span>
-                </Button>
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
-                  onChange={(e) => handleUpload(e.target.files)}
-                />
-              </label>
-            </>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={openUploadDialog}>
+              <Upload className="h-3 w-3" /> Upload
+            </Button>
           )}
 
           <Badge variant="outline" className="text-[10px] h-6 ml-auto">
@@ -260,6 +263,72 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
         </ScrollArea>
       </CardContent>
     </Card>
+
+    {/* Upload Dialog */}
+    <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-4 w-4 text-primary" />
+            Upload Document
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Document Type <span className="text-destructive">*</span></label>
+            <Select value={uploadCategory} onValueChange={setUploadCategory}>
+              <SelectTrigger className={!uploadCategory ? "border-destructive/50" : ""}>
+                <SelectValue placeholder="Select document type" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.filter(c => c.value !== "all").map((c) => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">File(s)</label>
+            {pendingFiles.length > 0 ? (
+              <div className="space-y-1">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs p-2 rounded bg-secondary/50 border border-border">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate">{f.name}</span>
+                    <span className="text-muted-foreground ml-auto shrink-0">
+                      {f.size < 1024 * 1024 ? `${(f.size / 1024).toFixed(0)} KB` : `${(f.size / (1024 * 1024)).toFixed(1)} MB`}
+                    </span>
+                  </div>
+                ))}
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setPendingFiles([]); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                  Clear selection
+                </Button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 p-4 rounded-md border border-dashed border-border hover:border-primary/40 cursor-pointer transition-colors">
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Click to select files</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+                  onChange={(e) => handleFilesSelected(e.target.files)}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowUploadDialog(false)}>Cancel</Button>
+          <Button onClick={handleConfirmUpload} disabled={uploading || !uploadCategory || pendingFiles.length === 0}>
+            {uploading ? "Uploading..." : "Upload"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
