@@ -23,20 +23,28 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Users, Pencil, Trash2, ShieldCheck, UserCog } from "lucide-react";
+import { Users, Pencil, Trash2, UserCog, Clock, CheckCircle2, XCircle } from "lucide-react";
 
 interface StaffMember {
-  user_id: string;
+  user_id: string | null;
   role: "admin" | "producer";
   full_name: string | null;
-  email: string | null;
+  email: string;
   phone: string | null;
   company_name: string | null;
+  status: "pending" | "accepted" | "expired";
+  invited_at: string;
 }
 
 const roleBadge: Record<string, string> = {
   admin: "bg-primary/10 text-primary border-primary/20",
   producer: "bg-accent/10 text-accent-foreground border-accent/20",
+};
+
+const statusConfig: Record<string, { label: string; icon: typeof Clock; color: string }> = {
+  accepted: { label: "Active", icon: CheckCircle2, color: "text-success" },
+  pending: { label: "Pending", icon: Clock, color: "text-warning" },
+  expired: { label: "Expired", icon: XCircle, color: "text-muted-foreground" },
 };
 
 const StaffManager = () => {
@@ -50,33 +58,95 @@ const StaffManager = () => {
   const { data: staffMembers, isLoading } = useQuery({
     queryKey: ["staff-members"],
     queryFn: async () => {
+      // Get all staff invitations
+      const { data: invitations, error: invErr } = await supabase
+        .from("staff_invitations")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (invErr) throw invErr;
+
       // Get all user_roles for admin and producer
       const { data: roles, error: rolesErr } = await supabase
         .from("user_roles")
         .select("user_id, role")
         .in("role", ["admin", "producer"]);
       if (rolesErr) throw rolesErr;
-      if (!roles || roles.length === 0) return [];
 
-      const userIds = roles.map((r) => r.user_id);
-      const { data: profiles, error: profErr } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, email, phone, company_name")
-        .in("user_id", userIds);
-      if (profErr) throw profErr;
+      // Get profiles for accepted members
+      const acceptedUserIds = (roles || []).map((r) => r.user_id);
+      let profiles: any[] = [];
+      if (acceptedUserIds.length > 0) {
+        const { data: p, error: profErr } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, email, phone, company_name")
+          .in("user_id", acceptedUserIds);
+        if (profErr) throw profErr;
+        profiles = p || [];
+      }
 
-      const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
-      return roles.map((r) => {
+      const profileMap = new Map(profiles.map((p) => [p.user_id, p]));
+      const roleMap = new Map((roles || []).map((r) => [r.user_id, r.role]));
+
+      // Build list from invitations as the source of truth
+      const members: StaffMember[] = [];
+      const seenEmails = new Set<string>();
+
+      for (const inv of invitations || []) {
+        const email = inv.email.toLowerCase();
+        if (seenEmails.has(email)) continue; // skip older dupes
+        seenEmails.add(email);
+
+        const isExpired = new Date(inv.expires_at) < new Date() && inv.status === "pending";
+        const effectiveStatus = isExpired ? "expired" : inv.status as "pending" | "accepted";
+
+        // For accepted invitations, find the matching user role + profile
+        let userId: string | null = null;
+        let profile: any = null;
+        let currentRole = (inv.invited_role || "producer") as "admin" | "producer";
+
+        if (effectiveStatus === "accepted") {
+          // Find the user by matching email in profiles
+          const matchedProfile = profiles.find((p) => p.email?.toLowerCase() === email);
+          if (matchedProfile) {
+            userId = matchedProfile.user_id;
+            profile = matchedProfile;
+            // Use current role from user_roles (may have been changed after invite)
+            const liveRole = roleMap.get(userId!);
+            if (liveRole) currentRole = liveRole as "admin" | "producer";
+          }
+        }
+
+        members.push({
+          user_id: userId,
+          role: currentRole,
+          full_name: profile?.full_name ?? null,
+          email,
+          phone: profile?.phone ?? null,
+          company_name: profile?.company_name ?? null,
+          status: effectiveStatus,
+          invited_at: inv.created_at,
+        });
+      }
+
+      // Also include any staff with roles who weren't invited through the system (e.g. first admin)
+      for (const r of roles || []) {
         const p = profileMap.get(r.user_id);
-        return {
+        const email = p?.email?.toLowerCase();
+        if (email && seenEmails.has(email)) continue;
+        if (email) seenEmails.add(email);
+        members.unshift({
           user_id: r.user_id,
           role: r.role as "admin" | "producer",
           full_name: p?.full_name ?? null,
-          email: p?.email ?? null,
+          email: email || r.user_id,
           phone: p?.phone ?? null,
           company_name: p?.company_name ?? null,
-        };
-      }) as StaffMember[];
+          status: "accepted",
+          invited_at: "",
+        });
+      }
+
+      return members;
     },
   });
 
@@ -94,31 +164,43 @@ const StaffManager = () => {
   const updateMember = useMutation({
     mutationFn: async () => {
       if (!editingMember) throw new Error("No member selected");
-      const uid = editingMember.user_id;
 
-      // Update profile
-      const { error: profErr } = await supabase
-        .from("profiles")
-        .update({
-          full_name: editForm.full_name || null,
-          email: editForm.email || null,
-          phone: editForm.phone || null,
-          company_name: editForm.company_name || null,
-        })
-        .eq("user_id", uid);
-      if (profErr) throw profErr;
-
-      // Update role if changed
-      if (editForm.role !== editingMember.role) {
-        const { error: roleErr } = await supabase
-          .from("user_roles")
-          .update({ role: editForm.role as "admin" | "producer" })
+      // Only update profile/role for accepted members with a user_id
+      if (editingMember.user_id) {
+        const uid = editingMember.user_id;
+        const { error: profErr } = await supabase
+          .from("profiles")
+          .update({
+            full_name: editForm.full_name || null,
+            email: editForm.email || null,
+            phone: editForm.phone || null,
+            company_name: editForm.company_name || null,
+          })
           .eq("user_id", uid);
-        if (roleErr) throw roleErr;
+        if (profErr) throw profErr;
+
+        if (editForm.role !== editingMember.role) {
+          const { error: roleErr } = await supabase
+            .from("user_roles")
+            .update({ role: editForm.role as "admin" | "producer" })
+            .eq("user_id", uid);
+          if (roleErr) throw roleErr;
+        }
+      } else {
+        // Pending invitation — update the invited_role on the invitation
+        if (editForm.role !== editingMember.role) {
+          const { error } = await supabase
+            .from("staff_invitations")
+            .update({ invited_role: editForm.role })
+            .eq("email", editingMember.email)
+            .eq("status", "pending");
+          if (error) throw error;
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff-members"] });
+      queryClient.invalidateQueries({ queryKey: ["staff-invitations"] });
       setEditingMember(null);
       toast({ title: "Staff member updated" });
     },
@@ -126,17 +208,26 @@ const StaffManager = () => {
   });
 
   const removeMember = useMutation({
-    mutationFn: async (uid: string) => {
-      const { error } = await supabase
-        .from("user_roles")
+    mutationFn: async (member: StaffMember) => {
+      if (member.user_id) {
+        const { error } = await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", member.user_id);
+        if (error) throw error;
+      }
+      // Also clean up invitation
+      const { error: invErr } = await supabase
+        .from("staff_invitations")
         .delete()
-        .eq("user_id", uid);
-      if (error) throw error;
+        .eq("email", member.email);
+      if (invErr) throw invErr;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff-members"] });
+      queryClient.invalidateQueries({ queryKey: ["staff-invitations"] });
       setDeleteConfirm(null);
-      toast({ title: "Staff role removed" });
+      toast({ title: "Staff member removed" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -152,14 +243,16 @@ const StaffManager = () => {
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading staff…</p>
         ) : !staffMembers?.length ? (
-          <p className="text-sm text-muted-foreground">No staff members found.</p>
+          <p className="text-sm text-muted-foreground">No staff members found. Invite staff from the Invite Staff tab.</p>
         ) : (
           <div className="space-y-2">
-            {staffMembers.map((m) => {
+            {staffMembers.map((m, idx) => {
               const isSelf = m.user_id === user?.id;
+              const sc = statusConfig[m.status] || statusConfig.pending;
+              const StatusIcon = sc.icon;
               return (
                 <div
-                  key={m.user_id}
+                  key={m.email + idx}
                   className="flex items-center justify-between p-3 rounded-lg border bg-card text-sm"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -168,26 +261,32 @@ const StaffManager = () => {
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium truncate">
-                        {m.full_name || m.email || "Unknown"}
+                        {m.full_name || m.email}
                         {isSelf && <span className="text-xs text-muted-foreground ml-1">(you)</span>}
                       </p>
-                      {m.email && (
+                      {m.full_name && (
                         <p className="text-xs text-muted-foreground truncate">{m.email}</p>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <div className={`flex items-center gap-1 text-xs ${sc.color}`}>
+                      <StatusIcon className="h-3.5 w-3.5" />
+                      {sc.label}
+                    </div>
                     <Badge variant="outline" className={roleBadge[m.role] || ""}>
                       {m.role === "admin" ? "Admin" : "Producer"}
                     </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => openEdit(m)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    {(m.status === "accepted" || m.status === "pending") && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => openEdit(m)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     {!isSelf && (
                       <Button
                         variant="ghost"
@@ -212,38 +311,44 @@ const StaffManager = () => {
           <DialogHeader>
             <DialogTitle>Edit Staff Member</DialogTitle>
             <DialogDescription>
-              Update the staff member's profile information and role.
+              {editingMember?.status === "pending"
+                ? "This member hasn't accepted their invitation yet. You can change their assigned role."
+                : "Update the staff member's profile information and role."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Full Name</Label>
-              <Input
-                value={editForm.full_name}
-                onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input
-                value={editForm.email}
-                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Phone</Label>
-              <Input
-                value={editForm.phone}
-                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Company Name</Label>
-              <Input
-                value={editForm.company_name}
-                onChange={(e) => setEditForm((f) => ({ ...f, company_name: e.target.value }))}
-              />
-            </div>
+            {editingMember?.status === "accepted" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Full Name</Label>
+                  <Input
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, full_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Email</Label>
+                  <Input
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Phone</Label>
+                  <Input
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Company Name</Label>
+                  <Input
+                    value={editForm.company_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, company_name: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-1.5">
               <Label>Role</Label>
               <Select value={editForm.role} onValueChange={(v) => setEditForm((f) => ({ ...f, role: v }))}>
@@ -272,16 +377,18 @@ const StaffManager = () => {
           <DialogHeader>
             <DialogTitle>Remove Staff Member</DialogTitle>
             <DialogDescription>
-              This will remove the staff role from{" "}
-              <strong>{deleteConfirm?.full_name || deleteConfirm?.email || "this user"}</strong>.
-              They will no longer have staff access.
+              This will remove{" "}
+              <strong>{deleteConfirm?.full_name || deleteConfirm?.email || "this user"}</strong>
+              {deleteConfirm?.status === "accepted"
+                ? " and revoke their staff access."
+                : "'s pending invitation."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
             <Button
               variant="destructive"
-              onClick={() => deleteConfirm && removeMember.mutate(deleteConfirm.user_id)}
+              onClick={() => deleteConfirm && removeMember.mutate(deleteConfirm)}
               disabled={removeMember.isPending}
             >
               Remove
