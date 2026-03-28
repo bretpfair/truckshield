@@ -63,7 +63,12 @@ const ClientPortalInviteEmail = ({ firstName, portalLink }: ClientPortalInvitePr
         <Text style={footer}>
           {SITE_NAME}
         </Text>
-        <Text style={footerLink}>
+        <Text style={footerContact}>
+          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
+          {' '} | {' '}
+          <Link href="tel:8888854144" style={link}>888-885-4144</Link>
+        </Text>
+        <Text style={footerLinkText}>
           <Link href="https://www.360riskpartners.com" style={link}>www.360riskpartners.com</Link>
         </Text>
       </Container>
@@ -102,4 +107,5 @@ const button = {
 }
 const link = { color: '#0099cc', textDecoration: 'underline' }
 const footer = { fontSize: '13px', color: '#6b7280', margin: '0 0 4px', fontWeight: '600' as const }
-const footerLink = { fontSize: '13px', color: '#6b7280', margin: '0' }
+const footerContact = { fontSize: '13px', color: '#6b7280', margin: '0 0 4px' }
+const footerLinkText = { fontSize: '13px', color: '#6b7280', margin: '0' }
