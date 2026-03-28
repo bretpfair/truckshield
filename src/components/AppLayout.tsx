@@ -9,6 +9,7 @@ import { Truck, LogOut, User, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessagingSidebar from "@/components/messaging/MessagingSidebar";
 import NotificationBell from "@/components/NotificationBell";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
@@ -82,6 +83,7 @@ const AppLayout = () => {
                 setMessagingExpanded(true);
               }}
             />
+            <ThemeToggle />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">{user.email}</span>
