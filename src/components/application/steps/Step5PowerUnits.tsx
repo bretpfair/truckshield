@@ -158,6 +158,20 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // Debounced auto-save
+  const [initialized, setInitialized] = useState(false);
+  useEffect(() => {
+    if (data) setInitialized(true);
+  }, [data]);
+
+  useEffect(() => {
+    if (!initialized || units.length === 0) return;
+    const timer = setTimeout(() => {
+      saveMutation.mutate();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [units, initialized]);
+
   const addUnit = () => setUnits([...units, { ...emptyUnit, account_id: account.id }]);
   const removeUnit = (idx: number) => setUnits(units.filter((_, i) => i !== idx));
   const updateUnit = (idx: number, field: string, value: any) => {
