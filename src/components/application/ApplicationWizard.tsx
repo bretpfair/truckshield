@@ -243,6 +243,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={showCommodityError} onOpenChange={setShowCommodityError}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Commodities Must Equal 100%
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your commodity percentages currently total <strong>{getCommodityTotal()}%</strong>. Please adjust the values so they add up to exactly <strong>100%</strong> before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowCommodityError(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
