@@ -129,16 +129,33 @@ const StaffManager = () => {
       }
 
       // Also include any staff with roles who weren't invited through the system (e.g. first admin)
+      // Build a map of user_id -> invitation email for accepted invitations (fallback when profile is empty)
+      const acceptedInvEmailMap = new Map<string, string>();
+      for (const m of members) {
+        if (m.user_id && m.status === "accepted") {
+          acceptedInvEmailMap.set(m.user_id, m.email);
+        }
+      }
+
       for (const r of roles || []) {
         const p = profileMap.get(r.user_id);
         const email = p?.email?.toLowerCase();
+        // Check if this user was already added via invitation matching
         if (email && seenEmails.has(email)) continue;
-        if (email) seenEmails.add(email);
+        // Also check if user_id is already in the list from accepted invitations
+        const alreadyListed = members.some((m) => m.user_id === r.user_id);
+        if (alreadyListed) continue;
+
+        // Try to find an invitation email for this user as a fallback
+        const fallbackEmail = acceptedInvEmailMap.get(r.user_id);
+        const displayEmail = email || fallbackEmail || r.user_id;
+        if (displayEmail && displayEmail !== r.user_id) seenEmails.add(displayEmail);
+
         members.unshift({
           user_id: r.user_id,
           role: r.role as "admin" | "producer",
           full_name: p?.full_name ?? null,
-          email: email || r.user_id,
+          email: displayEmail,
           phone: p?.phone ?? null,
           company_name: p?.company_name ?? null,
           status: "accepted",
