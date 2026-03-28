@@ -127,7 +127,7 @@ export const AUTO_LIABILITY_QUESTIONS = [
   { id: "q15", text: "Is the risk covered by workers compensation?", hasExplain: false },
   { id: "q16", text: "Are federal or state filings required?", hasExplain: false },
   { id: "q17", text: "How many years has the insured owned commercial equipment?", hasExplain: false, hasNumber: true },
-  { id: "q18", text: "How many years of primary liability coverage does the applicant have?", hasExplain: false, hasNumber: true },
+  
 ];
 
 export const GL_QUESTIONS = [
