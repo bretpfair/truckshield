@@ -35,6 +35,7 @@ import InviteClientDialog from "./InviteClientDialog";
 import DocumentHub from "./DocumentHub";
 import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+import AccountMessages from "@/components/messaging/AccountMessages";
 
 
 // Producer assignment dropdown (admin-only)
