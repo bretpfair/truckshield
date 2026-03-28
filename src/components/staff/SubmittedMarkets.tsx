@@ -51,6 +51,9 @@ interface Props {
 const SubmittedMarkets = ({ accountId, quotes }: Props) => {
   const [uploadDialog, setUploadDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
   const [infoRequestDialog, setInfoRequestDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [declineDialog, setDeclineDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
+  const [submittingDecline, setSubmittingDecline] = useState(false);
   const [infoRequestDetails, setInfoRequestDetails] = useState("");
   const [premiumAmount, setPremiumAmount] = useState("");
   const [quoteFile, setQuoteFile] = useState<File | null>(null);
@@ -125,7 +128,82 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
       setInfoRequestDetails("");
       return;
     }
+    if (status === "declined") {
+      setDeclineDialog({ quoteId, carrierName });
+      setDeclineReason("");
+      return;
+    }
     updateStatus.mutate({ quoteId, status, carrierName });
+  };
+
+  const handleSubmitDecline = async () => {
+    if (!declineDialog || !declineReason.trim()) return;
+    setSubmittingDecline(true);
+
+    try {
+      const { error } = await supabase
+        .from("quotes")
+        .update({
+          status: "declined",
+          coverage_details: { decline_reason: declineReason.trim() },
+        })
+        .eq("id", declineDialog.quoteId);
+      if (error) throw error;
+
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${declineDialog.carrierName} declined: ${declineReason.trim()}`,
+      });
+
+      // Send carrier status change email to client
+      try {
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("client_user_id, contact_email")
+          .eq("id", accountId)
+          .single();
+
+        const clientEmail = account?.contact_email;
+        if (clientEmail) {
+          let firstName: string | undefined;
+          if (account?.client_user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", account.client_user_id)
+              .single();
+            firstName = profile?.full_name?.split(" ")[0];
+          }
+
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "carrier-status-change",
+              recipientEmail: clientEmail,
+              idempotencyKey: `carrier-declined-${declineDialog.quoteId}-${Date.now()}`,
+              templateData: {
+                firstName,
+                carrierName: declineDialog.carrierName,
+                newStatus: "declined",
+                portalLink: `${window.location.origin}/client`,
+              },
+            },
+          });
+        }
+      } catch (emailErr) {
+        console.error("Failed to send decline email:", emailErr);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      toast({ title: "Market declined", description: "Reason has been recorded" });
+      setDeclineDialog(null);
+      setDeclineReason("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingDecline(false);
+    }
   };
 
   const handleSubmitInfoRequest = async () => {
@@ -289,6 +367,11 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                         </span>
                       )}
                     </div>
+                    {q.status === "declined" && (q.coverage_details as any)?.decline_reason && (
+                      <p className="text-xs text-destructive mt-1">
+                        Reason: {(q.coverage_details as any).decline_reason}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -403,6 +486,44 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
               className="bg-amber-600 hover:bg-amber-700"
             >
               {submittingInfoRequest ? "Sending..." : "Send Request & Notify Client"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Decline Reason Dialog */}
+      <Dialog open={!!declineDialog} onOpenChange={(open) => !open && setDeclineDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-destructive" />
+              Decline — {declineDialog?.carrierName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Please provide a reason for the declination. This will be recorded in the activity log.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="decline-reason">Decline Reason</Label>
+              <Textarea
+                id="decline-reason"
+                placeholder="e.g. Carrier declined due to loss history, insufficient authority age..."
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                rows={3}
+                maxLength={500}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeclineDialog(null)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitDecline}
+              disabled={!declineReason.trim() || submittingDecline}
+              variant="destructive"
+            >
+              {submittingDecline ? "Submitting..." : "Confirm Decline"}
             </Button>
           </DialogFooter>
         </DialogContent>
