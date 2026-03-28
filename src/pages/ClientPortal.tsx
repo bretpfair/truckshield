@@ -364,11 +364,29 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
                   <div key={q.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-md bg-secondary/50 border border-border gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
-                      <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
-                        {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
-                      </div>
                     </div>
-                    <Badge variant="outline" className={`${cfg.color} shrink-0 self-start sm:self-auto`}>{cfg.label}</Badge>
+                    <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+                      {q.premium_estimate ? (
+                        <span className="text-lg font-bold text-foreground">${Number(q.premium_estimate).toLocaleString()}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Pending</span>
+                      )}
+                      {(q.coverage_details as any)?.quote_file_path && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={async () => {
+                            const path = (q.coverage_details as any).quote_file_path;
+                            const { data } = await supabase.storage.from("loss-runs").createSignedUrl(path, 3600);
+                            if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                          }}
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          Download Quote
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
