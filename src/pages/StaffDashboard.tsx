@@ -68,7 +68,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId]);
-  }, [navigateToAccountId, onNavigateHandled]);
+  
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ["accounts"],
