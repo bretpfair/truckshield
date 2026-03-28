@@ -35,6 +35,7 @@ import InviteClientDialog from "./InviteClientDialog";
 import DocumentHub from "./DocumentHub";
 import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+import AccountMessages from "@/components/messaging/AccountMessages";
 
 
 // Producer assignment dropdown (admin-only)
@@ -683,6 +684,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
       {!account.client_user_id && (
         <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
       )}
+
+      {/* Messages */}
+      <AccountMessages accountId={accountId} isStaff />
 
       {/* Activity Log & Notes */}
       <ActivityLog accountId={accountId} />
