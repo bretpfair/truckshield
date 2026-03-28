@@ -302,9 +302,9 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowFilters(!showFilters)}>
           <Filter className="h-3 w-3" />
           Filters
-          {(statusFilter !== "all" || staleFilter) && (
+          {(statusFilter !== "all" || staleFilter || producerFilter !== "all") && (
             <span className="ml-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
-              {(statusFilter !== "all" ? 1 : 0) + (staleFilter ? 1 : 0)}
+              {(statusFilter !== "all" ? 1 : 0) + (staleFilter ? 1 : 0) + (producerFilter !== "all" ? 1 : 0)}
             </span>
           )}
         </Button>
@@ -340,18 +340,37 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
               </SelectContent>
             </Select>
           </div>
+          {isAdmin && staffMembers && staffMembers.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-mono">Producer:</span>
+              <Select value={producerFilter} onValueChange={setProducerFilter}>
+                <SelectTrigger className="h-8 w-[160px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Producers</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {staffMembers.map((s) => (
+                    <SelectItem key={s.userId} value={s.userId}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <Input
             placeholder="Search company/DOT..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-8 w-[200px] text-xs"
           />
-          {(statusFilter !== "all" || searchQuery || staleFilter) && (
+          {(statusFilter !== "all" || searchQuery || staleFilter || producerFilter !== "all") && (
             <Button
               variant="ghost"
               size="sm"
               className="h-8 text-xs"
-              onClick={() => { setStatusFilter("all"); setSearchQuery(""); setStaleFilter(false); }}
+              onClick={() => { setStatusFilter("all"); setSearchQuery(""); setStaleFilter(false); setProducerFilter("all"); }}
             >
               Clear Filters
             </Button>
