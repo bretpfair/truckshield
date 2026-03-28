@@ -52,6 +52,32 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
   }
 }
 
+async function logAccountEmailActivity(
+  supabase: ReturnType<typeof createClient>,
+  payload: Record<string, unknown>,
+  status: 'sent' | 'failed',
+  errorMessage?: string
+): Promise<void> {
+  const accountId = typeof payload.account_id === 'string' ? payload.account_id : null
+  if (!accountId) return
+
+  const templateName = typeof payload.label === 'string' ? payload.label : 'app email'
+  const recipientEmail = typeof payload.to === 'string' ? payload.to : 'recipient'
+  const description = status === 'sent'
+    ? `Email "${templateName}" sent to ${recipientEmail}`
+    : `Email "${templateName}" failed for ${recipientEmail}${errorMessage ? `: ${errorMessage.slice(0, 160)}` : ''}`
+
+  const { error } = await supabase.from('activity_log').insert({
+    account_id: accountId,
+    action_type: status === 'sent' ? 'email_sent' : 'email_failed',
+    description,
+  })
+
+  if (error) {
+    console.error('Failed to insert email activity log', { accountId, templateName, status, error })
+  }
+}
+
 // Move a message to the dead letter queue and log the reason.
 async function moveToDlq(
   supabase: ReturnType<typeof createClient>,
@@ -66,7 +92,11 @@ async function moveToDlq(
     recipient_email: payload.to,
     status: 'dlq',
     error_message: reason,
+    metadata: typeof payload.account_id === 'string'
+      ? { account_id: payload.account_id }
+      : null,
   })
+  await logAccountEmailActivity(supabase, payload, 'failed', reason)
   const { error } = await supabase.rpc('move_to_dlq', {
     source_queue: queue,
     dlq_name: `${queue}_dlq`,
@@ -273,7 +303,11 @@ Deno.serve(async (req) => {
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
+          metadata: typeof payload.account_id === 'string'
+            ? { account_id: payload.account_id }
+            : null,
         })
+        await logAccountEmailActivity(supabase, payload, 'sent')
 
         // Delete from queue
         const { error: delError } = await supabase.rpc('delete_email', {
@@ -301,6 +335,9 @@ Deno.serve(async (req) => {
             recipient_email: payload.to,
             status: 'rate_limited',
             error_message: errorMsg.slice(0, 1000),
+            metadata: typeof payload.account_id === 'string'
+              ? { account_id: payload.account_id }
+              : null,
           })
 
           const retryAfterSecs = getRetryAfterSeconds(error)
@@ -338,7 +375,11 @@ Deno.serve(async (req) => {
           recipient_email: payload.to,
           status: 'failed',
           error_message: errorMsg.slice(0, 1000),
+          metadata: typeof payload.account_id === 'string'
+            ? { account_id: payload.account_id }
+            : null,
         })
+        await logAccountEmailActivity(supabase, payload, 'failed', errorMsg)
         if (payload?.message_id && typeof payload.message_id === 'string') {
           failedAttemptsByMessageId.set(payload.message_id, failedAttempts + 1)
         }

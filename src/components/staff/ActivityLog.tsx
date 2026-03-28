@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail,
+  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail, TriangleAlert,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -21,6 +21,7 @@ const actionIcons: Record<string, typeof MessageSquare> = {
   quote_update: Send,
   client_linked: UserPlus,
   email_sent: Mail,
+  email_failed: TriangleAlert,
 };
 
 const actionColors: Record<string, string> = {
@@ -31,6 +32,7 @@ const actionColors: Record<string, string> = {
   quote_update: "text-success",
   client_linked: "text-primary",
   email_sent: "text-accent",
+  email_failed: "text-destructive",
 };
 
 interface TimelineEntry {
@@ -38,7 +40,6 @@ interface TimelineEntry {
   action_type: string;
   description: string;
   created_at: string;
-  source: "activity" | "email";
 }
 
 interface Props {
@@ -51,63 +52,19 @@ const ActivityLog = ({ accountId }: Props) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: activities } = useQuery({
+  const { data: timeline } = useQuery({
     queryKey: ["activity_log", accountId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("activity_log")
-        .select("*")
+        .select("id, action_type, description, created_at")
         .eq("account_id", accountId)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data;
+      return data as TimelineEntry[];
     },
   });
-
-  // Fetch email send log for this account (via metadata.account_id)
-  const { data: emailLogs } = useQuery({
-    queryKey: ["email_log_for_account", accountId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("email_send_log")
-        .select("*")
-        .eq("status", "sent")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) return []; // May fail for non-service-role, that's ok
-      // Filter by account_id in metadata
-      return (data ?? []).filter(
-        (e: any) => e.metadata?.account_id === accountId
-      );
-    },
-  });
-
-  // Merge activities and email logs into one timeline
-  const timeline: TimelineEntry[] = [];
-
-  activities?.forEach((a) => {
-    timeline.push({
-      id: a.id,
-      action_type: a.action_type,
-      description: a.description,
-      created_at: a.created_at,
-      source: "activity",
-    });
-  });
-
-  emailLogs?.forEach((e: any) => {
-    timeline.push({
-      id: e.id,
-      action_type: "email_sent",
-      description: `Email "${e.template_name}" sent to ${e.recipient_email}`,
-      created_at: e.created_at,
-      source: "email",
-    });
-  });
-
-  // Sort by date descending
-  timeline.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const addNote = useMutation({
     mutationFn: async (content: string) => {
@@ -134,7 +91,6 @@ const ActivityLog = ({ accountId }: Props) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Add Note */}
         <div className="flex gap-2">
           <Textarea
             placeholder="Add an internal note..."
@@ -152,33 +108,41 @@ const ActivityLog = ({ accountId }: Props) => {
           </Button>
         </div>
 
-        {/* Timeline */}
         <ScrollArea className="max-h-[350px]">
           <div className="space-y-3">
-            {timeline.map((a) => {
-              const Icon = actionIcons[a.action_type] || StickyNote;
-              const color = actionColors[a.action_type] || "text-muted-foreground";
+            {timeline?.map((entry) => {
+              const Icon = actionIcons[entry.action_type] || StickyNote;
+              const color = actionColors[entry.action_type] || "text-muted-foreground";
+              const isEmailEvent = entry.action_type === "email_sent" || entry.action_type === "email_failed";
+
               return (
-                <div key={`${a.source}-${a.id}`} className="flex gap-3 text-sm">
+                <div key={entry.id} className="flex gap-3 text-sm">
                   <div className={`mt-0.5 shrink-0 ${color}`}>
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-foreground">{a.description}</p>
+                    <p className="text-foreground">{entry.description}</p>
                     <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                      {format(new Date(a.created_at), "MMM d, yyyy h:mm a")}
+                      {format(new Date(entry.created_at), "MMM d, yyyy h:mm a")}
                     </p>
                   </div>
-                  {a.action_type === "note" && (
+                  {entry.action_type === "note" && (
                     <Badge variant="outline" className="text-[10px] h-5 shrink-0">Note</Badge>
                   )}
-                  {a.source === "email" && (
-                    <Badge variant="outline" className="text-[10px] h-5 shrink-0 bg-accent/10 text-accent border-accent/20">Email</Badge>
+                  {isEmailEvent && (
+                    <Badge
+                      variant="outline"
+                      className={entry.action_type === "email_failed"
+                        ? "text-[10px] h-5 shrink-0 bg-destructive/10 text-destructive border-destructive/20"
+                        : "text-[10px] h-5 shrink-0 bg-accent/10 text-accent border-accent/20"}
+                    >
+                      Email
+                    </Badge>
                   )}
                 </div>
               );
             })}
-            {timeline.length === 0 && (
+            {(!timeline || timeline.length === 0) && (
               <p className="text-xs text-muted-foreground text-center py-4">No activity yet</p>
             )}
           </div>
