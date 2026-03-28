@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Paperclip, FileText, X, MessageSquare } from "lucide-react";
+import { Send, Paperclip, FileText, X, MessageSquare, Check, CheckCheck } from "lucide-react";
 
 interface Props {
   accountId: string;
@@ -24,6 +24,7 @@ interface Message {
   attachment_path: string | null;
   attachment_name: string | null;
   created_at: string;
+  read_at: string | null;
 }
 
 const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
@@ -33,8 +34,11 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
   const [message, setMessage] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [remoteTyping, setRemoteTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const { data: messages } = useQuery({
     queryKey: ["messages", accountId],
@@ -49,13 +53,13 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
     },
   });
 
-  // Realtime subscription
+  // Realtime subscription for new messages
   useEffect(() => {
     const channel = supabase
       .channel(`messages-${accountId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `account_id=eq.${accountId}` },
+        { event: "*", schema: "public", table: "messages", filter: `account_id=eq.${accountId}` },
         () => {
           queryClient.invalidateQueries({ queryKey: ["messages", accountId] });
         }
@@ -67,6 +71,52 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
     };
   }, [accountId, queryClient]);
 
+  // Presence channel for typing indicators
+  useEffect(() => {
+    const channel = supabase.channel(`typing-${accountId}`, {
+      config: { presence: { key: user?.id || "anon" } },
+    });
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const others = Object.entries(state).filter(([key]) => key !== user?.id);
+        const anyTyping = others.some(([, presences]) =>
+          (presences as any[]).some((p) => p.typing)
+        );
+        setRemoteTyping(anyTyping);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ typing: false });
+        }
+      });
+
+    presenceChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [accountId, user?.id]);
+
+  // Mark unread messages as read
+  useEffect(() => {
+    if (!messages?.length || !user) return;
+    const unread = messages.filter(
+      (m) => m.sender_id !== user.id && !m.read_at
+    );
+    if (unread.length === 0) return;
+
+    const ids = unread.map((m) => m.id);
+    supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .in("id", ids)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["messages", accountId] });
+      });
+  }, [messages, user, accountId, queryClient]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
@@ -74,10 +124,25 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
     }
   }, [messages]);
 
+  // Typing indicator broadcast
+  const broadcastTyping = useCallback(() => {
+    presenceChannelRef.current?.track({ typing: true });
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      presenceChannelRef.current?.track({ typing: false });
+    }, 2000);
+  }, []);
+
+  const handleInputChange = (value: string) => {
+    setMessage(value);
+    if (value.trim()) broadcastTyping();
+  };
+
   const sendMessage = async () => {
     if (!message.trim() && !file) return;
     if (!user) return;
     setSending(true);
+    presenceChannelRef.current?.track({ typing: false });
 
     try {
       let attachmentPath: string | null = null;
@@ -151,6 +216,15 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
                     <span className={`text-[10px] font-mono ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                       {msg.is_staff ? "Staff" : "Client"} · {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
+                    {isMine && (
+                      <span className={`${isMine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                        {msg.read_at ? (
+                          <CheckCheck className="h-3 w-3" />
+                        ) : (
+                          <Check className="h-3 w-3" />
+                        )}
+                      </span>
+                    )}
                   </div>
                   {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
                   {msg.attachment_path && (
@@ -168,6 +242,22 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
               </div>
             );
           })
+        )}
+
+        {/* Typing indicator */}
+        {remoteTyping && (
+          <div className="flex justify-start">
+            <div className="bg-card border border-border rounded-lg px-3 py-2 text-sm">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-mono text-muted-foreground">{isStaff ? "Client" : "Staff"} is typing</span>
+                <span className="flex gap-0.5 ml-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "300ms" }} />
+                </span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -202,7 +292,7 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
         <Input
           placeholder="Type a message..."
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
           className="flex-1"
         />
