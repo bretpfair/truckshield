@@ -90,7 +90,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       case 5: return (puData?.length || 0) > 0;
       case 6: return (trData?.length || 0) > 0;
       case 7: return (drData?.length || 0) > 0;
-      case 8: return (lhData?.length || 0) > 0;
+      case 8: return (lhData?.length || 0) > 0 || !!(formData.general_questions as any)?.new_venture;
       case 9: return Object.keys(formData.general_questions || {}).length >= 5;
       default: return true;
     }
