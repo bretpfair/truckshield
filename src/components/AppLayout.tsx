@@ -55,8 +55,9 @@ const AppLayout = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
-            <img src={logo360} alt="360 Risk Partners" className="h-8 w-auto" />
-            <span className="font-bold text-foreground">TruckShield</span>
+            <Truck className="h-5 w-5 text-primary" />
+            <span className="font-bold text-foreground">TruckShield, powered by</span>
+            <img src={logo360} alt="360 Risk Partners" className="h-6 w-auto" />
             <span className="status-badge bg-primary/10 text-primary rounded">
               {showClient ? "Client" : "Staff"}
             </span>
