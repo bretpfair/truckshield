@@ -85,7 +85,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     switch (stepId) {
       case 1: return !!(formData.dot_number && formData.company_name && formData.mailing_address);
       case 2: return !!(formData.coverage_selections?.primary_bipd);
-      case 3: return (formData.radius_operations || []).length > 0 && !!formData.radius_operations?.[0]?.max_radius;
+      case 3: return (formData.radius_operations || []).length > 0 && !!(formData.radius_operations?.[0]?.operation_type || formData.radius_operations?.[0]?.annual_mileage);
       case 4: return Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0;
       case 5: return (puData?.length || 0) > 0;
       case 6: return (trData?.length || 0) > 0;
