@@ -56,6 +56,13 @@ export const SignupEmail = ({
         <Text style={footer}>
           If you didn't create an account, you can safely ignore this email.
         </Text>
+        <Hr style={footerDivider} />
+        <Text style={footerBrand}>360 Risk Partners</Text>
+        <Text style={footerContact}>
+          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
+          {' '} | {' '}
+          <Link href="tel:8888854144" style={link}>888-885-4144</Link>
+        </Text>
       </Container>
     </Body>
   </Html>
@@ -72,3 +79,6 @@ const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0
 const link = { color: '#0099cc', textDecoration: 'underline' }
 const button = { backgroundColor: '#0099cc', color: '#ffffff', fontSize: '15px', fontWeight: '600' as const, borderRadius: '6px', padding: '12px 24px', textDecoration: 'none' }
 const footer = { fontSize: '12px', color: '#707a8a', margin: '30px 0 0' }
+const footerDivider = { borderColor: '#e2e8f0', margin: '20px 0' }
+const footerBrand = { fontSize: '13px', color: '#6b7280', margin: '0 0 4px', fontWeight: '600' as const }
+const footerContact = { fontSize: '13px', color: '#6b7280', margin: '0' }
