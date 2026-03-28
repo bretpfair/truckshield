@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,17 @@ const emptyTrailer = {
   garage_zip: "", has_physdam: false, physdam_amount: null,
   ownership_type: "owned", lender_name: "", lender_address: "", lender_city: "", lender_state: "", lender_zip: "",
 };
+
+const cleanForInsert = (items: any[], accountId: string) =>
+  items.map((t, i) => {
+    const { id, created_at, updated_at, ...rest } = t;
+    return {
+      ...rest,
+      account_id: accountId,
+      sort_order: i,
+      physdam_amount: t.physdam_amount ? parseFloat(t.physdam_amount) : null,
+    };
+  });
 
 const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: StepProps) => {
   const { toast } = useToast();
@@ -55,7 +66,6 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
       } else {
         const ownedCount = parentFormData?.total_owned_trailers || 0;
         if (ownedCount === 0 && !(parentFormData.general_questions as any)?.no_trailers) {
-          // Auto-check "No Trailers" when Section 1 has no trailers and none exist
           setNoTrailers(true);
         }
         const targetCount = Math.max(1, Math.min(ownedCount || 1, 100));
@@ -67,17 +77,11 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
   const saveMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("trailers").delete().eq("account_id", account.id);
-      const toInsert = items.map((t, i) => ({
-        ...t,
-        account_id: account.id,
-        sort_order: i,
-        id: undefined,
-        created_at: undefined,
-        updated_at: undefined,
-        physdam_amount: t.physdam_amount ? parseFloat(t.physdam_amount) : null,
-      }));
-      const { error } = await supabase.from("trailers").insert(toInsert);
-      if (error) throw error;
+      if (!noTrailers) {
+        const toInsert = cleanForInsert(items, account.id);
+        const { error } = await supabase.from("trailers").insert(toInsert);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trailers"] });
@@ -85,6 +89,50 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  // Debounced auto-save with save-on-unmount
+  const [initialized, setInitialized] = useState(false);
+  const itemsRef = useRef(items);
+  const initializedRef = useRef(false);
+  const pendingSave = useRef(false);
+  const noTrailersRef = useRef(noTrailers);
+
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  useEffect(() => { noTrailersRef.current = noTrailers; }, [noTrailers]);
+
+  useEffect(() => {
+    if (data) {
+      setInitialized(true);
+      initializedRef.current = true;
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    pendingSave.current = true;
+    const timer = setTimeout(() => {
+      pendingSave.current = false;
+      saveMutation.mutate();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [items, initialized, noTrailers]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingSave.current && initializedRef.current) {
+        supabase.from("trailers").delete().eq("account_id", account.id).then(() => {
+          if (!noTrailersRef.current && itemsRef.current.length > 0) {
+            const toInsert = cleanForInsert(itemsRef.current, account.id);
+            supabase.from("trailers").insert(toInsert).then(() => {
+              queryClient.invalidateQueries({ queryKey: ["trailers"] });
+            });
+          } else {
+            queryClient.invalidateQueries({ queryKey: ["trailers"] });
+          }
+        });
+      }
+    };
+  }, [account.id, queryClient]);
 
   const addItem = () => setItems([...items, { ...emptyTrailer, account_id: account.id }]);
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));

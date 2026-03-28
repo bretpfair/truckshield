@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,12 @@ const emptyDriver = {
   lapse_suspension: "None", lapse_explanation: "",
   num_violations: 0, violations: [], num_accidents: 0, accidents: [],
 };
+
+const cleanForInsert = (items: any[], accountId: string) =>
+  items.map((d, i) => {
+    const { id, created_at, updated_at, ...rest } = d;
+    return { ...rest, account_id: accountId, sort_order: i };
+  });
 
 const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   const { toast } = useToast();
@@ -54,12 +60,10 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
       if (data.length > 0) {
         driverList = [...data];
       } else {
-        // Auto-create rows based on total_drivers from Section 1
         const targetCount = Math.max(1, Math.min(parentFormData?.total_drivers || 1, 100));
         driverList = Array.from({ length: targetCount }, () => ({ ...emptyDriver, account_id: account.id }));
       }
 
-      // Prefill Driver 1 with owner info if "owner is driver" is checked
       if (ownerIsDriver && driverList.length > 0) {
         const nameParts = (parentFormData?.business_owner_name || "").trim().split(/\s+/);
         const firstName = nameParts[0] || "";
@@ -80,14 +84,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("drivers").delete().eq("account_id", account.id);
-      const toInsert = drivers.map((d, i) => ({
-        ...d,
-        account_id: account.id,
-        sort_order: i,
-        id: undefined,
-        created_at: undefined,
-        updated_at: undefined,
-      }));
+      const toInsert = cleanForInsert(drivers, account.id);
       const { error } = await supabase.from("drivers").insert(toInsert);
       if (error) throw error;
     },
@@ -97,6 +94,44 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  // Debounced auto-save with save-on-unmount
+  const [initialized, setInitialized] = useState(false);
+  const driversRef = useRef(drivers);
+  const initializedRef = useRef(false);
+  const pendingSave = useRef(false);
+
+  useEffect(() => { driversRef.current = drivers; }, [drivers]);
+
+  useEffect(() => {
+    if (data) {
+      setInitialized(true);
+      initializedRef.current = true;
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (!initialized || drivers.length === 0) return;
+    pendingSave.current = true;
+    const timer = setTimeout(() => {
+      pendingSave.current = false;
+      saveMutation.mutate();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [drivers, initialized]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingSave.current && initializedRef.current && driversRef.current.length > 0) {
+        const toInsert = cleanForInsert(driversRef.current, account.id);
+        supabase.from("drivers").delete().eq("account_id", account.id).then(() => {
+          supabase.from("drivers").insert(toInsert).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["drivers"] });
+          });
+        });
+      }
+    };
+  }, [account.id, queryClient]);
 
   const addDriver = () => {
     setDrivers([...drivers, { ...emptyDriver, account_id: account.id }]);
