@@ -91,7 +91,7 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
       const q = gq[qId];
       if (!q) return false;
       const isNumberOnly = qId === "q17";
-      if (isNumberOnly) return q.number != null && q.number !== "";
+      if (isNumberOnly) return q.value != null && q.value !== "";
       return q.answer === "Yes" || q.answer === "No";
     });
     const hasGL = cov.general_liability && cov.general_liability !== "No Coverage";
