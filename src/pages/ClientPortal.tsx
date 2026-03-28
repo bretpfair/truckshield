@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle, FileText, Truck, Shield, Clock, CheckCircle2,
-  ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle,
+  ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle, Download,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 import DocumentHub from "@/components/staff/DocumentHub";
@@ -100,6 +100,21 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
   const reviewingQuotes = allQuotes?.filter((q: any) => ["submitted", "reviewing"].includes(q.status)) ?? [];
   const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
   const completedQuotes = allQuotes?.filter((q: any) => ["quoted", "bound"].includes(q.status)) ?? [];
+
+  const { data: quoteDocuments } = useQuery({
+    queryKey: ["client-quote-docs", account?.id],
+    enabled: !!account,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_documents")
+        .select("*")
+        .eq("account_id", account!.id)
+        .eq("category", "quotes")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: powerUnits } = useQuery({
     queryKey: ["client-power-units", account?.id],
@@ -334,6 +349,30 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
               <p className="text-sm text-muted-foreground">
                 {isComplete ? "Your application is under review. Quotes will appear here once available." : "Complete your application to receive quotes from carriers."}
               </p>
+            </div>
+          )}
+
+          {/* Quote Documents */}
+          {quoteDocuments && quoteDocuments.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Quote Documents</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {quoteDocuments.map((doc: any) => (
+                  <Button
+                    key={doc.id}
+                    variant="outline"
+                    size="sm"
+                    className="justify-start gap-2 text-xs h-9"
+                    onClick={async () => {
+                      const { data } = await supabase.storage.from("account-documents").createSignedUrl(doc.file_path, 300);
+                      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5 text-primary" />
+                    <span className="truncate">{doc.file_name}</span>
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
