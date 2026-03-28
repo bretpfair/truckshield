@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Truck, Shield, Mail, Loader2 } from "lucide-react";
+import logo360 from "@/assets/360-logo.png";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -157,13 +158,11 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md animate-fade-in">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="p-3 bg-primary/10 rounded-lg glow-primary">
-            <Truck className="h-8 w-8 text-primary" />
-          </div>
-          <div>
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <img src={logo360} alt="360 Risk Partners" className="h-20 w-auto" />
+          <div className="text-center">
             <h1 className="text-2xl font-bold text-foreground">TruckShield</h1>
-            <p className="text-sm text-muted-foreground font-mono">Commercial Trucking Portal</p>
+            <p className="text-sm text-muted-foreground font-mono">Powered by 360 Risk Partners</p>
           </div>
         </div>
 
