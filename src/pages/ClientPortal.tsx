@@ -331,6 +331,65 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
               {completedQuotes.map((q: any) => {
                 const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.quoted;
                 return (
+                  <div key={q.id} className="flex items-center justify-between p-4 rounded-md bg-secondary/50 border border-border">
+                    <div>
+                      <p className="font-semibold text-foreground">{q.carriers?.name ?? "Carrier"}</p>
+                      <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
+                        {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {isComplete ? "Your application is under review. Quotes will appear here once available." : "Complete your application to receive quotes from carriers."}
+              </p>
+            </div>
+          )}
+
+          {/* Quote Documents */}
+          {quoteDocuments && quoteDocuments.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Quote Documents</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {quoteDocuments.map((doc: any) => (
+                  <Button
+                    key={doc.id}
+                    variant="outline"
+                    size="sm"
+                    className="justify-start gap-2 text-xs h-9"
+                    onClick={async () => {
+                      const { data } = await supabase.storage.from("account-documents").createSignedUrl(doc.file_path, 300);
+                      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5 text-primary" />
+                    <span className="truncate">{doc.file_name}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Documents */}
+      <DocumentHub accountId={account.id} readOnly={false} />
+
+    </div>
+  );
+};
+
+export default ClientPortal;
+            <div className="space-y-3">
+              {completedQuotes.map((q: any) => {
+                const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.quoted;
+                return (
                   <div key={q.id} className="p-4 rounded-md bg-secondary/50 border border-border space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
