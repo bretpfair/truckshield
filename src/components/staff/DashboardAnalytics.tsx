@@ -238,6 +238,9 @@ const DashboardAnalytics = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Producer Performance */}
+      <ProducerPerformance />
     </div>
   );
 };
