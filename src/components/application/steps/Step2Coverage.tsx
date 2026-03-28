@@ -95,7 +95,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
 
       {/* AUTO LIABILITY LIMITS */}
       <div>
-        <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Primary Coverage</Label>
+        <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Auto Liability Limits</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           <div className="space-y-2">
             <Label>Primary BI-PD Limit</Label>
