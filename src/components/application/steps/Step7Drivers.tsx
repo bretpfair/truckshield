@@ -87,7 +87,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("drivers").delete().eq("account_id", account.id);
-      const toInsert = cleanForInsert(drivers, account.id);
+      const toInsert = cleanForInsert(driversRef.current, account.id);
       const { error } = await supabase.from("drivers").insert(toInsert);
       if (error) throw error;
     },

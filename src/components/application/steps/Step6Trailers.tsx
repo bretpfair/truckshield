@@ -83,8 +83,8 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
   const saveMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("trailers").delete().eq("account_id", account.id);
-      if (!noTrailers) {
-        const toInsert = cleanForInsert(items, account.id);
+      if (!noTrailersRef.current) {
+        const toInsert = cleanForInsert(itemsRef.current, account.id);
         const { error } = await supabase.from("trailers").insert(toInsert);
         if (error) throw error;
       }
