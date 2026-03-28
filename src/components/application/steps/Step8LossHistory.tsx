@@ -250,14 +250,23 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
       </div>
 
       {/* Upload Loss Runs */}
-      <div className="p-4 rounded-md border border-border bg-secondary/30 space-y-3">
+      <div
+        className={`p-4 rounded-md border-2 border-dashed transition-colors space-y-3 ${
+          isDragging
+            ? "border-primary bg-primary/5"
+            : "border-border bg-secondary/30"
+        }`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-semibold flex items-center gap-2">
               <Upload className="h-4 w-4 text-primary" />
               Upload Loss Runs
             </h4>
-            <p className="text-xs text-muted-foreground">Attach loss run documents (PDF, images, or other files)</p>
+            <p className="text-xs text-muted-foreground">Drag &amp; drop files here or click to browse (PDF, images, or other files)</p>
           </div>
           <Button
             variant="outline"
@@ -277,6 +286,12 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
             onChange={handleFileUpload}
           />
         </div>
+
+        {isDragging && (
+          <div className="flex items-center justify-center py-6 text-sm text-primary font-medium">
+            Drop files here to upload
+          </div>
+        )}
 
         {files && files.length > 0 && (
           <div className="space-y-1">
