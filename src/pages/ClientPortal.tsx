@@ -33,6 +33,7 @@ import {
   ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+import DocumentHub from "@/components/staff/DocumentHub";
 
 import { WIZARD_STEPS } from "@/components/application/constants";
 
@@ -337,6 +338,9 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Documents */}
+      <DocumentHub accountId={account.id} readOnly={false} />
 
     </div>
   );

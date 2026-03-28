@@ -25,6 +25,8 @@ const categories = [
   { value: "application", label: "Applications" },
   { value: "loss_runs", label: "Loss Runs" },
   { value: "cab_cards", label: "Cab Cards" },
+  { value: "mvr", label: "MVR" },
+  { value: "drivers_license", label: "Drivers License" },
   { value: "quotes", label: "Quotes" },
   { value: "policies", label: "Policies" },
   { value: "misc", label: "Miscellaneous" },
@@ -34,6 +36,8 @@ const categoryColors: Record<string, string> = {
   application: "bg-primary/10 text-primary border-primary/20",
   loss_runs: "bg-warning/10 text-warning border-warning/20",
   cab_cards: "bg-accent/10 text-accent border-accent/20",
+  mvr: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20",
+  drivers_license: "bg-violet-500/10 text-violet-500 border-violet-500/20",
   quotes: "bg-success/10 text-success border-success/20",
   policies: "bg-success/20 text-success border-success/30",
   misc: "bg-muted text-muted-foreground border-border",
@@ -53,7 +57,7 @@ interface Props {
 
 const DocumentHub = ({ accountId, readOnly = false }: Props) => {
   const [category, setCategory] = useState("all");
-  const [uploadCategory, setUploadCategory] = useState("misc");
+  const [uploadCategory, setUploadCategory] = useState("");
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -93,6 +97,10 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    if (!uploadCategory) {
+      toast({ title: "Select a document type", description: "Please choose a category before uploading", variant: "destructive" });
+      return;
+    }
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
@@ -174,8 +182,8 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
           {!readOnly && (
             <>
               <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                <SelectTrigger className="w-[140px] h-8 text-xs">
-                  <SelectValue placeholder="Category" />
+                <SelectTrigger className={`w-[160px] h-8 text-xs ${!uploadCategory ? "border-destructive/50" : ""}`}>
+                  <SelectValue placeholder="Select type *" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.filter(c => c.value !== "all").map((c) => (
@@ -183,8 +191,8 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
                   ))}
                 </SelectContent>
               </Select>
-              <label className="cursor-pointer">
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" asChild disabled={uploading}>
+              <label className={!uploadCategory ? "pointer-events-none opacity-50" : "cursor-pointer"}>
+                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" asChild disabled={uploading || !uploadCategory}>
                   <span>
                     <Upload className="h-3 w-3" /> {uploading ? "Uploading..." : "Upload"}
                   </span>
