@@ -25,7 +25,7 @@ const emptyUnit = {
   lender_name: "", lender_address: "", lender_city: "", lender_state: "", lender_zip: "",
 };
 
-const Step5PowerUnits = ({ account }: StepProps) => {
+const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [units, setUnits] = useState<any[]>([]);
@@ -123,7 +123,16 @@ const Step5PowerUnits = ({ account }: StepProps) => {
   });
 
   useEffect(() => {
-    if (data) setUnits(data.length ? data : [{ ...emptyUnit, account_id: account.id }]);
+    if (data) {
+      if (data.length > 0) {
+        setUnits(data);
+      } else {
+        // Auto-create rows based on total_trucks from Section 1
+        const targetCount = Math.max(1, Math.min(parentFormData?.total_trucks || 1, 100));
+        const rows = Array.from({ length: targetCount }, () => ({ ...emptyUnit, account_id: account.id }));
+        setUnits(rows);
+      }
+    }
   }, [data, account.id]);
 
   const saveMutation = useMutation({
