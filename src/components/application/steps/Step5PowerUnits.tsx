@@ -61,12 +61,12 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
   }, [account.id, toast]);
 
   const handleRemoveFile = useCallback(async (idx: number) => {
-    const path = units[idx]?.cab_card_path;
+    const path = unitsRef.current[idx]?.cab_card_path;
     if (path) {
       await supabase.storage.from("cab-cards").remove([path]);
     }
     updateUnit(idx, "cab_card_path", null);
-  }, [units]);
+  }, []);
 
   const decodeVin = useCallback(async (vin: string, idx: number) => {
     const cleanVin = vin.trim().toUpperCase();
@@ -141,7 +141,8 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     mutationFn: async () => {
       // Delete existing then insert all
       await supabase.from("power_units").delete().eq("account_id", account.id);
-      const toInsert = units.map((u, i) => {
+      const currentUnits = unitsRef.current;
+      const toInsert = currentUnits.map((u, i) => {
         const { id, created_at, updated_at, ...rest } = u;
         return {
           ...rest,
@@ -203,13 +204,15 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     };
   }, [account.id, queryClient]);
 
-  const addUnit = () => { dirtyRef.current = true; setUnits([...units, { ...emptyUnit, account_id: account.id }]); };
-  const removeUnit = (idx: number) => { dirtyRef.current = true; setUnits(units.filter((_, i) => i !== idx)); };
+  const addUnit = () => { dirtyRef.current = true; setUnits(prev => [...prev, { ...emptyUnit, account_id: account.id }]); };
+  const removeUnit = (idx: number) => { dirtyRef.current = true; setUnits(prev => prev.filter((_, i) => i !== idx)); };
   const updateUnit = (idx: number, field: string, value: any) => {
     dirtyRef.current = true;
-    const updated = [...units];
-    updated[idx] = { ...updated[idx], [field]: value };
-    setUnits(updated);
+    setUnits(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return updated;
+    });
   };
 
   return (

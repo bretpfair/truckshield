@@ -87,7 +87,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       await supabase.from("drivers").delete().eq("account_id", account.id);
-      const toInsert = cleanForInsert(drivers, account.id);
+      const toInsert = cleanForInsert(driversRef.current, account.id);
       const { error } = await supabase.from("drivers").insert(toInsert);
       if (error) throw error;
     },
@@ -132,15 +132,19 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
 
   const addDriver = () => {
     dirtyRef.current = true;
-    setDrivers([...drivers, { ...emptyDriver, account_id: account.id }]);
-    setExpandedIdx(drivers.length);
+    setDrivers(prev => {
+      setExpandedIdx(prev.length);
+      return [...prev, { ...emptyDriver, account_id: account.id }];
+    });
   };
-  const removeDriver = (idx: number) => { dirtyRef.current = true; setDrivers(drivers.filter((_, i) => i !== idx)); };
+  const removeDriver = (idx: number) => { dirtyRef.current = true; setDrivers(prev => prev.filter((_, i) => i !== idx)); };
   const updateDriver = (idx: number, field: string, value: any) => {
     dirtyRef.current = true;
-    const updated = [...drivers];
-    updated[idx] = { ...updated[idx], [field]: value };
-    setDrivers(updated);
+    setDrivers(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return updated;
+    });
   };
 
   return (
