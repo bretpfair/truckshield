@@ -60,8 +60,11 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
     },
   });
 
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
-    if (data) {
+    if (data && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
       if (data.length > 0) {
         setItems(data);
       } else {

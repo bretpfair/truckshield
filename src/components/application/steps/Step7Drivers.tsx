@@ -54,8 +54,11 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   const operationInfo = (parentFormData?.operation_info as any) || {};
   const ownerIsDriver = !!operationInfo.owner_is_driver;
 
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
-    if (data) {
+    if (data && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
       let driverList: any[];
       if (data.length > 0) {
         driverList = [...data];
