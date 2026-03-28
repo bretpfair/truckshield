@@ -88,12 +88,24 @@ const StaffManager = () => {
       const roleMap = new Map((roles || []).map((r) => [r.user_id, r.role]));
 
       // Build list from invitations as the source of truth
+      // First pass: group invitations by email, preferring accepted over pending
+      const invByEmail = new Map<string, typeof invitations[number]>();
+      for (const inv of invitations || []) {
+        const email = inv.email.toLowerCase();
+        const existing = invByEmail.get(email);
+        if (!existing) {
+          invByEmail.set(email, inv);
+        } else if (inv.status === "accepted" && existing.status !== "accepted") {
+          // Prefer accepted invitation
+          invByEmail.set(email, inv);
+        }
+      }
+
       const members: StaffMember[] = [];
       const seenEmails = new Set<string>();
 
-      for (const inv of invitations || []) {
+      for (const inv of invByEmail.values()) {
         const email = inv.email.toLowerCase();
-        if (seenEmails.has(email)) continue; // skip older dupes
         seenEmails.add(email);
 
         const isExpired = new Date(inv.expires_at) < new Date() && inv.status === "pending";
@@ -105,12 +117,10 @@ const StaffManager = () => {
         let currentRole = (inv.invited_role || "producer") as "admin" | "producer";
 
         if (effectiveStatus === "accepted") {
-          // Find the user by matching email in profiles
           const matchedProfile = profiles.find((p) => p.email?.toLowerCase() === email);
           if (matchedProfile) {
             userId = matchedProfile.user_id;
             profile = matchedProfile;
-            // Use current role from user_roles (may have been changed after invite)
             const liveRole = roleMap.get(userId!);
             if (liveRole) currentRole = liveRole as "admin" | "producer";
           }
