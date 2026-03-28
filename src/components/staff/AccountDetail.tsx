@@ -505,6 +505,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         <h2 className="text-xl font-bold">{account.company_name}</h2>
         <Badge variant="outline">{account.status.replace(/_/g, " ")}</Badge>
         {isAdmin && <ProducerAssignment accountId={accountId} currentProducerId={(account as any).assigned_producer_id} />}
+        <div className="flex-1" />
         {account.status !== "closed_lost" && (
           <Button
             variant="outline"
