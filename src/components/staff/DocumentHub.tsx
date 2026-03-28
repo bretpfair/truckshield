@@ -76,9 +76,12 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
     },
   });
 
+  const getBucket = (doc: { category?: string }) =>
+    doc.category === "cab_cards" ? "cab-cards" : "account-documents";
+
   const deleteMutation = useMutation({
-    mutationFn: async (doc: { id: string; file_path: string }) => {
-      await supabase.storage.from("account-documents").remove([doc.file_path]);
+    mutationFn: async (doc: { id: string; file_path: string; category?: string }) => {
+      await supabase.storage.from(getBucket(doc)).remove([doc.file_path]);
       const { error } = await supabase.from("account_documents").delete().eq("id", doc.id);
       if (error) throw error;
     },
@@ -127,9 +130,10 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
     }
   };
 
-  const handleDownload = async (filePath: string, fileName: string) => {
+  const handleDownload = async (filePath: string, fileName: string, docCategory?: string) => {
+    const bucket = docCategory === "cab_cards" ? "cab-cards" : "account-documents";
     const { data, error } = await supabase.storage
-      .from("account-documents")
+      .from(bucket)
       .createSignedUrl(filePath, 300);
     if (error || !data?.signedUrl) {
       toast({ title: "Download failed", variant: "destructive" });
@@ -224,7 +228,7 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={() => handleDownload(doc.file_path, doc.file_name)}
+                    onClick={() => handleDownload(doc.file_path, doc.file_name, doc.category)}
                   >
                     <Download className="h-3.5 w-3.5" />
                   </Button>
@@ -233,7 +237,7 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                      onClick={() => deleteMutation.mutate({ id: doc.id, file_path: doc.file_path })}
+                      onClick={() => deleteMutation.mutate({ id: doc.id, file_path: doc.file_path, category: doc.category })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

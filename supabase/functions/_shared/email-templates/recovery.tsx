@@ -69,4 +69,3 @@ const footer = { fontSize: '12px', color: '#707a8a', margin: '30px 0 0' }
 const footerDivider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const footerBrand = { fontSize: '13px', color: '#6b7280', margin: '0 0 4px', fontWeight: '600' as const }
 const footerContact = { fontSize: '13px', color: '#6b7280', margin: '0' }
-const footer = { fontSize: '12px', color: '#707a8a', margin: '30px 0 0' }
