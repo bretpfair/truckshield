@@ -244,12 +244,14 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
         {WIZARD_STEPS.map((step) => {
           const isActive = currentStep === step.id;
           const isVisited = step.id < currentStep;
-          // Mark visited-but-incomplete steps as warning (yellow)
-          const isIncomplete = isVisited && step.id < 10;
+          const stepComplete = step.id < 10 ? getStepComplete(step.id) : true;
+          const isIncompleteVisited = isVisited && !stepComplete;
           
           let className = "";
           if (isActive) {
             className = "bg-primary/20 text-primary border border-primary/40";
+          } else if (isIncompleteVisited) {
+            className = "bg-warning/10 text-warning border border-warning/30";
           } else if (isVisited) {
             className = "bg-success/10 text-success border border-success/20";
           } else {
@@ -262,8 +264,10 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
               onClick={() => setCurrentStep(step.id)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono whitespace-nowrap transition-colors ${className}`}
             >
-              {isVisited ? (
+              {isVisited && !isIncompleteVisited ? (
                 <Check className="h-3 w-3" />
+              ) : isIncompleteVisited ? (
+                <AlertCircle className="h-3 w-3" />
               ) : (
                 <span className="text-[10px] font-bold">{step.id}</span>
               )}
