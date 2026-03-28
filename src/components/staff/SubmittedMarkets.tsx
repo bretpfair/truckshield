@@ -128,7 +128,82 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
       setInfoRequestDetails("");
       return;
     }
+    if (status === "declined") {
+      setDeclineDialog({ quoteId, carrierName });
+      setDeclineReason("");
+      return;
+    }
     updateStatus.mutate({ quoteId, status, carrierName });
+  };
+
+  const handleSubmitDecline = async () => {
+    if (!declineDialog || !declineReason.trim()) return;
+    setSubmittingDecline(true);
+
+    try {
+      const { error } = await supabase
+        .from("quotes")
+        .update({
+          status: "declined",
+          coverage_details: { decline_reason: declineReason.trim() },
+        })
+        .eq("id", declineDialog.quoteId);
+      if (error) throw error;
+
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${declineDialog.carrierName} declined: ${declineReason.trim()}`,
+      });
+
+      // Send carrier status change email to client
+      try {
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("client_user_id, contact_email")
+          .eq("id", accountId)
+          .single();
+
+        const clientEmail = account?.contact_email;
+        if (clientEmail) {
+          let firstName: string | undefined;
+          if (account?.client_user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", account.client_user_id)
+              .single();
+            firstName = profile?.full_name?.split(" ")[0];
+          }
+
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "carrier-status-change",
+              recipientEmail: clientEmail,
+              idempotencyKey: `carrier-declined-${declineDialog.quoteId}-${Date.now()}`,
+              templateData: {
+                firstName,
+                carrierName: declineDialog.carrierName,
+                newStatus: "declined",
+                portalLink: `${window.location.origin}/client`,
+              },
+            },
+          });
+        }
+      } catch (emailErr) {
+        console.error("Failed to send decline email:", emailErr);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      toast({ title: "Market declined", description: "Reason has been recorded" });
+      setDeclineDialog(null);
+      setDeclineReason("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingDecline(false);
+    }
   };
 
   const handleSubmitInfoRequest = async () => {
