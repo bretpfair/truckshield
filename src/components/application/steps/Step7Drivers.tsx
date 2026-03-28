@@ -50,7 +50,14 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
 
   useEffect(() => {
     if (data) {
-      let driverList = data.length ? [...data] : [{ ...emptyDriver, account_id: account.id }];
+      let driverList: any[];
+      if (data.length > 0) {
+        driverList = [...data];
+      } else {
+        // Auto-create rows based on total_drivers from Section 1
+        const targetCount = Math.max(1, Math.min(parentFormData?.total_drivers || 1, 100));
+        driverList = Array.from({ length: targetCount }, () => ({ ...emptyDriver, account_id: account.id }));
+      }
 
       // Prefill Driver 1 with owner info if "owner is driver" is checked
       if (ownerIsDriver && driverList.length > 0) {
