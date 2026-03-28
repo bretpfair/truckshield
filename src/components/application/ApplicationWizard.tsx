@@ -90,7 +90,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       case 5: return (puData?.length || 0) > 0 || (formData.total_trucks || 0) > 0;
       case 6: return (trData?.length || 0) > 0 || !!(formData.general_questions as any)?.no_trailers || (formData.total_owned_trailers || 0) > 0;
       case 7: {
-        if ((drData?.length || 0) === 0) return (formData.total_drivers || 0) > 0;
+        if ((drData?.length || 0) === 0) return false;
         return drData!.every((d: any) => d.first_name && d.last_name && d.date_of_birth && d.license_number && d.license_state && d.driver_type);
       }
       case 8: return (lhData?.length || 0) > 0 || !!(formData.general_questions as any)?.new_venture;
