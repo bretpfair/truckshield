@@ -205,10 +205,9 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
           </Select>
 
           {!readOnly && (
-              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={openUploadDialog}>
-                <Upload className="h-3 w-3" /> Upload
-              </Button>
-            </>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={openUploadDialog}>
+              <Upload className="h-3 w-3" /> Upload
+            </Button>
           )}
 
           <Badge variant="outline" className="text-[10px] h-6 ml-auto">
