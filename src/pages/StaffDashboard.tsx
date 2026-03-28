@@ -58,6 +58,16 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
       setSelectedAccountId(navigateToAccountId);
       onNavigateHandled?.();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigateToAccountId]);
+
+  // Sync selected account to messaging sidebar
+  useEffect(() => {
+    if (selectedAccountId) {
+      onOpenMessages?.(selectedAccountId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId]);
   }, [navigateToAccountId, onNavigateHandled]);
 
   const { data: accounts, isLoading } = useQuery({
