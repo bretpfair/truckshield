@@ -106,7 +106,7 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
           </div>
           <div className="space-y-2">
             <Label>Total Sub-Haul Revenue ($)</Label>
-            <Input type="number" value={formData.total_subhaul_revenue || ""} onChange={(e) => updateFormData({ total_subhaul_revenue: e.target.value ? parseFloat(e.target.value) : null })} />
+            <Input type="number" value={formData.total_subhaul_revenue ?? ""} onChange={(e) => updateFormData({ total_subhaul_revenue: e.target.value ? parseFloat(e.target.value) : null })} />
           </div>
         </div>
       </div>
