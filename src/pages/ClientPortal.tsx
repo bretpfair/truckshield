@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle, FileText, Truck, Shield, Clock, CheckCircle2,
-  ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle,
+  ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle, Download,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 import DocumentHub from "@/components/staff/DocumentHub";
@@ -331,14 +331,37 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
               {completedQuotes.map((q: any) => {
                 const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.quoted;
                 return (
-                  <div key={q.id} className="flex items-center justify-between p-4 rounded-md bg-secondary/50 border border-border">
-                    <div>
-                      <p className="font-semibold text-foreground">{q.carriers?.name ?? "Carrier"}</p>
-                      <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
-                        {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
+                  <div key={q.id} className="p-4 rounded-md bg-secondary/50 border border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-foreground">{q.carriers?.name ?? "Carrier"}</p>
+                        <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
+                          {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
+                        </div>
                       </div>
+                      <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
                     </div>
-                    <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
+                    {quoteDocuments && quoteDocuments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1 border-t border-border">
+                        {quoteDocuments
+                          .filter((doc: any) => doc.file_name?.toLowerCase().includes(q.carriers?.name?.toLowerCase() || "___none___"))
+                          .map((doc: any) => (
+                            <Button
+                              key={doc.id}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs h-7"
+                              onClick={async () => {
+                                const { data } = await supabase.storage.from("account-documents").createSignedUrl(doc.file_path, 300);
+                                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                              {doc.file_name}
+                            </Button>
+                          ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
