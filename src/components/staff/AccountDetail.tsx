@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
-import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail } from "lucide-react";
+import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { sendClientInvite } from "@/lib/sendClientInvite";
 import {
   AlertDialog,
@@ -526,18 +527,30 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         <SubmittedMarkets accountId={accountId} quotes={existingQuotes} />
       )}
 
-      {/* Market Guidance */}
+      {/* Market Guidance (collapsible) */}
       {carriers && (
-        <MarketGuidance
-          account={account}
-          carriers={carriers}
-          drivers={drivers || []}
-          powerUnits={powerUnits || []}
-          trailers={accountTrailers || []}
-          lossHistory={lossHistory || []}
-          onMarkSubmitted={(carrierId, score) => markSubmitted.mutate({ carrierId, score })}
-          submittedCarrierIds={submittedCarrierIds}
-        />
+        <Collapsible defaultOpen>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full flex items-center justify-between px-0 py-2 hover:bg-transparent">
+              <span className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Zap className="h-4 w-4 text-primary" /> AI Market Guidance
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <MarketGuidance
+              account={account}
+              carriers={carriers}
+              drivers={drivers || []}
+              powerUnits={powerUnits || []}
+              trailers={accountTrailers || []}
+              lossHistory={lossHistory || []}
+              onMarkSubmitted={(carrierId, score) => markSubmitted.mutate({ carrierId, score })}
+              submittedCarrierIds={submittedCarrierIds}
+            />
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Tasks & Follow-ups */}
