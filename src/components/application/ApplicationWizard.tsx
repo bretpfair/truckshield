@@ -215,6 +215,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
           </Button>
         )}
       </div>
+
+      <AlertDialog open={showRadiusError} onOpenChange={setShowRadiusError}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Radius Details Must Equal 100%
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your radius percentages currently total <strong>{getRadiusTotal()}%</strong>. Please adjust the values so they add up to exactly <strong>100%</strong> before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowRadiusError(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
