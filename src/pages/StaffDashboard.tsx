@@ -16,6 +16,7 @@ import InviteClientDialog from "@/components/staff/InviteClientDialog";
 import InviteStaffDialog from "@/components/staff/InviteStaffDialog";
 import PdfUpload from "@/components/staff/PdfUpload";
 import PipelineView from "@/components/staff/PipelineView";
+import StaffManager from "@/components/staff/StaffManager";
 import DashboardAnalytics from "@/components/staff/DashboardAnalytics";
 import {
   Building2, Users, FileText, TrendingUp, Plus, Search, Upload, LayoutGrid, List, BarChart3, Loader2, AlertTriangle,
@@ -282,6 +283,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
           )}
           <TabsTrigger value="invite">Invite Client</TabsTrigger>
           {isAdmin && <TabsTrigger value="invite-staff">Invite Staff</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="staff-manage">Staff Management</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-4">
@@ -520,6 +522,12 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
         {isAdmin && (
           <TabsContent value="invite-staff">
             <InviteStaffDialog />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="staff-manage">
+            <StaffManager />
           </TabsContent>
         )}
       </Tabs>
