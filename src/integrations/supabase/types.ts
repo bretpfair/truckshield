@@ -62,6 +62,7 @@ export type Database = {
         Row: {
           annual_revenue: number | null
           application_step: number | null
+          assigned_producer_id: string | null
           business_categories: string[] | null
           business_owner_dob: string | null
           business_owner_name: string | null
@@ -114,6 +115,7 @@ export type Database = {
         Insert: {
           annual_revenue?: number | null
           application_step?: number | null
+          assigned_producer_id?: string | null
           business_categories?: string[] | null
           business_owner_dob?: string | null
           business_owner_name?: string | null
@@ -166,6 +168,7 @@ export type Database = {
         Update: {
           annual_revenue?: number | null
           application_step?: number | null
+          assigned_producer_id?: string | null
           business_categories?: string[] | null
           business_owner_dob?: string | null
           business_owner_name?: string | null
@@ -1013,6 +1016,7 @@ export type Database = {
           expires_at: string
           id: string
           invited_by: string | null
+          invited_role: string
           status: string
           token: string
         }
@@ -1022,6 +1026,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by?: string | null
+          invited_role?: string
           status?: string
           token?: string
         }
@@ -1031,6 +1036,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by?: string | null
+          invited_role?: string
           status?: string
           token?: string
         }
