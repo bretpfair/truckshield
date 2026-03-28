@@ -262,6 +262,72 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
         </ScrollArea>
       </CardContent>
     </Card>
+
+    {/* Upload Dialog */}
+    <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-4 w-4 text-primary" />
+            Upload Document
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Document Type <span className="text-destructive">*</span></label>
+            <Select value={uploadCategory} onValueChange={setUploadCategory}>
+              <SelectTrigger className={!uploadCategory ? "border-destructive/50" : ""}>
+                <SelectValue placeholder="Select document type" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.filter(c => c.value !== "all").map((c) => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">File(s)</label>
+            {pendingFiles.length > 0 ? (
+              <div className="space-y-1">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs p-2 rounded bg-secondary/50 border border-border">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate">{f.name}</span>
+                    <span className="text-muted-foreground ml-auto shrink-0">
+                      {f.size < 1024 * 1024 ? `${(f.size / 1024).toFixed(0)} KB` : `${(f.size / (1024 * 1024)).toFixed(1)} MB`}
+                    </span>
+                  </div>
+                ))}
+                <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setPendingFiles([]); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+                  Clear selection
+                </Button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 p-4 rounded-md border border-dashed border-border hover:border-primary/40 cursor-pointer transition-colors">
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Click to select files</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+                  onChange={(e) => handleFilesSelected(e.target.files)}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowUploadDialog(false)}>Cancel</Button>
+          <Button onClick={handleConfirmUpload} disabled={uploading || !uploadCategory || pendingFiles.length === 0}>
+            {uploading ? "Uploading..." : "Upload"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
