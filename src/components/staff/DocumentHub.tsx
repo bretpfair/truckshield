@@ -57,7 +57,7 @@ interface Props {
 
 const DocumentHub = ({ accountId, readOnly = false }: Props) => {
   const [category, setCategory] = useState("all");
-  const [uploadCategory, setUploadCategory] = useState("misc");
+  const [uploadCategory, setUploadCategory] = useState("");
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
