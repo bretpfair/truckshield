@@ -139,10 +139,6 @@ const Step4Commodities = ({ formData, updateFormData }: StepProps) => {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Projected Gross Receipts ($)</Label>
-        <Input type="number" value={formData.projected_gross_receipts || ""} onChange={(e) => updateFormData({ projected_gross_receipts: e.target.value ? parseFloat(e.target.value) : null })} placeholder="2,500,000" />
-      </div>
 
       {/* Commodity Rows */}
       <div className="space-y-3">

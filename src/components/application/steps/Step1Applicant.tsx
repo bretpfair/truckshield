@@ -344,6 +344,12 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         </div>
       )}
 
+      {/* Projected Gross Receipts */}
+      <div className="space-y-2">
+        <Label>Projected Gross Receipts ($)</Label>
+        <Input type="number" value={formData.projected_gross_receipts || ""} onChange={(e) => updateFormData({ projected_gross_receipts: e.target.value ? parseFloat(e.target.value) : null })} placeholder="2,500,000" />
+      </div>
+
       {/* Fleet Summary */}
       <div>
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Garage & Fleet Summary</Label>
