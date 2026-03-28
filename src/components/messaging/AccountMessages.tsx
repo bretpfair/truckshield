@@ -35,10 +35,12 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [remoteTyping, setRemoteTyping] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: messages } = useQuery({
     queryKey: ["messages", accountId],
@@ -124,18 +126,27 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
     }
   }, [messages]);
 
-  // Typing indicator broadcast
+  // Typing indicator broadcast — only when input is focused
   const broadcastTyping = useCallback(() => {
+    if (!inputFocused) return;
     presenceChannelRef.current?.track({ typing: true });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       presenceChannelRef.current?.track({ typing: false });
     }, 2000);
+  }, [inputFocused]);
+
+  // Clear typing state when input loses focus
+  const handleInputFocus = useCallback(() => setInputFocused(true), []);
+  const handleInputBlur = useCallback(() => {
+    setInputFocused(false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    presenceChannelRef.current?.track({ typing: false });
   }, []);
 
   const handleInputChange = (value: string) => {
     setMessage(value);
-    if (value.trim()) broadcastTyping();
+    if (value.trim() && inputFocused) broadcastTyping();
   };
 
   const sendMessage = async () => {
@@ -290,9 +301,12 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
           <Paperclip className="h-4 w-4" />
         </Button>
         <Input
+          ref={inputRef}
           placeholder="Type a message..."
           value={message}
           onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
           className="flex-1"
         />
