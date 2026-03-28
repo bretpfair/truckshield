@@ -527,6 +527,12 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         <SubmittedMarkets accountId={accountId} quotes={existingQuotes} />
       )}
 
+      {/* Tasks & Follow-ups */}
+      <TaskManager accountId={accountId} />
+
+      {/* Document Hub */}
+      <DocumentHub accountId={accountId} />
+
       {/* Market Guidance (collapsible) */}
       {carriers && (
         <Collapsible defaultOpen>
@@ -552,12 +558,6 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           </CollapsibleContent>
         </Collapsible>
       )}
-
-      {/* Tasks & Follow-ups */}
-      <TaskManager accountId={accountId} />
-
-      {/* Document Hub */}
-      <DocumentHub accountId={accountId} />
 
       {/* Client Invite (if no client linked) */}
       {!account.client_user_id && (
