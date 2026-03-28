@@ -7,7 +7,16 @@ import { sendClientInvite } from "@/lib/sendClientInvite";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WIZARD_STEPS } from "./constants";
-import { Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Step1Applicant from "./steps/Step1Applicant";
 import Step2Coverage from "./steps/Step2Coverage";
 import Step3Radius from "./steps/Step3Radius";
@@ -27,6 +36,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const [currentStep, setCurrentStep] = useState(account.application_step || 1);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [showRadiusError, setShowRadiusError] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,7 +104,18 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     updateAccount.mutate(data);
   };
 
+  const getRadiusTotal = (): number => {
+    const radius = formData.radius_operations?.[0] || {};
+    const details = radius.radius_details || {};
+    const keys = ["under_50", "51_200", "201_500", "500_plus"];
+    return keys.reduce((sum, k) => sum + (parseFloat(details[k]) || 0), 0);
+  };
+
   const handleNext = () => {
+    if (currentStep === 3 && getRadiusTotal() !== 100) {
+      setShowRadiusError(true);
+      return;
+    }
     handleSave();
     setCurrentStep((s: number) => Math.min(s + 1, WIZARD_STEPS.length));
   };
@@ -194,6 +215,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
           </Button>
         )}
       </div>
+
+      <AlertDialog open={showRadiusError} onOpenChange={setShowRadiusError}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Radius Details Must Equal 100%
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your radius percentages currently total <strong>{getRadiusTotal()}%</strong>. Please adjust the values so they add up to exactly <strong>100%</strong> before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowRadiusError(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
