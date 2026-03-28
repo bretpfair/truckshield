@@ -48,7 +48,8 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
   const [isDotLookingUp, setIsDotLookingUp] = useState(false);
   const [dotLookupResult, setDotLookupResult] = useState<Record<string, any> | null>(null);
   const [viewMode, setViewMode] = useState<"pipeline" | "list">("pipeline");
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === "admin";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -87,6 +88,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
       const { data, error } = await supabase.from("accounts").insert({
         company_name: accountData.company_name || "New Account",
         created_by: user!.id,
+        assigned_producer_id: user!.id,
         ...accountData,
       }).select().single();
       if (error) throw error;
@@ -272,12 +274,14 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
           <TabsTrigger value="pdf-upload">
             <Upload className="h-3 w-3 mr-1" /> PDF Import
           </TabsTrigger>
-          <TabsTrigger value="carriers">Carriers</TabsTrigger>
-          <TabsTrigger value="analytics">
-            <BarChart3 className="h-3 w-3 mr-1" /> Analytics
-          </TabsTrigger>
+          {isAdmin && <TabsTrigger value="carriers">Carriers</TabsTrigger>}
+          {isAdmin && (
+            <TabsTrigger value="analytics">
+              <BarChart3 className="h-3 w-3 mr-1" /> Analytics
+            </TabsTrigger>
+          )}
           <TabsTrigger value="invite">Invite Client</TabsTrigger>
-          <TabsTrigger value="invite-staff">Invite Staff</TabsTrigger>
+          {isAdmin && <TabsTrigger value="invite-staff">Invite Staff</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-4">
@@ -497,21 +501,27 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
           <PdfUpload />
         </TabsContent>
 
-        <TabsContent value="carriers">
-          <CarrierManager />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="carriers">
+            <CarrierManager />
+          </TabsContent>
+        )}
 
-        <TabsContent value="analytics">
-          <DashboardAnalytics />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="analytics">
+            <DashboardAnalytics />
+          </TabsContent>
+        )}
 
         <TabsContent value="invite">
           <InviteClientDialog />
         </TabsContent>
 
-        <TabsContent value="invite-staff">
-          <InviteStaffDialog />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="invite-staff">
+            <InviteStaffDialog />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

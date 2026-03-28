@@ -7,9 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
-import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown } from "lucide-react";
+import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown, UserCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { sendClientInvite } from "@/lib/sendClientInvite";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +37,66 @@ import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 
 
+// Producer assignment dropdown (admin-only)
+const ProducerAssignment = ({ accountId, currentProducerId }: { accountId: string; currentProducerId?: string | null }) => {
+  const queryClient = useQueryClient();
+  const { data: staffMembers } = useQuery({
+    queryKey: ["staff-members"],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", ["admin", "producer"] as any[]);
+      if (!roles?.length) return [];
+      const userIds = roles.map((r) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", userIds);
+      return roles.map((r) => {
+        const p = profiles?.find((pr) => pr.user_id === r.user_id);
+        return { userId: r.user_id, role: r.role, name: p?.full_name || p?.email || r.user_id };
+      });
+    },
+  });
+
+  const assignProducer = useMutation({
+    mutationFn: async (producerId: string) => {
+      const { error } = await supabase
+        .from("accounts")
+        .update({ assigned_producer_id: producerId === "unassigned" ? null : producerId } as any)
+        .eq("id", accountId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <UserCheck className="h-3.5 w-3.5 text-muted-foreground" />
+      <Select
+        value={currentProducerId || "unassigned"}
+        onValueChange={(v) => assignProducer.mutate(v)}
+      >
+        <SelectTrigger className="h-7 w-[160px] text-xs">
+          <SelectValue placeholder="Assign producer" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="unassigned">Unassigned</SelectItem>
+          {staffMembers?.map((s) => (
+            <SelectItem key={s.userId} value={s.userId}>
+              {s.name} ({s.role})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
 interface Props {
   accountId: string;
   onBack: () => void;
@@ -42,7 +109,8 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isSaferUpdating, setIsSaferUpdating] = useState(false);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === "admin";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -436,6 +504,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         </Button>
         <h2 className="text-xl font-bold">{account.company_name}</h2>
         <Badge variant="outline">{account.status.replace(/_/g, " ")}</Badge>
+        {isAdmin && <ProducerAssignment accountId={accountId} currentProducerId={(account as any).assigned_producer_id} />}
         <div className="flex-1" />
         {account.status !== "closed_lost" && (
           <Button
