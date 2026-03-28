@@ -15,7 +15,7 @@ const MessagingSidebar = ({ expanded, onToggle, accountId, isStaff }: Props) => 
   return (
     <aside
       className={cn(
-        "border-l border-border bg-card/50 backdrop-blur-sm flex flex-col transition-all duration-300 shrink-0",
+        "fixed right-0 top-0 h-screen border-l border-border bg-card/95 backdrop-blur-sm flex flex-col transition-all duration-300 z-40",
         expanded ? "w-[380px]" : "w-12"
       )}
     >
