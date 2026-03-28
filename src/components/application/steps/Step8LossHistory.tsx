@@ -45,9 +45,11 @@ interface StorageFile {
 
 const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [noPriorCoverage, setNoPriorCoverageState] = useState(
     () => !!(formData.general_questions as any)?.new_venture
   );
