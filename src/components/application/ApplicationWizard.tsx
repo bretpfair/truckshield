@@ -7,7 +7,7 @@ import { sendClientInvite } from "@/lib/sendClientInvite";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WIZARD_STEPS } from "./constants";
-import { Check, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, AlertTriangle, AlertCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,55 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialized = useRef(false);
+
+  // Queries for section completion awareness
+  const { data: puData } = useQuery({
+    queryKey: ["power-units", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("power_units").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+  const { data: trData } = useQuery({
+    queryKey: ["trailers", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("trailers").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+  const { data: drData } = useQuery({
+    queryKey: ["drivers", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("drivers").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+  const { data: lhData } = useQuery({
+    queryKey: ["loss-history", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("loss_history").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+
+  const getStepComplete = (stepId: number): boolean => {
+    switch (stepId) {
+      case 1: return !!(formData.dot_number && formData.company_name && formData.mailing_address);
+      case 2: return !!(formData.coverage_selections?.primary_bipd);
+      case 3: return (formData.radius_operations || []).length > 0 && !!formData.radius_operations?.[0]?.max_radius;
+      case 4: return Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0;
+      case 5: return (puData?.length || 0) > 0;
+      case 6: return (trData?.length || 0) > 0;
+      case 7: return (drData?.length || 0) > 0;
+      case 8: return (lhData?.length || 0) > 0;
+      case 9: return Object.keys(formData.general_questions || {}).length >= 5;
+      default: return true;
+    }
+  };
 
   useEffect(() => {
     setFormData({
