@@ -7,7 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
-import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown } from "lucide-react";
+import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown, UserCheck } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { sendClientInvite } from "@/lib/sendClientInvite";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { sendClientInvite } from "@/lib/sendClientInvite";
 import {
@@ -42,7 +51,8 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isSaferUpdating, setIsSaferUpdating] = useState(false);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === "admin";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -436,7 +446,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         </Button>
         <h2 className="text-xl font-bold">{account.company_name}</h2>
         <Badge variant="outline">{account.status.replace(/_/g, " ")}</Badge>
-        <div className="flex-1" />
+        {isAdmin && <ProducerAssignment accountId={accountId} currentProducerId={(account as any).assigned_producer_id} />}
         {account.status !== "closed_lost" && (
           <Button
             variant="outline"

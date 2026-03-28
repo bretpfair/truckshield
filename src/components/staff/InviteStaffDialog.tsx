@@ -8,6 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Copy, Check, Mail, ShieldCheck } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const statusBadge: Record<string, { label: string; color: string }> = {
   pending: { label: "Pending", color: "bg-warning/10 text-warning border-warning/20" },
@@ -17,6 +24,7 @@ const statusBadge: Record<string, { label: string; color: string }> = {
 
 const InviteStaffDialog = () => {
   const [email, setEmail] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "producer">("producer");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -55,7 +63,8 @@ const InviteStaffDialog = () => {
         .insert({
           email: normalizedEmail,
           invited_by: user!.id,
-        })
+          invited_role: selectedRole,
+        } as any)
         .select()
         .single();
       if (error) throw error;
@@ -122,6 +131,15 @@ const InviteStaffDialog = () => {
             className="flex-1"
             onKeyDown={(e) => e.key === "Enter" && email && sendInvite.mutate()}
           />
+          <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as "admin" | "producer")}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="producer">Producer</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             size="sm"
             onClick={() => sendInvite.mutate()}
