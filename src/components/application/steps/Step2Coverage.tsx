@@ -133,7 +133,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
             </div>
           )}
           <div className="space-y-2">
-            <Label>Uninsured Motorist BI</Label>
+            <Label>Uninsured/Underinsured Motorist BI</Label>
             <Select value={coverage.um_bi || ""} onValueChange={(v) => setCoverage("um_bi", v)}>
               <SelectTrigger><SelectValue placeholder="Select limit" /></SelectTrigger>
               <SelectContent>
