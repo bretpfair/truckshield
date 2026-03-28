@@ -46,6 +46,8 @@ const COMMODITY_OPTIONS = [
   "Other",
 ];
 
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+
 const Step4Commodities = ({ formData, updateFormData }: StepProps) => {
   const commodity = formData.commodity_info || {};
   const setCommodity = (key: string, value: any) => {
@@ -171,6 +173,7 @@ const Step4Commodities = ({ formData, updateFormData }: StepProps) => {
               </SelectContent>
             </Select>
             <Input
+              className={total !== 100 ? req(pct) : ""}
               type="number"
               value={pct}
               onChange={(e) => changePct(key, e.target.value)}
