@@ -685,6 +685,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
       )}
 
+      {/* Messages */}
+      <AccountMessages accountId={accountId} isStaff />
+
       {/* Activity Log & Notes */}
       <ActivityLog accountId={accountId} />
 
