@@ -130,9 +130,10 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
     }
   };
 
-  const handleDownload = async (filePath: string, fileName: string) => {
+  const handleDownload = async (filePath: string, fileName: string, docCategory?: string) => {
+    const bucket = docCategory === "cab_cards" ? "cab-cards" : "account-documents";
     const { data, error } = await supabase.storage
-      .from("account-documents")
+      .from(bucket)
       .createSignedUrl(filePath, 300);
     if (error || !data?.signedUrl) {
       toast({ title: "Download failed", variant: "destructive" });
