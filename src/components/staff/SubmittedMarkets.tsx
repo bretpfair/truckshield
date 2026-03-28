@@ -490,6 +490,44 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Decline Reason Dialog */}
+      <Dialog open={!!declineDialog} onOpenChange={(open) => !open && setDeclineDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-destructive" />
+              Decline — {declineDialog?.carrierName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Please provide a reason for the declination. This will be recorded in the activity log.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="decline-reason">Decline Reason</Label>
+              <Textarea
+                id="decline-reason"
+                placeholder="e.g. Carrier declined due to loss history, insufficient authority age..."
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                rows={3}
+                maxLength={500}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeclineDialog(null)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitDecline}
+              disabled={!declineReason.trim() || submittingDecline}
+              variant="destructive"
+            >
+              {submittingDecline ? "Submitting..." : "Confirm Decline"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
