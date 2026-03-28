@@ -77,6 +77,7 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     const path = unitsRef.current[idx]?.cab_card_path;
     if (path) {
       await supabase.storage.from("cab-cards").remove([path]);
+      await supabase.from("account_documents").delete().eq("file_path", path);
     }
     updateUnit(idx, "cab_card_path", null);
   }, []);
