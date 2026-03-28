@@ -453,6 +453,11 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono mt-0.5">
                                     {account.dot_number && <span>DOT# {account.dot_number}</span>}
                                     {account.fleet_size && <span>{account.fleet_size} trucks</span>}
+                                    {isAdmin && account.assigned_producer_id && staffMembers && (
+                                      <span className="text-primary/70">
+                                        {staffMembers.find((s) => s.userId === account.assigned_producer_id)?.name || ""}
+                                      </span>
+                                    )}
                                   </div>
                                   {/* Carrier submission badges */}
                                   {carriers.length > 0 && (
