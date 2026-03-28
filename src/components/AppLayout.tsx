@@ -19,6 +19,7 @@ const AppLayout = () => {
   const [messagingExpanded, setMessagingExpanded] = useState(true);
   const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
   const [staffNavigateAccountId, setStaffNavigateAccountId] = useState<string | null>(null);
+  useRealtimeUpdates(user?.id);
 
   if (loading) {
     return (
