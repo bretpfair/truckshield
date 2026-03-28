@@ -23,7 +23,7 @@ const emptyTrailer = {
   ownership_type: "owned", lender_name: "", lender_address: "", lender_city: "", lender_state: "", lender_zip: "",
 };
 
-const Step6Trailers = ({ account }: StepProps) => {
+const Step6Trailers = ({ account, formData: parentFormData }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [items, setItems] = useState<any[]>([]);
@@ -42,7 +42,14 @@ const Step6Trailers = ({ account }: StepProps) => {
   });
 
   useEffect(() => {
-    if (data) setItems(data.length ? data : [{ ...emptyTrailer, account_id: account.id }]);
+    if (data) {
+      if (data.length > 0) {
+        setItems(data);
+      } else {
+        const targetCount = Math.max(1, Math.min(parentFormData?.total_owned_trailers || 1, 100));
+        setItems(Array.from({ length: targetCount }, () => ({ ...emptyTrailer, account_id: account.id })));
+      }
+    }
   }, [data, account.id]);
 
   const saveMutation = useMutation({
