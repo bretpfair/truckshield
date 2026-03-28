@@ -23,7 +23,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Users, Pencil, Trash2, UserCog, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Users, Pencil, Trash2, UserCog, Clock, CheckCircle2, XCircle, RotateCw } from "lucide-react";
 
 interface StaffMember {
   user_id: string | null;
@@ -234,6 +234,55 @@ const StaffManager = () => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const resendInvite = useMutation({
+    mutationFn: async (member: StaffMember) => {
+      // Delete old expired invitation(s) for this email
+      await supabase
+        .from("staff_invitations")
+        .delete()
+        .eq("email", member.email)
+        .eq("status", "pending");
+
+      // Create a new invitation
+      const { data, error } = await supabase
+        .from("staff_invitations")
+        .insert({
+          email: member.email,
+          invited_by: user!.id,
+          invited_role: member.role,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+
+      // Send invite email
+      const portalLink = `${window.location.origin}/auth?staff_invite=${(data as any).token}`;
+      const firstName = member.email
+        .split("@")[0]
+        .replace(/[._-]/g, " ")
+        .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+      await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "client-portal-invite",
+          recipientEmail: member.email,
+          idempotencyKey: `staff-invite-${(data as any).id}`,
+          templateData: {
+            firstName,
+            portalLink,
+            companyName: "360 Risk Partners (Staff Access)",
+          },
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff-members"] });
+      queryClient.invalidateQueries({ queryKey: ["staff-invitations"] });
+      toast({ title: "Invitation resent", description: "A new invitation email has been sent." });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const removeMember = useMutation({
     mutationFn: async (member: StaffMember) => {
       if (member.user_id) {
@@ -312,6 +361,18 @@ const StaffManager = () => {
                         onClick={() => openEdit(m)}
                       >
                         <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {m.status === "expired" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-primary hover:text-primary"
+                        onClick={() => resendInvite.mutate(m)}
+                        disabled={resendInvite.isPending}
+                      >
+                        <RotateCw className="h-3.5 w-3.5 mr-1" />
+                        <span className="text-xs">Resend</span>
                       </Button>
                     )}
                     {!isSelf && (
