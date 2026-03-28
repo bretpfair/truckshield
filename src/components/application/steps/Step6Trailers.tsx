@@ -134,13 +134,15 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
     };
   }, [account.id, queryClient]);
 
-  const addItem = () => { dirtyRef.current = true; setItems([...items, { ...emptyTrailer, account_id: account.id }]); };
-  const removeItem = (idx: number) => { dirtyRef.current = true; setItems(items.filter((_, i) => i !== idx)); };
+  const addItem = () => { dirtyRef.current = true; setItems(prev => [...prev, { ...emptyTrailer, account_id: account.id }]); };
+  const removeItem = (idx: number) => { dirtyRef.current = true; setItems(prev => prev.filter((_, i) => i !== idx)); };
   const updateItem = (idx: number, field: string, value: any) => {
     dirtyRef.current = true;
-    const updated = [...items];
-    updated[idx] = { ...updated[idx], [field]: value };
-    setItems(updated);
+    setItems(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return updated;
+    });
   };
 
   return (

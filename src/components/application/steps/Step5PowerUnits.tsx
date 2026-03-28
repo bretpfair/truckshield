@@ -203,13 +203,15 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     };
   }, [account.id, queryClient]);
 
-  const addUnit = () => { dirtyRef.current = true; setUnits([...units, { ...emptyUnit, account_id: account.id }]); };
-  const removeUnit = (idx: number) => { dirtyRef.current = true; setUnits(units.filter((_, i) => i !== idx)); };
+  const addUnit = () => { dirtyRef.current = true; setUnits(prev => [...prev, { ...emptyUnit, account_id: account.id }]); };
+  const removeUnit = (idx: number) => { dirtyRef.current = true; setUnits(prev => prev.filter((_, i) => i !== idx)); };
   const updateUnit = (idx: number, field: string, value: any) => {
     dirtyRef.current = true;
-    const updated = [...units];
-    updated[idx] = { ...updated[idx], [field]: value };
-    setUnits(updated);
+    setUnits(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return updated;
+    });
   };
 
   return (
