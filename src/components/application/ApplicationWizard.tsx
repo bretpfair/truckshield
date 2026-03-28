@@ -52,7 +52,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     queryKey: ["power-units", account.id],
     queryFn: async () => {
       if (isPreview) return [];
-      const { data } = await supabase.from("power_units").select("id").eq("account_id", account.id);
+      const { data } = await supabase.from("power_units").select("id,vin,gvw_class,truck_type,year,make,model,titled_state,garage_zip,ownership_type,lender_name").eq("account_id", account.id);
       return data || [];
     },
   });
@@ -60,7 +60,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     queryKey: ["trailers", account.id],
     queryFn: async () => {
       if (isPreview) return [];
-      const { data } = await supabase.from("trailers").select("id").eq("account_id", account.id);
+      const { data } = await supabase.from("trailers").select("id,vin,trailer_type,year,make,model,garage_zip,ownership_type,lender_name").eq("account_id", account.id);
       return data || [];
     },
   });
@@ -68,7 +68,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     queryKey: ["drivers", account.id],
     queryFn: async () => {
       if (isPreview) return [];
-      const { data } = await supabase.from("drivers").select("id,first_name,last_name,date_of_birth,license_number,license_state,driver_type").eq("account_id", account.id);
+      const { data } = await supabase.from("drivers").select("id,first_name,last_name,date_of_birth,license_number,license_state,license_type,driver_type,original_issue_year,date_hired_year,experience_years,lapse_suspension").eq("account_id", account.id);
       return data || [];
     },
   });
