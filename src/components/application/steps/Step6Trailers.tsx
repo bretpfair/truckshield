@@ -53,7 +53,12 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
       if (data.length > 0) {
         setItems(data);
       } else {
-        const targetCount = Math.max(1, Math.min(parentFormData?.total_owned_trailers || 1, 100));
+        const ownedCount = parentFormData?.total_owned_trailers || 0;
+        if (ownedCount === 0 && !(parentFormData.general_questions as any)?.no_trailers) {
+          // Auto-check "No Trailers" when Section 1 has no trailers and none exist
+          setNoTrailers(true);
+        }
+        const targetCount = Math.max(1, Math.min(ownedCount || 1, 100));
         setItems(Array.from({ length: targetCount }, () => ({ ...emptyTrailer, account_id: account.id })));
       }
     }
