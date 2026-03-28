@@ -17,8 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { sendClientInvite } from "@/lib/sendClientInvite";
 import {
   AlertDialog,
   AlertDialogAction,
