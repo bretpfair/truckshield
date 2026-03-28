@@ -87,8 +87,8 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       case 2: return !!(formData.coverage_selections?.primary_bipd);
       case 3: return (formData.radius_operations || []).length > 0 && !!(formData.radius_operations?.[0]?.operation_type || formData.radius_operations?.[0]?.annual_mileage);
       case 4: return Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0;
-      case 5: return (puData?.length || 0) > 0 || (formData.total_trucks || 0) > 0;
-      case 6: return (trData?.length || 0) > 0 || !!(formData.general_questions as any)?.no_trailers || (formData.total_owned_trailers || 0) > 0;
+      case 5: return (puData?.length || 0) > 0;
+      case 6: return (trData?.length || 0) > 0 || !!(formData.general_questions as any)?.no_trailers;
       case 7: {
         if ((drData?.length || 0) === 0) return false;
         return drData!.every((d: any) => d.first_name && d.last_name && d.date_of_birth && d.license_number && d.license_state && d.driver_type);
