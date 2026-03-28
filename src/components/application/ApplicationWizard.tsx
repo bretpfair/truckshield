@@ -39,6 +39,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [showRadiusError, setShowRadiusError] = useState(false);
   const [showCommodityError, setShowCommodityError] = useState(false);
+  const [showCabCardWarning, setShowCabCardWarning] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,7 +121,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     return Object.values(selected).reduce((sum, pct) => sum + (parseFloat(pct) || 0), 0);
   };
 
-  const handleNext = () => {
+  const checkCabCards = async (): Promise<boolean> => {
+    if (isPreview) return true;
+    const { data: powerUnits } = await supabase
+      .from("power_units")
+      .select("cab_card_path")
+      .eq("account_id", account.id);
+    if (!powerUnits || powerUnits.length === 0) return true;
+    const missing = powerUnits.some((u) => !u.cab_card_path);
+    return !missing;
+  };
+
+  const proceedFromStep = () => {
+    handleSave();
+    setCurrentStep((s: number) => Math.min(s + 1, WIZARD_STEPS.length));
+  };
+
+  const handleNext = async () => {
     if (currentStep === 3 && getRadiusTotal() !== 100) {
       setShowRadiusError(true);
       return;
@@ -129,8 +146,14 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       setShowCommodityError(true);
       return;
     }
-    handleSave();
-    setCurrentStep((s: number) => Math.min(s + 1, WIZARD_STEPS.length));
+    if (currentStep === 5) {
+      const allHaveCabCards = await checkCabCards();
+      if (!allHaveCabCards) {
+        setShowCabCardWarning(true);
+        return;
+      }
+    }
+    proceedFromStep();
   };
 
   const handlePrev = () => {
