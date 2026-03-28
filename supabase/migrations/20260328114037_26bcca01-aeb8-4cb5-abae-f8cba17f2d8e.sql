@@ -1,0 +1,1 @@
+UPDATE accounts SET client_user_id = '13e6389e-77d3-456a-aa45-39f668a80744' WHERE id = 'd331b36e-b7b1-491b-8635-c3b1829ac8fc'
