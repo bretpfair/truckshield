@@ -338,6 +338,11 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
   const markSubmitted = useMutation({
     mutationFn: async ({ carrierId, score, carrierName }: { carrierId: string; score: number; carrierName: string }) => {
+      // Prevent duplicate submissions
+      if (submittedCarrierIds.includes(carrierId)) {
+        throw new Error(`${carrierName} has already been submitted for this account`);
+      }
+
       const { error } = await supabase.from("quotes").insert({
         account_id: accountId,
         carrier_id: carrierId,
@@ -345,7 +350,12 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         status: "submitted",
         created_by: user!.id,
       });
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error(`${carrierName} has already been submitted for this account`);
+        }
+        throw error;
+      }
 
       // Send market-submitted email to client
       try {
