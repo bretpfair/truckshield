@@ -137,6 +137,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
             <Select value={coverage.um_bi || ""} onValueChange={(v) => setCoverage("um_bi", v)}>
               <SelectTrigger><SelectValue placeholder="Select limit" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="State Minimum">State Minimum</SelectItem>
                 {PRIMARY_BIPD_LIMITS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
               </SelectContent>
             </Select>
