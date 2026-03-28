@@ -36,6 +36,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const [currentStep, setCurrentStep] = useState(account.application_step || 1);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [showRadiusError, setShowRadiusError] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,7 +104,18 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     updateAccount.mutate(data);
   };
 
+  const getRadiusTotal = (): number => {
+    const radius = formData.radius_operations?.[0] || {};
+    const details = radius.radius_details || {};
+    const keys = ["under_50", "51_200", "201_500", "500_plus"];
+    return keys.reduce((sum, k) => sum + (parseFloat(details[k]) || 0), 0);
+  };
+
   const handleNext = () => {
+    if (currentStep === 3 && getRadiusTotal() !== 100) {
+      setShowRadiusError(true);
+      return;
+    }
     handleSave();
     setCurrentStep((s: number) => Math.min(s + 1, WIZARD_STEPS.length));
   };
