@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import StaffDashboard from "@/pages/StaffDashboard";
