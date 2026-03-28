@@ -76,9 +76,12 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
     },
   });
 
+  const getBucket = (doc: { category?: string }) =>
+    doc.category === "cab_cards" ? "cab-cards" : "account-documents";
+
   const deleteMutation = useMutation({
-    mutationFn: async (doc: { id: string; file_path: string }) => {
-      await supabase.storage.from("account-documents").remove([doc.file_path]);
+    mutationFn: async (doc: { id: string; file_path: string; category?: string }) => {
+      await supabase.storage.from(getBucket(doc)).remove([doc.file_path]);
       const { error } = await supabase.from("account_documents").delete().eq("id", doc.id);
       if (error) throw error;
     },
