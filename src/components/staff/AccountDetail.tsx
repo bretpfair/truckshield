@@ -590,7 +590,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
               powerUnits={powerUnits || []}
               trailers={accountTrailers || []}
               lossHistory={lossHistory || []}
-              onMarkSubmitted={(carrierId, score) => markSubmitted.mutate({ carrierId, score })}
+              onMarkSubmitted={(carrierId, score, carrierName) => markSubmitted.mutate({ carrierId, score, carrierName })}
               submittedCarrierIds={submittedCarrierIds}
             />
           </CollapsibleContent>
