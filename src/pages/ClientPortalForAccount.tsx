@@ -322,7 +322,8 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
                 const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.quoted;
                 return (
                   <div key={q.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-md bg-secondary/50 border border-border gap-2">
-                    <div className="min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <CarrierAvatar carrier={q.carriers} />
                       <p className="font-semibold truncate">{q.carriers?.name ?? "Carrier"}</p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
