@@ -23,7 +23,7 @@ const emptyTrailer = {
   ownership_type: "owned", lender_name: "", lender_address: "", lender_city: "", lender_state: "", lender_zip: "",
 };
 
-const Step6Trailers = ({ account, formData: parentFormData }: StepProps) => {
+const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [items, setItems] = useState<any[]>([]);
