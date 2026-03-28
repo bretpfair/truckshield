@@ -183,6 +183,7 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
   };
 
   return (
+    <>
     <Card className="glass-panel">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
