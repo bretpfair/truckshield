@@ -32,9 +32,10 @@ import Step10Review from "./steps/Step10Review";
 
 interface ApplicationWizardProps {
   account: any;
+  onSubmitComplete?: () => void;
 }
 
-const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
+const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps) => {
   const isPreview = !account?.id || !/^[0-9a-f]{8}-/.test(account.id);
   const [currentStep, setCurrentStep] = useState(account.application_step || 1);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -394,6 +395,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
                 }
               }
               toast({ title: "Application submitted!", description: "Your application has been received. Our team will begin working on it." });
+              onSubmitComplete?.();
             }}
             className="gap-2 bg-success hover:bg-success/90"
             disabled={!Array.from({ length: 9 }, (_, i) => i + 1).every(getStepComplete)}
