@@ -246,6 +246,30 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     },
   });
 
+  const assignProducer = useMutation({
+    mutationFn: async ({ accountId, producerId }: { accountId: string; producerId: string | null }) => {
+      const { error } = await supabase
+        .from("accounts")
+        .update({ assigned_producer_id: producerId })
+        .eq("id", accountId);
+      if (error) throw error;
+      const account = accounts.find((a) => a.id === accountId);
+      const producerName = staffMembers?.find((s) => s.userId === producerId)?.name || "Unassigned";
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "producer_assigned",
+        description: `${account?.company_name ?? "Account"} assigned to ${producerName}`,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast({ title: "Producer updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error assigning producer", description: err.message, variant: "destructive" });
+    },
+  });
+
 
   const handleDragStart = (e: DragEvent, accountId: string, currentStatus: string) => {
     dragAccountId.current = accountId;
