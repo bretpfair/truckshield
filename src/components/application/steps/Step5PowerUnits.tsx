@@ -158,41 +158,31 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Debounced auto-save with save-on-unmount
-  const [initialized, setInitialized] = useState(false);
+  // Track user edits vs initialization
+  const dirtyRef = useRef(false);
   const unitsRef = useRef(units);
   const initializedRef = useRef(false);
-  const pendingSave = useRef(false);
 
   useEffect(() => { unitsRef.current = units; }, [units]);
 
   useEffect(() => {
-    if (data) {
-      setInitialized(true);
-      initializedRef.current = true;
-    }
+    if (data) initializedRef.current = true;
   }, [data]);
 
-  const doSave = useCallback(async () => {
-    if (!initializedRef.current || unitsRef.current.length === 0) return;
-    pendingSave.current = false;
-    await saveMutation.mutateAsync();
-  }, [saveMutation]);
-
+  // Debounced auto-save — only fires when dirty
   useEffect(() => {
-    if (!initialized || units.length === 0) return;
-    pendingSave.current = true;
+    if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
-      doSave();
+      dirtyRef.current = false;
+      saveMutation.mutate();
     }, 1500);
     return () => clearTimeout(timer);
-  }, [units, initialized]);
+  }, [units]);
 
-  // Save on unmount if there's a pending change
+  // Save on unmount if dirty
   useEffect(() => {
     return () => {
-      if (pendingSave.current && initializedRef.current && unitsRef.current.length > 0) {
-        // Fire-and-forget save on unmount
+      if (dirtyRef.current && initializedRef.current && unitsRef.current.length > 0) {
         const toInsert = unitsRef.current.map((u, i) => {
           const { id, created_at, updated_at, ...rest } = u;
           return {
@@ -211,9 +201,10 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     };
   }, [account.id, queryClient]);
 
-  const addUnit = () => setUnits([...units, { ...emptyUnit, account_id: account.id }]);
-  const removeUnit = (idx: number) => setUnits(units.filter((_, i) => i !== idx));
+  const addUnit = () => { dirtyRef.current = true; setUnits([...units, { ...emptyUnit, account_id: account.id }]); };
+  const removeUnit = (idx: number) => { dirtyRef.current = true; setUnits(units.filter((_, i) => i !== idx)); };
   const updateUnit = (idx: number, field: string, value: any) => {
+    dirtyRef.current = true;
     const updated = [...units];
     updated[idx] = { ...updated[idx], [field]: value };
     setUnits(updated);
