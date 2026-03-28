@@ -190,14 +190,14 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                   <Input value={drv.original_issue_year || ""} onChange={(e) => updateDriver(idx, "original_issue_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Date Hired Month</Label>
+                  <Label className="text-xs">Month Hired</Label>
                   <Select value={drv.date_hired_month?.toString() || ""} onValueChange={(v) => updateDriver(idx, "date_hired_month", parseInt(v))}>
                     <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
                     <SelectContent>{MONTHS.map((m, i) => <SelectItem key={m} value={(i + 1).toString()}>{m}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Date Hired Year</Label>
+                  <Label className="text-xs">Year Hired</Label>
                   <Input value={drv.date_hired_year || ""} onChange={(e) => updateDriver(idx, "date_hired_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
               </div>
