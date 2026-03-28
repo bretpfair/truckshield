@@ -97,6 +97,10 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    if (!uploadCategory) {
+      toast({ title: "Select a document type", description: "Please choose a category before uploading", variant: "destructive" });
+      return;
+    }
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
