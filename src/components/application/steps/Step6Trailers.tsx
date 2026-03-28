@@ -96,12 +96,26 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
           <h3 className="text-lg font-semibold">Section 6 — Trailers</h3>
           <p className="text-sm text-muted-foreground font-mono">Schedule each trailer</p>
         </div>
-        <Button variant="outline" size="sm" onClick={addItem} className="gap-1">
-          <Plus className="h-3 w-3" /> Add Trailer
-        </Button>
+        {!noTrailers && (
+          <Button variant="outline" size="sm" onClick={addItem} className="gap-1">
+            <Plus className="h-3 w-3" /> Add Trailer
+          </Button>
+        )}
       </div>
 
-      {items.map((item, idx) => (
+      <div className="p-4 rounded-md bg-secondary/30 border border-border flex items-center gap-3">
+        <Checkbox
+          id="no-trailers"
+          checked={noTrailers}
+          onCheckedChange={(checked) => setNoTrailers(!!checked)}
+        />
+        <div>
+          <Label htmlFor="no-trailers" className="cursor-pointer font-medium">No Trailers</Label>
+          <p className="text-xs text-muted-foreground">Check if this account does not have any trailers</p>
+        </div>
+      </div>
+
+      {!noTrailers && items.map((item, idx) => (
         <div key={idx} className="p-4 rounded-md bg-secondary/30 border border-border space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-mono font-medium">Trailer #{idx + 1}</h4>
