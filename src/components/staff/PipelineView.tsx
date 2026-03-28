@@ -1,6 +1,7 @@
 import { useState, useRef, DragEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ interface Account {
   current_coverage_expiry?: string | null;
   updated_at?: string;
   created_at?: string;
+  assigned_producer_id?: string | null;
 }
 
 interface Props {
@@ -72,10 +74,35 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [producerFilter, setProducerFilter] = useState<string>("all");
   const [staleFilter, setStaleFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+
+  // Fetch staff members for producer filter
+  const { data: staffMembers } = useQuery({
+    queryKey: ["staff-members-pipeline"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", ["admin", "producer"] as any[]);
+      if (!roles?.length) return [];
+      const userIds = roles.map((r) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", userIds);
+      return roles.map((r) => {
+        const p = profiles?.find((pr) => pr.user_id === r.user_id);
+        return { userId: r.user_id, role: r.role, name: p?.full_name || p?.email || r.user_id.slice(0, 8) };
+      });
+    },
+  });
 
   // Fetch quote submissions per account for carrier badges
   const { data: quotesByAccount } = useQuery({
@@ -148,6 +175,13 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   }
   if (staleFilter) {
     filteredAccounts = filteredAccounts.filter(isStale);
+  }
+  if (producerFilter !== "all") {
+    if (producerFilter === "unassigned") {
+      filteredAccounts = filteredAccounts.filter((a) => !a.assigned_producer_id);
+    } else {
+      filteredAccounts = filteredAccounts.filter((a) => a.assigned_producer_id === producerFilter);
+    }
   }
 
   const moveAccount = useMutation({
@@ -268,9 +302,9 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowFilters(!showFilters)}>
           <Filter className="h-3 w-3" />
           Filters
-          {(statusFilter !== "all" || staleFilter) && (
+          {(statusFilter !== "all" || staleFilter || producerFilter !== "all") && (
             <span className="ml-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
-              {(statusFilter !== "all" ? 1 : 0) + (staleFilter ? 1 : 0)}
+              {(statusFilter !== "all" ? 1 : 0) + (staleFilter ? 1 : 0) + (producerFilter !== "all" ? 1 : 0)}
             </span>
           )}
         </Button>
@@ -306,18 +340,37 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
               </SelectContent>
             </Select>
           </div>
+          {isAdmin && staffMembers && staffMembers.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-mono">Producer:</span>
+              <Select value={producerFilter} onValueChange={setProducerFilter}>
+                <SelectTrigger className="h-8 w-[160px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Producers</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {staffMembers.map((s) => (
+                    <SelectItem key={s.userId} value={s.userId}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <Input
             placeholder="Search company/DOT..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-8 w-[200px] text-xs"
           />
-          {(statusFilter !== "all" || searchQuery || staleFilter) && (
+          {(statusFilter !== "all" || searchQuery || staleFilter || producerFilter !== "all") && (
             <Button
               variant="ghost"
               size="sm"
               className="h-8 text-xs"
-              onClick={() => { setStatusFilter("all"); setSearchQuery(""); setStaleFilter(false); }}
+              onClick={() => { setStatusFilter("all"); setSearchQuery(""); setStaleFilter(false); setProducerFilter("all"); }}
             >
               Clear Filters
             </Button>
