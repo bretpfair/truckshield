@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import MessagingSidebar from "@/components/messaging/MessagingSidebar";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
+import useRealtimeUpdates from "@/hooks/useRealtimeUpdates";
 
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
