@@ -15,7 +15,7 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
   const { data: powerUnits } = useQuery({
     queryKey: ["power-units", account.id],
     queryFn: async () => {
-      const { data } = await supabase.from("power_units").select("*").eq("account_id", account.id);
+      const { data } = await supabase.from("power_units").select("id,vin,gvw_class,truck_type,year,make,model,titled_state,garage_zip").eq("account_id", account.id);
       return data || [];
     },
   });
@@ -23,7 +23,7 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
   const { data: trailers } = useQuery({
     queryKey: ["trailers", account.id],
     queryFn: async () => {
-      const { data } = await supabase.from("trailers").select("*").eq("account_id", account.id);
+      const { data } = await supabase.from("trailers").select("id,vin,trailer_type,year,make,model,garage_zip").eq("account_id", account.id);
       return data || [];
     },
   });
@@ -31,7 +31,7 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
   const { data: drivers } = useQuery({
     queryKey: ["drivers", account.id],
     queryFn: async () => {
-      const { data } = await supabase.from("drivers").select("*").eq("account_id", account.id);
+      const { data } = await supabase.from("drivers").select("id,first_name,last_name,date_of_birth,license_number,license_state,license_type,driver_type,original_issue_year,date_hired_year,experience_years,lapse_suspension").eq("account_id", account.id);
       return data || [];
     },
   });
