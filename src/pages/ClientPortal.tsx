@@ -101,6 +101,21 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
   const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
   const completedQuotes = allQuotes?.filter((q: any) => ["quoted", "bound"].includes(q.status)) ?? [];
 
+  const { data: quoteDocuments } = useQuery({
+    queryKey: ["client-quote-docs", account?.id],
+    enabled: !!account,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_documents")
+        .select("*")
+        .eq("account_id", account!.id)
+        .eq("category", "quotes")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: powerUnits } = useQuery({
     queryKey: ["client-power-units", account?.id],
     enabled: !!account,
