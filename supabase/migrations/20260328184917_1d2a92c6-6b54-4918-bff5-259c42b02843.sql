@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX uq_quotes_account_carrier ON public.quotes (account_id, carrier_id);
