@@ -228,7 +228,7 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={() => handleDownload(doc.file_path, doc.file_name)}
+                    onClick={() => handleDownload(doc.file_path, doc.file_name, doc.category)}
                   >
                     <Download className="h-3.5 w-3.5" />
                   </Button>
@@ -237,7 +237,7 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                      onClick={() => deleteMutation.mutate({ id: doc.id, file_path: doc.file_path })}
+                      onClick={() => deleteMutation.mutate({ id: doc.id, file_path: doc.file_path, category: doc.category })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
