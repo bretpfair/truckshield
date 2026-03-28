@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import StaffDashboard from "@/pages/StaffDashboard";
@@ -93,7 +94,7 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto px-4 py-6">
+        <main className={cn("flex-1 overflow-y-auto px-4 py-6 transition-all duration-300", activeAccountId ? (messagingExpanded ? "mr-[380px]" : "mr-12") : "")}>
           {showClient ? (
             previewAccountId ? (
               <ClientPortalForAccount accountId={previewAccountId} />
