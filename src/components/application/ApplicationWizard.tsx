@@ -59,6 +59,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
 
   const updateAccount = useMutation({
     mutationFn: async (data: Record<string, any>) => {
+      if (isPreview) return; // Skip DB writes in preview mode
       const { error } = await supabase
         .from("accounts")
         .update({ ...data, application_step: currentStep })
