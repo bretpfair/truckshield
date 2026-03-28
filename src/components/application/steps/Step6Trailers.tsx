@@ -27,6 +27,13 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [items, setItems] = useState<any[]>([]);
+  const noTrailers = !!(parentFormData.general_questions as any)?.no_trailers;
+
+  const setNoTrailers = (val: boolean) => {
+    updateFormData({
+      general_questions: { ...(parentFormData.general_questions || {}), no_trailers: val },
+    });
+  };
 
   const { data } = useQuery({
     queryKey: ["trailers", account.id],
