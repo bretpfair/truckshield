@@ -102,7 +102,7 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Total Annual Revenue ($)</Label>
-            <Input type="number" value={formData.total_annual_revenue || ""} onChange={(e) => updateFormData({ total_annual_revenue: e.target.value ? parseFloat(e.target.value) : null })} />
+            <Input type="number" value={formData.total_annual_revenue ?? formData.projected_gross_receipts ?? ""} onChange={(e) => updateFormData({ total_annual_revenue: e.target.value ? parseFloat(e.target.value) : null })} />
           </div>
           <div className="space-y-2">
             <Label>Total Sub-Haul Revenue ($)</Label>
