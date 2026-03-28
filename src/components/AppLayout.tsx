@@ -56,8 +56,7 @@ const AppLayout = () => {
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
             <Truck className="h-5 w-5 text-primary" />
-            <span className="font-bold text-foreground">TruckShield, powered by</span>
-            <img src={logo360} alt="360 Risk Partners" className="h-6 w-auto" />
+            <span className="font-bold text-foreground">TruckShield, powered by 360 Risk Partners</span>
             <span className="status-badge bg-primary/10 text-primary rounded">
               {showClient ? "Client" : "Staff"}
             </span>
