@@ -193,7 +193,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Original Issue Year</Label>
+                  <Label className="text-xs">Year Issued</Label>
                   <Input value={drv.original_issue_year || ""} onChange={(e) => updateDriver(idx, "original_issue_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
                 <div className="space-y-1">
