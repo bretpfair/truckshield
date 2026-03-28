@@ -367,6 +367,11 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                         </span>
                       )}
                     </div>
+                    {q.status === "declined" && (q.coverage_details as any)?.decline_reason && (
+                      <p className="text-xs text-destructive mt-1">
+                        Reason: {(q.coverage_details as any).decline_reason}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
