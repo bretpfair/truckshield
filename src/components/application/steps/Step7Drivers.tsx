@@ -26,7 +26,7 @@ const emptyDriver = {
   num_violations: 0, violations: [], num_accidents: 0, accidents: [],
 };
 
-const Step7Drivers = ({ account }: StepProps) => {
+const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -45,8 +45,7 @@ const Step7Drivers = ({ account }: StepProps) => {
     },
   });
 
-  const formData = (account as any) || {};
-  const operationInfo = formData.operation_info || {};
+  const operationInfo = (parentFormData?.operation_info as any) || {};
   const ownerIsDriver = !!operationInfo.owner_is_driver;
 
   useEffect(() => {
