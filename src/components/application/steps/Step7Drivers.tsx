@@ -212,13 +212,6 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Experience (Months)</Label>
-                  <Select value={drv.experience_months?.toString() || ""} onValueChange={(v) => updateDriver(idx, "experience_months", parseInt(v))}>
-                    <SelectTrigger><SelectValue placeholder="Months" /></SelectTrigger>
-                    <SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={i.toString()}>{i}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
                   <Label className="text-xs">Lapse/Suspension</Label>
                   <Select value={drv.lapse_suspension || "None"} onValueChange={(v) => updateDriver(idx, "lapse_suspension", v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
