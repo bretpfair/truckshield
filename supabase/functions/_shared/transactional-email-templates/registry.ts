@@ -14,6 +14,7 @@ import { template as additionalInfoRequest } from './additional-info-request.tsx
 import { template as carrierStatusChange } from './carrier-status-change.tsx'
 import { template as applicationReminder } from './application-reminder.tsx'
 import { template as infoRequestReminder } from './info-request-reminder.tsx'
+import { template as applicationReceived } from './application-received.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'client-portal-invite': clientPortalInvite,
@@ -21,4 +22,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'carrier-status-change': carrierStatusChange,
   'application-reminder': applicationReminder,
   'info-request-reminder': infoRequestReminder,
+  'application-received': applicationReceived,
 }
