@@ -101,7 +101,7 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className={cn("flex-1 overflow-y-auto px-4 py-6 transition-all duration-300", activeAccountId ? (messagingExpanded ? "mr-[380px]" : "mr-12") : "")}>
+        <main className="flex-1 overflow-y-auto px-4 py-6">
           {showClient ? (
             previewAccountId ? (
               <ClientPortalForAccount accountId={previewAccountId} />
@@ -117,15 +117,6 @@ const AppLayout = () => {
             />
           )}
         </main>
-
-        {activeAccountId && (
-          <MessagingSidebar
-            expanded={messagingExpanded}
-            onToggle={() => setMessagingExpanded(!messagingExpanded)}
-            accountId={activeAccountId}
-            isStaff={isStaff}
-          />
-        )}
       </div>
     </div>
   );
