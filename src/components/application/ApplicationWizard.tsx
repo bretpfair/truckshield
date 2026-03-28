@@ -183,7 +183,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       case 7: return <Step7Drivers {...props} />;
       case 8: return <Step8LossHistory {...props} />;
       case 9: return <Step9Questions {...props} />;
-      case 10: return <Step10Review {...props} />;
+      case 10: return <Step10Review {...props} onNavigateToStep={(step: number) => setCurrentStep(step)} />;
       default: return null;
     }
   };
@@ -192,26 +192,36 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     <div className="space-y-4 animate-fade-in">
       {/* Step indicator */}
       <div className="flex items-center gap-1 overflow-x-auto pb-2">
-        {WIZARD_STEPS.map((step) => (
-          <button
-            key={step.id}
-            onClick={() => setCurrentStep(step.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono whitespace-nowrap transition-colors ${
-              currentStep === step.id
-                ? "bg-primary/20 text-primary border border-primary/40"
-                : step.id < currentStep
-                ? "bg-success/10 text-success border border-success/20"
-                : "bg-secondary text-muted-foreground border border-border hover:border-primary/20"
-            }`}
-          >
-            {step.id < currentStep ? (
-              <Check className="h-3 w-3" />
-            ) : (
-              <span className="text-[10px] font-bold">{step.id}</span>
-            )}
-            <span className="hidden md:inline">{step.shortTitle}</span>
-          </button>
-        ))}
+        {WIZARD_STEPS.map((step) => {
+          const isActive = currentStep === step.id;
+          const isVisited = step.id < currentStep;
+          // Mark visited-but-incomplete steps as warning (yellow)
+          const isIncomplete = isVisited && step.id < 10;
+          
+          let className = "";
+          if (isActive) {
+            className = "bg-primary/20 text-primary border border-primary/40";
+          } else if (isVisited) {
+            className = "bg-success/10 text-success border border-success/20";
+          } else {
+            className = "bg-secondary text-muted-foreground border border-border hover:border-primary/20";
+          }
+
+          return (
+            <button
+              key={step.id}
+              onClick={() => setCurrentStep(step.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono whitespace-nowrap transition-colors ${className}`}
+            >
+              {isVisited ? (
+                <Check className="h-3 w-3" />
+              ) : (
+                <span className="text-[10px] font-bold">{step.id}</span>
+              )}
+              <span className="hidden md:inline">{step.shortTitle}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Progress bar */}
