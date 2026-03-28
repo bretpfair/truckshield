@@ -105,15 +105,29 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
     },
   });
 
-  const handleUpload = async (files: FileList | null) => {
+  const openUploadDialog = () => {
+    setUploadCategory("");
+    setPendingFiles([]);
+    setShowUploadDialog(true);
+  };
+
+  const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    setPendingFiles(Array.from(files));
+  };
+
+  const handleConfirmUpload = async () => {
     if (!uploadCategory) {
       toast({ title: "Select a document type", description: "Please choose a category before uploading", variant: "destructive" });
       return;
     }
+    if (pendingFiles.length === 0) {
+      toast({ title: "No files selected", variant: "destructive" });
+      return;
+    }
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      for (const file of pendingFiles) {
         const filePath = `${accountId}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("account-documents")
@@ -130,7 +144,6 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
         });
         if (dbError) throw dbError;
 
-        // Log activity
         await supabase.from("activity_log").insert({
           account_id: accountId,
           user_id: user!.id,
@@ -141,6 +154,8 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
       queryClient.invalidateQueries({ queryKey: ["account_documents", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
       toast({ title: "Document(s) uploaded" });
+      setShowUploadDialog(false);
+      setPendingFiles([]);
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
