@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { TrendingUp, CalendarClock, AlertTriangle, Activity } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
+import ProducerPerformance from "./ProducerPerformance";
 
 const statusOrder = ["lead", "pending_info", "info_complete", "quoting", "quoted", "bound"];
 const statusLabels: Record<string, string> = {
@@ -237,6 +238,9 @@ const DashboardAnalytics = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Producer Performance */}
+      <ProducerPerformance />
     </div>
   );
 };
