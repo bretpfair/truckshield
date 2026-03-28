@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { ShieldCheck, Upload, FileText, Trash2, Loader2 } from "lucide-react";
 
 interface StepProps {
@@ -44,9 +45,11 @@ interface StorageFile {
 
 const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [noPriorCoverage, setNoPriorCoverageState] = useState(
     () => !!(formData.general_questions as any)?.new_venture
   );
@@ -137,34 +140,72 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
-
+  const uploadFiles = useCallback(async (filesToUpload: File[]) => {
+    if (!filesToUpload.length) return;
     setUploading(true);
     try {
-      for (const file of Array.from(selectedFiles)) {
+      for (const file of filesToUpload) {
         const filePath = `${account.id}/${Date.now()}_${file.name}`;
         const { error } = await supabase.storage.from("loss-runs").upload(filePath, file);
         if (error) throw error;
+        // Also save to account_documents so it appears in the client record
+        await supabase.from("account_documents").insert({
+          account_id: account.id,
+          file_name: file.name,
+          file_path: `loss-runs/${filePath}`,
+          category: "Loss Runs",
+          file_size: file.size,
+          uploaded_by: user?.id || null,
+        });
       }
       toast({ title: "Files uploaded successfully" });
       refetchFiles();
+      queryClient.invalidateQueries({ queryKey: ["account-documents", account.id] });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }, [account.id, user?.id, toast, refetchFiles, queryClient]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    await uploadFiles(Array.from(selectedFiles));
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length) uploadFiles(droppedFiles);
+  }, [uploadFiles]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
   const handleDeleteFile = async (fileName: string) => {
-    const { error } = await supabase.storage.from("loss-runs").remove([`${account.id}/${fileName}`]);
+    const fullPath = `${account.id}/${fileName}`;
+    const { error } = await supabase.storage.from("loss-runs").remove([fullPath]);
     if (error) {
       toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     } else {
+      // Also remove from account_documents
+      await supabase.from("account_documents")
+        .delete()
+        .eq("account_id", account.id)
+        .eq("file_path", `loss-runs/${fullPath}`);
       toast({ title: "File deleted" });
       refetchFiles();
+      queryClient.invalidateQueries({ queryKey: ["account-documents", account.id] });
     }
   };
 
@@ -209,14 +250,23 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
       </div>
 
       {/* Upload Loss Runs */}
-      <div className="p-4 rounded-md border border-border bg-secondary/30 space-y-3">
+      <div
+        className={`p-4 rounded-md border-2 border-dashed transition-colors space-y-3 ${
+          isDragging
+            ? "border-primary bg-primary/5"
+            : "border-border bg-secondary/30"
+        }`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-semibold flex items-center gap-2">
               <Upload className="h-4 w-4 text-primary" />
               Upload Loss Runs
             </h4>
-            <p className="text-xs text-muted-foreground">Attach loss run documents (PDF, images, or other files)</p>
+            <p className="text-xs text-muted-foreground">Drag &amp; drop files here or click to browse (PDF, images, or other files)</p>
           </div>
           <Button
             variant="outline"
@@ -236,6 +286,12 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
             onChange={handleFileUpload}
           />
         </div>
+
+        {isDragging && (
+          <div className="flex items-center justify-center py-6 text-sm text-primary font-medium">
+            Drop files here to upload
+          </div>
+        )}
 
         {files && files.length > 0 && (
           <div className="space-y-1">
