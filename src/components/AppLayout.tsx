@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import StaffDashboard from "@/pages/StaffDashboard";
@@ -8,7 +7,6 @@ import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
 import { Truck, LogOut, User, Eye } from "lucide-react";
 import logo360 from "@/assets/360-logo.png";
 import { Button } from "@/components/ui/button";
-import MessagingSidebar from "@/components/messaging/MessagingSidebar";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
 import useRealtimeUpdates from "@/hooks/useRealtimeUpdates";
@@ -17,8 +15,6 @@ const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
   const [viewAsClient, setViewAsClient] = useState(false);
   const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
-  const [messagingExpanded, setMessagingExpanded] = useState(true);
-  const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
   const [staffNavigateAccountId, setStaffNavigateAccountId] = useState<string | null>(null);
   useRealtimeUpdates(user?.id);
 
@@ -37,7 +33,6 @@ const AppLayout = () => {
 
   const isStaffRole = role === "admin" || role === "producer";
   const showClient = !isStaffRole || viewAsClient;
-  const isStaff = isStaffRole && !viewAsClient;
 
   const handlePreviewClient = (accountId?: string) => {
     setPreviewAccountId(accountId || null);
@@ -48,8 +43,6 @@ const AppLayout = () => {
     setViewAsClient(false);
     setPreviewAccountId(null);
   };
-
-  const activeAccountId = messagingAccountId || previewAccountId;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -78,14 +71,10 @@ const AppLayout = () => {
             <NotificationBell
               onNavigateToAccount={(accountId) => {
                 if (isStaffRole) {
-                  // Stay on staff dashboard, navigate to the account detail
                   setViewAsClient(false);
                   setPreviewAccountId(null);
                   setStaffNavigateAccountId(accountId);
                 }
-                // Open messaging sidebar for this account
-                setMessagingAccountId(accountId);
-                setMessagingExpanded(true);
               }}
             />
             <ThemeToggle />
@@ -101,31 +90,22 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className={cn("flex-1 overflow-y-auto px-4 py-6 transition-all duration-300", activeAccountId ? (messagingExpanded ? "mr-[380px]" : "mr-12") : "")}>
+        <main className="flex-1 overflow-y-auto px-4 py-6">
           {showClient ? (
             previewAccountId ? (
               <ClientPortalForAccount accountId={previewAccountId} />
             ) : (
-              <ClientPortal onSetMessagingAccount={(id) => setMessagingAccountId(id)} />
+              <ClientPortal />
             )
           ) : (
             <StaffDashboard
               onPreviewClient={handlePreviewClient}
-              onOpenMessages={(accountId) => { setMessagingAccountId(accountId); setMessagingExpanded(true); }}
+              onOpenMessages={() => {}}
               navigateToAccountId={staffNavigateAccountId}
               onNavigateHandled={() => setStaffNavigateAccountId(null)}
             />
           )}
         </main>
-
-        {activeAccountId && (
-          <MessagingSidebar
-            expanded={messagingExpanded}
-            onToggle={() => setMessagingExpanded(!messagingExpanded)}
-            accountId={activeAccountId}
-            isStaff={isStaff}
-          />
-        )}
       </div>
     </div>
   );
