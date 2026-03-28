@@ -170,7 +170,9 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
         attachmentName = file.name;
       }
 
+      const msgId = crypto.randomUUID();
       const { error } = await supabase.from("messages").insert({
+        id: msgId,
         account_id: accountId,
         sender_id: user.id,
         content: message.trim(),
@@ -179,6 +181,78 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
         attachment_name: attachmentName,
       });
       if (error) throw error;
+
+      // Send email notification to the other party (fire-and-forget)
+      try {
+        // Fetch account info for the email
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("contact_email, company_name, client_user_id")
+          .eq("id", accountId)
+          .single();
+
+        if (account) {
+          let recipientEmail: string | null = null;
+          let firstName: string | undefined;
+          let senderName: string | undefined;
+          let portalLink: string;
+
+          if (isStaff && account.client_user_id && account.contact_email) {
+            // Staff sent message → notify client
+            recipientEmail = account.contact_email;
+            senderName = "360 Risk Partners";
+            portalLink = "https://truckshield.lovable.app/client";
+
+            const { data: clientProfile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", account.client_user_id)
+              .single();
+            firstName = clientProfile?.full_name?.split(" ")[0];
+          } else if (!isStaff) {
+            // Client sent message → notify staff (get first admin email)
+            const { data: adminRoles } = await supabase
+              .from("user_roles")
+              .select("user_id")
+              .eq("role", "admin")
+              .limit(1);
+
+            if (adminRoles && adminRoles.length > 0) {
+              const { data: adminProfile } = await supabase
+                .from("profiles")
+                .select("email, full_name")
+                .eq("user_id", adminRoles[0].user_id)
+                .single();
+
+              if (adminProfile?.email) {
+                recipientEmail = adminProfile.email;
+                firstName = adminProfile.full_name?.split(" ")[0];
+                senderName = account.company_name || "A client";
+                portalLink = "https://truckshield.lovable.app/staff";
+              }
+            }
+          }
+
+          if (recipientEmail) {
+            supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "new-message-received",
+                recipientEmail,
+                idempotencyKey: `msg-notify-${msgId}`,
+                templateData: {
+                  firstName,
+                  companyName: account.company_name,
+                  senderName,
+                  messagePreview: message.trim().slice(0, 200),
+                  portalLink,
+                },
+              },
+            });
+          }
+        }
+      } catch (emailErr) {
+        console.error("Failed to send message notification email", emailErr);
+      }
 
       setMessage("");
       setFile(null);
