@@ -7,7 +7,7 @@ import { sendClientInvite } from "@/lib/sendClientInvite";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WIZARD_STEPS } from "./constants";
-import { Check, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, AlertTriangle, AlertCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,55 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialized = useRef(false);
+
+  // Queries for section completion awareness
+  const { data: puData } = useQuery({
+    queryKey: ["power-units", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("power_units").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+  const { data: trData } = useQuery({
+    queryKey: ["trailers", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("trailers").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+  const { data: drData } = useQuery({
+    queryKey: ["drivers", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("drivers").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+  const { data: lhData } = useQuery({
+    queryKey: ["loss-history", account.id],
+    queryFn: async () => {
+      if (isPreview) return [];
+      const { data } = await supabase.from("loss_history").select("id").eq("account_id", account.id);
+      return data || [];
+    },
+  });
+
+  const getStepComplete = (stepId: number): boolean => {
+    switch (stepId) {
+      case 1: return !!(formData.dot_number && formData.company_name && formData.mailing_address);
+      case 2: return !!(formData.coverage_selections?.primary_bipd);
+      case 3: return (formData.radius_operations || []).length > 0 && !!formData.radius_operations?.[0]?.max_radius;
+      case 4: return Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0;
+      case 5: return (puData?.length || 0) > 0;
+      case 6: return (trData?.length || 0) > 0;
+      case 7: return (drData?.length || 0) > 0;
+      case 8: return (lhData?.length || 0) > 0;
+      case 9: return Object.keys(formData.general_questions || {}).length >= 5;
+      default: return true;
+    }
+  };
 
   useEffect(() => {
     setFormData({
@@ -183,7 +232,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       case 7: return <Step7Drivers {...props} />;
       case 8: return <Step8LossHistory {...props} />;
       case 9: return <Step9Questions {...props} />;
-      case 10: return <Step10Review {...props} />;
+      case 10: return <Step10Review {...props} onNavigateToStep={(step: number) => setCurrentStep(step)} />;
       default: return null;
     }
   };
@@ -192,26 +241,40 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     <div className="space-y-4 animate-fade-in">
       {/* Step indicator */}
       <div className="flex items-center gap-1 overflow-x-auto pb-2">
-        {WIZARD_STEPS.map((step) => (
-          <button
-            key={step.id}
-            onClick={() => setCurrentStep(step.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono whitespace-nowrap transition-colors ${
-              currentStep === step.id
-                ? "bg-primary/20 text-primary border border-primary/40"
-                : step.id < currentStep
-                ? "bg-success/10 text-success border border-success/20"
-                : "bg-secondary text-muted-foreground border border-border hover:border-primary/20"
-            }`}
-          >
-            {step.id < currentStep ? (
-              <Check className="h-3 w-3" />
-            ) : (
-              <span className="text-[10px] font-bold">{step.id}</span>
-            )}
-            <span className="hidden md:inline">{step.shortTitle}</span>
-          </button>
-        ))}
+        {WIZARD_STEPS.map((step) => {
+          const isActive = currentStep === step.id;
+          const isVisited = step.id < currentStep;
+          const stepComplete = step.id < 10 ? getStepComplete(step.id) : true;
+          const isIncompleteVisited = isVisited && !stepComplete;
+          
+          let className = "";
+          if (isActive) {
+            className = "bg-primary/20 text-primary border border-primary/40";
+          } else if (isIncompleteVisited) {
+            className = "bg-warning/10 text-warning border border-warning/30";
+          } else if (isVisited) {
+            className = "bg-success/10 text-success border border-success/20";
+          } else {
+            className = "bg-secondary text-muted-foreground border border-border hover:border-primary/20";
+          }
+
+          return (
+            <button
+              key={step.id}
+              onClick={() => setCurrentStep(step.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-mono whitespace-nowrap transition-colors ${className}`}
+            >
+              {isVisited && !isIncompleteVisited ? (
+                <Check className="h-3 w-3" />
+              ) : isIncompleteVisited ? (
+                <AlertCircle className="h-3 w-3" />
+              ) : (
+                <span className="text-[10px] font-bold">{step.id}</span>
+              )}
+              <span className="hidden md:inline">{step.shortTitle}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Progress bar */}
