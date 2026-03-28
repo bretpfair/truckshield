@@ -269,7 +269,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   });
 
   const markSubmitted = useMutation({
-    mutationFn: async ({ carrierId, score }: { carrierId: string; score: number }) => {
+    mutationFn: async ({ carrierId, score, carrierName }: { carrierId: string; score: number; carrierName: string }) => {
       const { error } = await supabase.from("quotes").insert({
         account_id: accountId,
         carrier_id: carrierId,
@@ -278,6 +278,44 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         created_by: user!.id,
       });
       if (error) throw error;
+
+      // Send market-submitted email to client
+      try {
+        const { data: acct } = await supabase
+          .from("accounts")
+          .select("client_user_id, contact_email")
+          .eq("id", accountId)
+          .single();
+
+        const clientEmail = acct?.contact_email;
+        if (clientEmail) {
+          let firstName: string | undefined;
+          if (acct?.client_user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", acct.client_user_id)
+              .single();
+            firstName = profile?.full_name?.split(" ")[0];
+          }
+
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "carrier-status-change",
+              recipientEmail: clientEmail,
+              idempotencyKey: `market-submitted-${accountId}-${carrierId}-${Date.now()}`,
+              templateData: {
+                firstName,
+                carrierName,
+                newStatus: "submitted",
+                portalLink: `${window.location.origin}/client`,
+              },
+            },
+          });
+        }
+      } catch (emailErr) {
+        console.error("Failed to send market-submitted email:", emailErr);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
@@ -552,7 +590,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
               powerUnits={powerUnits || []}
               trailers={accountTrailers || []}
               lossHistory={lossHistory || []}
-              onMarkSubmitted={(carrierId, score) => markSubmitted.mutate({ carrierId, score })}
+              onMarkSubmitted={(carrierId, score, carrierName) => markSubmitted.mutate({ carrierId, score, carrierName })}
               submittedCarrierIds={submittedCarrierIds}
             />
           </CollapsibleContent>

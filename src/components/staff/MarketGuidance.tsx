@@ -57,7 +57,7 @@ interface Props {
   powerUnits: any[];
   trailers: any[];
   lossHistory: any[];
-  onMarkSubmitted: (carrierId: string, score: number) => void;
+  onMarkSubmitted: (carrierId: string, score: number, carrierName: string) => void;
   submittedCarrierIds: string[];
 }
 
@@ -246,7 +246,7 @@ const MarketGuidance = ({ account, carriers, drivers, powerUnits, trailers, loss
                     <Button
                       size="sm"
                       variant={m.tier === "strong" ? "default" : "outline"}
-                      onClick={() => onMarkSubmitted(m.carrier.id, m.score)}
+                      onClick={() => onMarkSubmitted(m.carrier.id, m.score, m.carrier.name)}
                     >
                       Mark as Submitted
                     </Button>
