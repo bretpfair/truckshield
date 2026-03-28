@@ -104,11 +104,11 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
           <span className="text-muted-foreground">DOT:</span>
           <span>{formData.dot_number || "—"}</span>
           <span className="text-muted-foreground">Power Units:</span>
-          <span>{powerUnits?.length || 0}</span>
+          <span>{powerUnits?.length || formData.total_trucks || 0}</span>
           <span className="text-muted-foreground">Trailers:</span>
-          <span>{trailers?.length || 0}</span>
+          <span>{trailers?.length || (formData.total_owned_trailers || 0) + (formData.total_nonowned_trailers || 0) || 0}</span>
           <span className="text-muted-foreground">Drivers:</span>
-          <span>{drivers?.length || 0}</span>
+          <span>{drivers?.length || formData.total_drivers || 0}</span>
           <span className="text-muted-foreground">Primary BI-PD:</span>
           <span>{formData.coverage_selections?.primary_bipd || "—"}</span>
         </div>
