@@ -16,6 +16,8 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+
 const emptyDriver = {
   first_name: "", last_name: "", date_of_birth: null, driver_type: "",
   license_number: "", license_state: "", license_type: "",
@@ -98,7 +100,6 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Track user edits vs initialization
   const dirtyRef = useRef(false);
   const driversRef = useRef(drivers);
   const initializedRef = useRef(false);
@@ -106,7 +107,6 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   useEffect(() => { driversRef.current = drivers; }, [drivers]);
   useEffect(() => { if (data) initializedRef.current = true; }, [data]);
 
-  // Debounced auto-save — only fires when dirty
   useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
@@ -116,7 +116,6 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     return () => clearTimeout(timer);
   }, [drivers]);
 
-  // Save on unmount if dirty
   useEffect(() => {
     return () => {
       if (dirtyRef.current && initializedRef.current && driversRef.current.length > 0) {
@@ -147,6 +146,12 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     });
   };
 
+  const isDriverIncomplete = (drv: any) =>
+    !drv.first_name || !drv.last_name || !drv.date_of_birth ||
+    !drv.license_number || !drv.license_state || !drv.license_type || !drv.driver_type ||
+    !drv.original_issue_year || !drv.date_hired_year ||
+    drv.experience_years == null || !drv.lapse_suspension;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -160,7 +165,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
       </div>
 
       {drivers.map((drv, idx) => (
-        <div key={idx} className="border border-border rounded-md overflow-hidden">
+        <div key={idx} className={`border rounded-md overflow-hidden ${isDriverIncomplete(drv) ? "border-destructive/50" : "border-border"}`}>
           <button
             type="button"
             onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
@@ -184,38 +189,38 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">First Name</Label>
-                  <Input value={drv.first_name || ""} onChange={(e) => updateDriver(idx, "first_name", e.target.value)} />
+                  <Input className={req(drv.first_name)} value={drv.first_name || ""} onChange={(e) => updateDriver(idx, "first_name", e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Last Name</Label>
-                  <Input value={drv.last_name || ""} onChange={(e) => updateDriver(idx, "last_name", e.target.value)} />
+                  <Input className={req(drv.last_name)} value={drv.last_name || ""} onChange={(e) => updateDriver(idx, "last_name", e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Date of Birth</Label>
-                  <Input type="date" value={drv.date_of_birth || ""} onChange={(e) => updateDriver(idx, "date_of_birth", e.target.value || null)} />
+                  <Input className={req(drv.date_of_birth)} type="date" value={drv.date_of_birth || ""} onChange={(e) => updateDriver(idx, "date_of_birth", e.target.value || null)} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Driver Type</Label>
                   <Select value={drv.driver_type || ""} onValueChange={(v) => updateDriver(idx, "driver_type", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className={req(drv.driver_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{DRIVER_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">License Number</Label>
-                  <Input value={drv.license_number || ""} onChange={(e) => updateDriver(idx, "license_number", e.target.value)} />
+                  <Input className={req(drv.license_number)} value={drv.license_number || ""} onChange={(e) => updateDriver(idx, "license_number", e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">License State</Label>
                   <Select value={drv.license_state || ""} onValueChange={(v) => updateDriver(idx, "license_state", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className={req(drv.license_state)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">License Type</Label>
                   <Select value={drv.license_type || ""} onValueChange={(v) => updateDriver(idx, "license_type", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className={req(drv.license_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{LICENSE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -225,7 +230,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Year Issued</Label>
-                  <Input value={drv.original_issue_year || ""} onChange={(e) => updateDriver(idx, "original_issue_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
+                  <Input className={req(drv.original_issue_year)} value={drv.original_issue_year || ""} onChange={(e) => updateDriver(idx, "original_issue_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Month Hired</Label>
@@ -236,7 +241,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Year Hired</Label>
-                  <Input value={drv.date_hired_year || ""} onChange={(e) => updateDriver(idx, "date_hired_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
+                  <Input className={req(drv.date_hired_year)} value={drv.date_hired_year || ""} onChange={(e) => updateDriver(idx, "date_hired_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
               </div>
 
@@ -245,7 +250,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                 <div className="space-y-1">
                   <Label className="text-xs">Experience (Years)</Label>
                   <Select value={drv.experience_years?.toString() || ""} onValueChange={(v) => updateDriver(idx, "experience_years", parseInt(v))}>
-                    <SelectTrigger><SelectValue placeholder="Years" /></SelectTrigger>
+                    <SelectTrigger className={req(drv.experience_years)}><SelectValue placeholder="Years" /></SelectTrigger>
                     <SelectContent>{[0,1,2,3,4,5,6,7].map((y) => <SelectItem key={y} value={y.toString()}>{y === 7 ? "7+" : y.toString()}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>

@@ -19,6 +19,13 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
   const coverage = formData.coverage_selections || {};
   const hasGL = coverage.general_liability && coverage.general_liability !== "No Coverage";
 
+  const isAnswered = (qId: string, isNumberOnly: boolean) => {
+    const q = questions[qId];
+    if (!q) return false;
+    if (isNumberOnly) return q.value != null && q.value !== "";
+    return q.answer === "Yes" || q.answer === "No";
+  };
+
   const YesNoCheckboxes = ({ qId, current }: { qId: string; current: string }) => (
     <div className="flex items-center gap-4">
       <div className="flex items-center gap-1.5">
@@ -58,8 +65,9 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Auto Liability Questions</Label>
         {AUTO_LIABILITY_QUESTIONS.map((q) => {
           const isNumberOnly = (q as any).hasNumber && !q.hasExplain && !(q as any).hasDate;
+          const answered = isAnswered(q.id, isNumberOnly);
           return (
-            <div key={q.id} className="p-3 rounded-md bg-secondary/30 border border-border space-y-2">
+            <div key={q.id} className={`p-3 rounded-md bg-secondary/30 border space-y-2 ${!answered ? "border-destructive/50" : "border-border"}`}>
               <p className="text-sm">{q.text}</p>
               <div className="flex items-center gap-3 flex-wrap">
                 {!isNumberOnly && (
@@ -115,12 +123,15 @@ const Step9Questions = ({ formData, updateFormData }: StepProps) => {
       {hasGL && (
         <div className="space-y-3">
           <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">General Liability Questions</Label>
-          {GL_QUESTIONS.map((q) => (
-            <div key={q.id} className="p-3 rounded-md bg-secondary/30 border border-border space-y-2">
-              <p className="text-sm">{q.text}</p>
-              <YesNoCheckboxes qId={q.id} current={questions[q.id]?.answer || ""} />
-            </div>
-          ))}
+          {GL_QUESTIONS.map((q) => {
+            const answered = isAnswered(q.id, false);
+            return (
+              <div key={q.id} className={`p-3 rounded-md bg-secondary/30 border space-y-2 ${!answered ? "border-destructive/50" : "border-border"}`}>
+                <p className="text-sm">{q.text}</p>
+                <YesNoCheckboxes qId={q.id} current={questions[q.id]?.answer || ""} />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

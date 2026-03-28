@@ -17,6 +17,8 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+
 const emptyTrailer = {
   vin: "", is_nonowned: false, trailer_type: "", year: "", make: "", model: "",
   garage_zip: "", has_physdam: false, physdam_amount: null,
@@ -96,7 +98,6 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Track user edits vs initialization
   const dirtyRef = useRef(false);
   const itemsRef = useRef(items);
   const initializedRef = useRef(false);
@@ -106,7 +107,6 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
   useEffect(() => { noTrailersRef.current = noTrailers; }, [noTrailers]);
   useEffect(() => { if (data) initializedRef.current = true; }, [data]);
 
-  // Debounced auto-save — only fires when dirty
   useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
@@ -116,7 +116,6 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
     return () => clearTimeout(timer);
   }, [items, noTrailers]);
 
-  // Save on unmount if dirty
   useEffect(() => {
     return () => {
       if (dirtyRef.current && initializedRef.current) {
@@ -184,23 +183,23 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">VIN</Label>
-              <Input value={item.vin || ""} onChange={(e) => updateItem(idx, "vin", e.target.value)} />
+              <Input className={req(item.vin)} value={item.vin || ""} onChange={(e) => updateItem(idx, "vin", e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Trailer Type</Label>
               <Select value={item.trailer_type || ""} onValueChange={(v) => updateItem(idx, "trailer_type", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className={req(item.trailer_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>{TRAILER_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Year</Label>
-              <Input value={item.year || ""} onChange={(e) => updateItem(idx, "year", e.target.value)} maxLength={4} />
+              <Input className={req(item.year)} value={item.year || ""} onChange={(e) => updateItem(idx, "year", e.target.value)} maxLength={4} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Make</Label>
               <Select value={item.make || ""} onValueChange={(v) => updateItem(idx, "make", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className={req(item.make)}><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>{TRAILER_MAKES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
               </Select>
             </div>
@@ -210,7 +209,7 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Garage ZIP</Label>
-              <Input value={item.garage_zip || ""} onChange={(e) => updateItem(idx, "garage_zip", e.target.value)} />
+              <Input className={req(item.garage_zip)} value={item.garage_zip || ""} onChange={(e) => updateItem(idx, "garage_zip", e.target.value)} />
             </div>
           </div>
           <div className="flex flex-wrap gap-4">
