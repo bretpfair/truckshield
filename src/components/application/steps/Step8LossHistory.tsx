@@ -140,34 +140,72 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
-
+  const uploadFiles = useCallback(async (filesToUpload: File[]) => {
+    if (!filesToUpload.length) return;
     setUploading(true);
     try {
-      for (const file of Array.from(selectedFiles)) {
+      for (const file of filesToUpload) {
         const filePath = `${account.id}/${Date.now()}_${file.name}`;
         const { error } = await supabase.storage.from("loss-runs").upload(filePath, file);
         if (error) throw error;
+        // Also save to account_documents so it appears in the client record
+        await supabase.from("account_documents").insert({
+          account_id: account.id,
+          file_name: file.name,
+          file_path: `loss-runs/${filePath}`,
+          category: "Loss Runs",
+          file_size: file.size,
+          uploaded_by: user?.id || null,
+        });
       }
       toast({ title: "Files uploaded successfully" });
       refetchFiles();
+      queryClient.invalidateQueries({ queryKey: ["account-documents", account.id] });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }, [account.id, user?.id, toast, refetchFiles, queryClient]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    await uploadFiles(Array.from(selectedFiles));
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length) uploadFiles(droppedFiles);
+  }, [uploadFiles]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
   const handleDeleteFile = async (fileName: string) => {
-    const { error } = await supabase.storage.from("loss-runs").remove([`${account.id}/${fileName}`]);
+    const fullPath = `${account.id}/${fileName}`;
+    const { error } = await supabase.storage.from("loss-runs").remove([fullPath]);
     if (error) {
       toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     } else {
+      // Also remove from account_documents
+      await supabase.from("account_documents")
+        .delete()
+        .eq("account_id", account.id)
+        .eq("file_path", `loss-runs/${fullPath}`);
       toast({ title: "File deleted" });
       refetchFiles();
+      queryClient.invalidateQueries({ queryKey: ["account-documents", account.id] });
     }
   };
 
