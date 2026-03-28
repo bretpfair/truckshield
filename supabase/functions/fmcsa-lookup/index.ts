@@ -84,10 +84,10 @@ Deno.serve(async (req) => {
     try {
       if (cargoRes.ok) {
         const cargoData = await cargoRes.json();
-        const cargoList = cargoData?.content?.cargoCarried;
+        const cargoList = cargoData?.content;
         if (Array.isArray(cargoList)) {
           cargoTypes = cargoList
-            .map((c: any) => c.cargoClassDesc || c.cargoCarriedDesc || "")
+            .map((c: any) => c.cargoClassDesc || "")
             .filter(Boolean);
         }
       }
