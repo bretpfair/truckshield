@@ -391,7 +391,7 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                   <div className="flex items-center gap-1">
                                     <p className="font-semibold text-sm truncate">{account.company_name}</p>
                                     {accountIsStale && (
-                                      <Clock className="h-3 w-3 text-warning shrink-0" title={`No activity in ${STALE_DAYS}+ days`} />
+                                      <Clock className="h-3 w-3 text-warning shrink-0" />
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono mt-0.5">
