@@ -35,8 +35,9 @@ const AppLayout = () => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  const showClient = role !== "admin" || viewAsClient;
-  const isStaff = role === "admin" && !viewAsClient;
+  const isStaffRole = role === "admin" || role === "producer";
+  const showClient = !isStaffRole || viewAsClient;
+  const isStaff = isStaffRole && !viewAsClient;
 
   const handlePreviewClient = (accountId?: string) => {
     setPreviewAccountId(accountId || null);
@@ -63,7 +64,7 @@ const AppLayout = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {role === "admin" && (
+            {isStaffRole && (
               <Button
                 variant={viewAsClient ? "default" : "outline"}
                 size="sm"
@@ -76,7 +77,7 @@ const AppLayout = () => {
             )}
             <NotificationBell
               onNavigateToAccount={(accountId) => {
-                if (role === "admin") {
+                if (isStaffRole) {
                   // Stay on staff dashboard, navigate to the account detail
                   setViewAsClient(false);
                   setPreviewAccountId(null);
