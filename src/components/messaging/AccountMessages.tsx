@@ -35,10 +35,12 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [remoteTyping, setRemoteTyping] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: messages } = useQuery({
     queryKey: ["messages", accountId],
