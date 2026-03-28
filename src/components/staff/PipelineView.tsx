@@ -246,6 +246,30 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     },
   });
 
+  const assignProducer = useMutation({
+    mutationFn: async ({ accountId, producerId }: { accountId: string; producerId: string | null }) => {
+      const { error } = await supabase
+        .from("accounts")
+        .update({ assigned_producer_id: producerId })
+        .eq("id", accountId);
+      if (error) throw error;
+      const account = accounts.find((a) => a.id === accountId);
+      const producerName = staffMembers?.find((s) => s.userId === producerId)?.name || "Unassigned";
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "producer_assigned",
+        description: `${account?.company_name ?? "Account"} assigned to ${producerName}`,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast({ title: "Producer updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error assigning producer", description: err.message, variant: "destructive" });
+    },
+  });
+
 
   const handleDragStart = (e: DragEvent, accountId: string, currentStatus: string) => {
     dragAccountId.current = accountId;
@@ -429,6 +453,11 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono mt-0.5">
                                     {account.dot_number && <span>DOT# {account.dot_number}</span>}
                                     {account.fleet_size && <span>{account.fleet_size} trucks</span>}
+                                    {isAdmin && account.assigned_producer_id && staffMembers && (
+                                      <span className="text-primary/70">
+                                        {staffMembers.find((s) => s.userId === account.assigned_producer_id)?.name || ""}
+                                      </span>
+                                    )}
                                   </div>
                                   {/* Carrier submission badges */}
                                   {carriers.length > 0 && (
@@ -497,6 +526,32 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                               <div className="flex items-center gap-1 text-xs text-warning">
                                 <AlertTriangle className="h-3 w-3" />
                                 No activity in {STALE_DAYS}+ days
+                              </div>
+                            )}
+                            {isAdmin && staffMembers && staffMembers.length > 0 && (
+                              <div className="space-y-1 pt-1 border-t border-border">
+                                <p className="text-[10px] font-mono uppercase text-muted-foreground">Assigned Producer</p>
+                                <Select
+                                  value={account.assigned_producer_id || "unassigned"}
+                                  onValueChange={(val) => {
+                                    assignProducer.mutate({
+                                      accountId: account.id,
+                                      producerId: val === "unassigned" ? null : val,
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    {staffMembers.map((s) => (
+                                      <SelectItem key={s.userId} value={s.userId}>
+                                        {s.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
                             )}
                           </div>
