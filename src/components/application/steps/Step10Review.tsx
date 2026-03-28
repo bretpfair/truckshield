@@ -8,9 +8,10 @@ interface StepProps {
   formData: Record<string, any>;
   updateFormData: (updates: Record<string, any>) => void;
   onSave: (data?: Record<string, any>) => void;
+  onNavigateToStep?: (step: number) => void;
 }
 
-const Step10Review = ({ account, formData }: StepProps) => {
+const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
   const { data: powerUnits } = useQuery({
     queryKey: ["power-units", account.id],
     queryFn: async () => {
@@ -44,15 +45,15 @@ const Step10Review = ({ account, formData }: StepProps) => {
   });
 
   const sections = [
-    { name: "Applicant Info", complete: !!(formData.dot_number && formData.company_name && formData.mailing_address) },
-    { name: "Coverage", complete: !!(formData.coverage_selections?.primary_bipd) },
-    { name: "Radius & Operations", complete: (formData.radius_operations || []).length > 0 && formData.radius_operations?.[0]?.max_radius },
-    { name: "Commodities", complete: Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0 },
-    { name: "Power Units", complete: (powerUnits?.length || 0) > 0 },
-    { name: "Trailers", complete: (trailers?.length || 0) > 0 },
-    { name: "Drivers", complete: (drivers?.length || 0) > 0 },
-    { name: "Loss History", complete: (lossHistory?.length || 0) > 0 },
-    { name: "General Questions", complete: Object.keys(formData.general_questions || {}).length >= 5 },
+    { name: "Applicant Info", step: 1, complete: !!(formData.dot_number && formData.company_name && formData.mailing_address) },
+    { name: "Coverage", step: 2, complete: !!(formData.coverage_selections?.primary_bipd) },
+    { name: "Radius & Operations", step: 3, complete: (formData.radius_operations || []).length > 0 && formData.radius_operations?.[0]?.max_radius },
+    { name: "Commodities", step: 4, complete: Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0 },
+    { name: "Power Units", step: 5, complete: (powerUnits?.length || 0) > 0 },
+    { name: "Trailers", step: 6, complete: (trailers?.length || 0) > 0 },
+    { name: "Drivers", step: 7, complete: (drivers?.length || 0) > 0 },
+    { name: "Loss History", step: 8, complete: (lossHistory?.length || 0) > 0 },
+    { name: "General Questions", step: 9, complete: Object.keys(formData.general_questions || {}).length >= 5 },
   ];
 
   const completedCount = sections.filter((s) => s.complete).length;
@@ -75,7 +76,11 @@ const Step10Review = ({ account, formData }: StepProps) => {
 
       <div className="space-y-2">
         {sections.map((section) => (
-          <div key={section.name} className="flex items-center justify-between p-3 rounded-md bg-secondary/30 border border-border">
+          <button
+            key={section.name}
+            onClick={() => onNavigateToStep?.(section.step)}
+            className="flex items-center justify-between p-3 rounded-md bg-secondary/30 border border-border w-full text-left hover:bg-secondary/50 transition-colors cursor-pointer"
+          >
             <span className="text-sm font-medium">{section.name}</span>
             {section.complete ? (
               <Badge variant="outline" className="bg-success/10 text-success gap-1">
@@ -86,7 +91,7 @@ const Step10Review = ({ account, formData }: StepProps) => {
                 <AlertCircle className="h-3 w-3" /> Incomplete
               </Badge>
             )}
-          </div>
+          </button>
         ))}
       </div>
 
