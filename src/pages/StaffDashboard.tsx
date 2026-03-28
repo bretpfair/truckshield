@@ -501,21 +501,27 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
           <PdfUpload />
         </TabsContent>
 
-        <TabsContent value="carriers">
-          <CarrierManager />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="carriers">
+            <CarrierManager />
+          </TabsContent>
+        )}
 
-        <TabsContent value="analytics">
-          <DashboardAnalytics />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="analytics">
+            <DashboardAnalytics />
+          </TabsContent>
+        )}
 
         <TabsContent value="invite">
           <InviteClientDialog />
         </TabsContent>
 
-        <TabsContent value="invite-staff">
-          <InviteStaffDialog />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="invite-staff">
+            <InviteStaffDialog />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
