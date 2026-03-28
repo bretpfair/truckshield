@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   Select,
   SelectContent,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import {
   Building2, MessageSquare, GripVertical, Filter, AlertTriangle,
-  CheckSquare, ArrowRightLeft, Clock, X,
+  Clock, X,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -69,7 +69,7 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const dragAccountId = useRef<string | null>(null);
   const dragSourceStatus = useRef<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [staleFilter, setStaleFilter] = useState(false);
@@ -174,37 +174,6 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     },
   });
 
-  // Bulk actions
-  const bulkMoveStatus = useMutation({
-    mutationFn: async (newStatus: string) => {
-      const ids = Array.from(selectedIds);
-      for (const id of ids) {
-        const { error } = await supabase.from("accounts").update({ status: newStatus }).eq("id", id);
-        if (error) throw error;
-        const account = accounts.find((a) => a.id === id);
-        const label = pipelineColumns.find((c) => c.key === newStatus)?.label ?? newStatus;
-        await supabase.from("activity_log").insert({
-          account_id: id,
-          action_type: "status_change",
-          description: `${account?.company_name ?? "Account"} bulk-moved to ${label}`,
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      setSelectedIds(new Set());
-      toast({ title: `${selectedIds.size} accounts updated` });
-    },
-  });
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   const handleDragStart = (e: DragEvent, accountId: string, currentStatus: string) => {
     dragAccountId.current = accountId;
@@ -280,24 +249,6 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
           </Button>
         )}
 
-        {selectedIds.size > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-muted-foreground font-mono">{selectedIds.size} selected</span>
-            <Select onValueChange={(val) => bulkMoveStatus.mutate(val)}>
-              <SelectTrigger className="h-8 w-[160px] text-xs">
-                <SelectValue placeholder="Bulk move to..." />
-              </SelectTrigger>
-              <SelectContent>
-                {pipelineColumns.map((col) => (
-                  <SelectItem key={col.key} value={col.key}>{col.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelectedIds(new Set())}>
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Expanded filters */}
@@ -364,15 +315,11 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                     const msgCount = messageCounts?.[account.id] || 0;
                     const carriers = quotesByAccount?.[account.id] ?? [];
                     const accountIsStale = isStale(account);
-                    const isSelected = selectedIds.has(account.id);
-
                     return (
                       <HoverCard key={account.id} openDelay={400} closeDelay={100}>
                         <HoverCardTrigger asChild>
                           <Card
-                            className={`cursor-grab active:cursor-grabbing transition-colors bg-card ${
-                              isSelected ? "border-primary ring-1 ring-primary/30" : "hover:border-primary/30"
-                            } ${accountIsStale ? "border-l-2 border-l-warning" : ""}`}
+                            className={`cursor-grab active:cursor-grabbing transition-colors bg-card hover:border-primary/30 ${accountIsStale ? "border-l-2 border-l-warning" : ""}`}
                             draggable
                             onDragStart={(e) => handleDragStart(e, account.id, col.key)}
                             onDragEnd={handleDragEnd}
@@ -380,12 +327,6 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                           >
                             <CardContent className="p-2.5 sm:p-3">
                               <div className="flex items-start gap-1.5">
-                                <div
-                                  className="mt-0.5 shrink-0"
-                                  onClick={(e) => { e.stopPropagation(); toggleSelect(account.id); }}
-                                >
-                                  <Checkbox checked={isSelected} className="h-3.5 w-3.5" />
-                                </div>
                                 <GripVertical className="h-4 w-4 text-muted-foreground/40 mt-0.5 shrink-0" />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-1">
