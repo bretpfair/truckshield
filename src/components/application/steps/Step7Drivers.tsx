@@ -26,7 +26,7 @@ const emptyDriver = {
   num_violations: 0, violations: [], num_accidents: 0, accidents: [],
 };
 
-const Step7Drivers = ({ account }: StepProps) => {
+const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -45,9 +45,30 @@ const Step7Drivers = ({ account }: StepProps) => {
     },
   });
 
+  const operationInfo = (parentFormData?.operation_info as any) || {};
+  const ownerIsDriver = !!operationInfo.owner_is_driver;
+
   useEffect(() => {
-    if (data) setDrivers(data.length ? data : [{ ...emptyDriver, account_id: account.id }]);
-  }, [data, account.id]);
+    if (data) {
+      let driverList = data.length ? [...data] : [{ ...emptyDriver, account_id: account.id }];
+
+      // Prefill Driver 1 with owner info if "owner is driver" is checked
+      if (ownerIsDriver && driverList.length > 0) {
+        const nameParts = (parentFormData?.business_owner_name || "").trim().split(/\s+/);
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+        const d1 = { ...driverList[0] };
+        if (!d1.first_name) d1.first_name = firstName;
+        if (!d1.last_name) d1.last_name = lastName;
+        if (!d1.date_of_birth && parentFormData?.business_owner_dob) d1.date_of_birth = parentFormData.business_owner_dob;
+        if (!d1.license_number && operationInfo.owner_license_number) d1.license_number = operationInfo.owner_license_number;
+        if (!d1.license_state && operationInfo.owner_license_state) d1.license_state = operationInfo.owner_license_state;
+        driverList[0] = d1;
+      }
+
+      setDrivers(driverList);
+    }
+  }, [data, account.id, ownerIsDriver]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { US_STATES, BUSINESS_CATEGORIES, CONTRACTOR_TYPES, BUSINESS_TYPES } from "../constants";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -247,6 +248,38 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
           <div className="space-y-2">
             <Label>Date of Birth</Label>
             <Input type="date" value={formData.business_owner_dob || ""} onChange={(e) => updateFormData({ business_owner_dob: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Driver's License #</Label>
+            <Input
+              value={(formData.operation_info as any)?.owner_license_number || ""}
+              onChange={(e) => updateFormData({ operation_info: { ...(formData.operation_info || {}), owner_license_number: e.target.value } })}
+              placeholder="DL Number"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>State Licensed</Label>
+            <Select
+              value={(formData.operation_info as any)?.owner_license_state || ""}
+              onValueChange={(v) => updateFormData({ operation_info: { ...(formData.operation_info || {}), owner_license_state: v } })}
+            >
+              <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+              <SelectContent>
+                {US_STATES.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <div className="flex items-center gap-2 mt-2">
+              <Checkbox
+                id="owner_is_driver"
+                checked={!!(formData.operation_info as any)?.owner_is_driver}
+                onCheckedChange={(checked) => updateFormData({ operation_info: { ...(formData.operation_info || {}), owner_is_driver: !!checked } })}
+              />
+              <Label htmlFor="owner_is_driver" className="text-sm cursor-pointer">
+                Business Owner is also a Driver
+              </Label>
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Business Type</Label>
