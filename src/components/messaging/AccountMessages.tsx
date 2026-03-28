@@ -126,18 +126,27 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
     }
   }, [messages]);
 
-  // Typing indicator broadcast
+  // Typing indicator broadcast — only when input is focused
   const broadcastTyping = useCallback(() => {
+    if (!inputFocused) return;
     presenceChannelRef.current?.track({ typing: true });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       presenceChannelRef.current?.track({ typing: false });
     }, 2000);
+  }, [inputFocused]);
+
+  // Clear typing state when input loses focus
+  const handleInputFocus = useCallback(() => setInputFocused(true), []);
+  const handleInputBlur = useCallback(() => {
+    setInputFocused(false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    presenceChannelRef.current?.track({ typing: false });
   }, []);
 
   const handleInputChange = (value: string) => {
     setMessage(value);
-    if (value.trim()) broadcastTyping();
+    if (value.trim() && inputFocused) broadcastTyping();
   };
 
   const sendMessage = async () => {
