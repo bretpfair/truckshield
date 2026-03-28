@@ -523,6 +523,32 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                 No activity in {STALE_DAYS}+ days
                               </div>
                             )}
+                            {isAdmin && staffMembers && staffMembers.length > 0 && (
+                              <div className="space-y-1 pt-1 border-t border-border">
+                                <p className="text-[10px] font-mono uppercase text-muted-foreground">Assigned Producer</p>
+                                <Select
+                                  value={account.assigned_producer_id || "unassigned"}
+                                  onValueChange={(val) => {
+                                    assignProducer.mutate({
+                                      accountId: account.id,
+                                      producerId: val === "unassigned" ? null : val,
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    {staffMembers.map((s) => (
+                                      <SelectItem key={s.userId} value={s.userId}>
+                                        {s.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
                           </div>
                         </HoverCardContent>
                       </HoverCard>
