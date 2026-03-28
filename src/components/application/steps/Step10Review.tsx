@@ -47,7 +47,7 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
   const sections = [
     { name: "Applicant Info", step: 1, complete: !!(formData.dot_number && formData.company_name && formData.mailing_address) },
     { name: "Coverage", step: 2, complete: !!(formData.coverage_selections?.primary_bipd) },
-    { name: "Radius & Operations", step: 3, complete: (formData.radius_operations || []).length > 0 && formData.radius_operations?.[0]?.max_radius },
+    { name: "Radius & Operations", step: 3, complete: (formData.radius_operations || []).length > 0 && !!(formData.radius_operations?.[0]?.operation_type || formData.radius_operations?.[0]?.annual_mileage) },
     { name: "Commodities", step: 4, complete: Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0 },
     { name: "Power Units", step: 5, complete: (powerUnits?.length || 0) > 0 },
     { name: "Trailers", step: 6, complete: (trailers?.length || 0) > 0 },
