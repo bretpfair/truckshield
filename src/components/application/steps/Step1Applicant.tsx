@@ -71,6 +71,49 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
       if (carrier.total_trucks != null) updates.total_trucks = carrier.total_trucks;
       if (carrier.total_drivers != null) updates.total_drivers = carrier.total_drivers;
 
+      // Map FMCSA cargo carried to commodity_info
+      if (Array.isArray(carrier.cargo_carried) && carrier.cargo_carried.length > 0) {
+        const COMMODITY_OPTIONS = [
+          "Agricultural/Farm Supplies", "Beverages", "Building Materials", "Chemicals",
+          "Coal/Coke", "Commodities Dry Bulk", "Construction", "Dirt / Sand / Gravel",
+          "Drive/Tow away", "Fresh Produce", "Garbage/Refuse", "General Freight",
+          "Grain, Feed, Hay", "Household Goods", "Intermodal Cont.", "Liquids/Gases",
+          "Livestock", "Logs, Poles, Beams, Lumber", "Machinery, Large Objects", "Meat",
+          "Metal: sheets, coils, rolls", "Mobile Homes", "Motor Vehicles", "Oilfield Equipment",
+          "Paper Products", "Passengers", "Refrigerated Food", "US Mail", "Utilities",
+          "Water Well", "Other",
+        ];
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+        const optionMap = new Map(COMMODITY_OPTIONS.map((o) => [normalize(o), o]));
+        const matched: string[] = [];
+        for (const raw of carrier.cargo_carried as string[]) {
+          const norm = normalize(raw);
+          const exact = optionMap.get(norm);
+          if (exact) {
+            matched.push(exact);
+          } else {
+            for (const [key, val] of optionMap) {
+              if (norm.includes(key) || key.includes(norm)) {
+                if (!matched.includes(val)) matched.push(val);
+                break;
+              }
+            }
+          }
+        }
+        if (matched.length > 0) {
+          const pct = Math.floor(100 / matched.length);
+          const remainder = 100 - pct * matched.length;
+          const selected: Record<string, string> = {};
+          matched.forEach((m, i) => {
+            selected[m] = (pct + (i === 0 ? remainder : 0)).toString();
+          });
+          updates.commodity_info = {
+            ...(formData.commodity_info || {}),
+            selected_commodities: selected,
+          };
+        }
+      }
+
       if (Object.keys(updates).length > 0) {
         updateFormData(updates);
         toast.success(`Imported data for ${carrier.company_name || "DOT " + dotNumber}`, {
