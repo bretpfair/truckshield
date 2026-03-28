@@ -301,9 +301,12 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
           <Paperclip className="h-4 w-4" />
         </Button>
         <Input
+          ref={inputRef}
           placeholder="Type a message..."
           value={message}
           onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
           className="flex-1"
         />
