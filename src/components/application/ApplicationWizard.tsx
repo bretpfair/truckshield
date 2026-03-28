@@ -87,9 +87,9 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       case 2: return !!(formData.coverage_selections?.primary_bipd);
       case 3: return (formData.radius_operations || []).length > 0 && !!(formData.radius_operations?.[0]?.operation_type || formData.radius_operations?.[0]?.annual_mileage);
       case 4: return Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0;
-      case 5: return (puData?.length || 0) > 0;
-      case 6: return (trData?.length || 0) > 0 || !!(formData.general_questions as any)?.no_trailers;
-      case 7: return (drData?.length || 0) > 0;
+      case 5: return (puData?.length || 0) > 0 || (formData.total_trucks || 0) > 0;
+      case 6: return (trData?.length || 0) > 0 || !!(formData.general_questions as any)?.no_trailers || (formData.total_owned_trailers || 0) > 0;
+      case 7: return (drData?.length || 0) > 0 || (formData.total_drivers || 0) > 0;
       case 8: return (lhData?.length || 0) > 0 || !!(formData.general_questions as any)?.new_venture;
       case 9: return Object.keys(formData.general_questions || {}).length >= 5;
       default: return true;
