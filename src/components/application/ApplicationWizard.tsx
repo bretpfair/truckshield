@@ -396,6 +396,7 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
               }
               toast({ title: "Application submitted!", description: "Your application has been received. Our team will begin working on it." });
               onSubmitComplete?.();
+            }}
             className="gap-2 bg-success hover:bg-success/90"
             disabled={!Array.from({ length: 9 }, (_, i) => i + 1).every(getStepComplete)}
           >
