@@ -51,6 +51,9 @@ interface Props {
 const SubmittedMarkets = ({ accountId, quotes }: Props) => {
   const [uploadDialog, setUploadDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
   const [infoRequestDialog, setInfoRequestDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [declineDialog, setDeclineDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
+  const [submittingDecline, setSubmittingDecline] = useState(false);
   const [infoRequestDetails, setInfoRequestDetails] = useState("");
   const [premiumAmount, setPremiumAmount] = useState("");
   const [quoteFile, setQuoteFile] = useState<File | null>(null);
