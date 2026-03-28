@@ -68,7 +68,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     queryKey: ["drivers", account.id],
     queryFn: async () => {
       if (isPreview) return [];
-      const { data } = await supabase.from("drivers").select("id").eq("account_id", account.id);
+      const { data } = await supabase.from("drivers").select("id,first_name,last_name,date_of_birth,license_number,license_state,driver_type").eq("account_id", account.id);
       return data || [];
     },
   });
@@ -89,7 +89,10 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       case 4: return Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0;
       case 5: return (puData?.length || 0) > 0 || (formData.total_trucks || 0) > 0;
       case 6: return (trData?.length || 0) > 0 || !!(formData.general_questions as any)?.no_trailers || (formData.total_owned_trailers || 0) > 0;
-      case 7: return (drData?.length || 0) > 0 || (formData.total_drivers || 0) > 0;
+      case 7: {
+        if ((drData?.length || 0) === 0) return (formData.total_drivers || 0) > 0;
+        return drData!.every((d: any) => d.first_name && d.last_name && d.date_of_birth && d.license_number && d.license_state && d.driver_type);
+      }
       case 8: return (lhData?.length || 0) > 0 || !!(formData.general_questions as any)?.new_venture;
       case 9: return Object.keys(formData.general_questions || {}).length >= 5;
       default: return true;
