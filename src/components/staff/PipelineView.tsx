@@ -55,6 +55,7 @@ interface Account {
   current_coverage_expiry?: string | null;
   updated_at?: string;
   created_at?: string;
+  assigned_producer_id?: string | null;
 }
 
 interface Props {
