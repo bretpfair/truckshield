@@ -33,6 +33,7 @@ interface ApplicationWizardProps {
 }
 
 const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
+  const isPreview = !account?.id || !/^[0-9a-f]{8}-/.test(account.id);
   const [currentStep, setCurrentStep] = useState(account.application_step || 1);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -58,6 +59,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
 
   const updateAccount = useMutation({
     mutationFn: async (data: Record<string, any>) => {
+      if (isPreview) return; // Skip DB writes in preview mode
       const { error } = await supabase
         .from("accounts")
         .update({ ...data, application_step: currentStep })
