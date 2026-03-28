@@ -399,6 +399,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       toast({ title: "Marked as submitted" });
     },
+    onError: (err: any) => {
+      toast({ title: "Cannot submit", description: err.message, variant: "destructive" });
+    },
   });
 
   const submittedCarrierIds = existingQuotes?.map((q: any) => q.carrier_id) || [];
