@@ -1,28 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-
-const getCarrierLogoUrl = (logoPath: string | null) => {
-  if (!logoPath) return null;
-  const { data } = supabase.storage.from("carrier-logos").getPublicUrl(logoPath);
-  return data?.publicUrl || null;
-};
-
-const CarrierAvatar = ({ carrier, fallbackClass }: { carrier: any; fallbackClass?: string }) => {
-  const logoUrl = getCarrierLogoUrl(carrier?.logo_path);
-  if (logoUrl) {
-    return (
-      <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden border border-border">
-        <img src={logoUrl} alt={carrier?.name || "Carrier"} className="h-6 w-6 object-contain" />
-      </div>
-    );
-  }
-  return (
-    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${fallbackClass || "bg-primary/10"}`}>
-      <Building className="h-4 w-4 text-primary" />
-    </div>
-  );
-};
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +12,36 @@ import {
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 import DocumentHub from "@/components/staff/DocumentHub";
-
+import InfoRequestBanner from "@/components/client/InfoRequestBanner";
+import JourneyTimeline from "@/components/client/JourneyTimeline";
+import PolicyRenewalCard from "@/components/client/PolicyRenewalCard";
 import { WIZARD_STEPS } from "@/components/application/constants";
+
+/* ── helpers ─────────────────────────────────────────── */
+
+const getCarrierLogoUrl = (logoPath: string | null) => {
+  if (!logoPath) return null;
+  const { data } = supabase.storage.from("carrier-logos").getPublicUrl(logoPath);
+  return data?.publicUrl || null;
+};
+
+const CarrierAvatar = ({ carrier, fallbackClass }: { carrier: any; fallbackClass?: string }) => {
+  const logoUrl = getCarrierLogoUrl(carrier?.logo_path);
+  if (logoUrl) {
+    return (
+      <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center overflow-hidden border border-border">
+        <img src={logoUrl} alt={carrier?.name || "Carrier"} className="h-6 w-6 object-contain" />
+      </div>
+    );
+  }
+  return (
+    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${fallbackClass || "bg-primary/10"}`}>
+      <Building className="h-4 w-4 text-primary" />
+    </div>
+  );
+};
+
+/* ── config ──────────────────────────────────────────── */
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending_info: { label: "Pending Information", color: "bg-warning/10 text-warning border-warning/30", icon: Clock },
@@ -50,11 +56,13 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 const quoteStatusConfig: Record<string, { label: string; color: string }> = {
   submitted: { label: "Submitted", color: "bg-primary/10 text-primary border-primary/20" },
   reviewing: { label: "Under Review", color: "bg-warning/10 text-warning border-warning/20" },
-  info_requested: { label: "Additional Info Needed", color: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+  info_requested: { label: "Additional Info Needed", color: "bg-warning/10 text-warning border-warning/20" },
   quoted: { label: "Quoted", color: "bg-success/10 text-success border-success/20" },
   bound: { label: "Bound", color: "bg-success/20 text-success border-success/30" },
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/20" },
 };
+
+/* ── component ───────────────────────────────────────── */
 
 interface ClientPortalProps {
   onSetMessagingAccount?: (accountId: string) => void;
@@ -136,6 +144,8 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
     },
   });
 
+  /* ── loading / empty states ─────────────────────────── */
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -160,7 +170,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
 
   if (showWizard) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
+      <div className="max-w-4xl mx-auto space-y-4 animate-fade-in px-2 sm:px-0">
         <Button variant="ghost" size="sm" onClick={() => setShowWizard(false)} className="gap-1.5 text-muted-foreground">
           ← Back to Dashboard
         </Button>
@@ -173,25 +183,29 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
   const appProgress = Math.round((appStep / WIZARD_STEPS.length) * 100);
   const currentStepName = WIZARD_STEPS.find((s) => s.id === appStep)?.title ?? "Getting Started";
   const isComplete = ["info_complete", "quoting", "quoted", "bound"].includes(account.status);
+  const isBound = account.status === "bound";
   const statusInfo = statusConfig[account.status] ?? statusConfig.lead;
   const StatusIcon = statusInfo.icon;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-      {/* Welcome Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{account.company_name}</h1>
-          {account.dba_name && <p className="text-sm text-muted-foreground font-mono">DBA: {account.dba_name}</p>}
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 animate-fade-in px-1 sm:px-0">
+      {/* ── Persistent Info Request Banner ── */}
+      <InfoRequestBanner accountId={account.id} />
+
+      {/* ── Welcome Header ── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">{account.company_name}</h1>
+          {account.dba_name && <p className="text-sm text-muted-foreground font-mono truncate">DBA: {account.dba_name}</p>}
         </div>
-        <Badge variant="outline" className={`${statusInfo.color} gap-1.5 text-sm px-3 py-1.5`}>
+        <Badge variant="outline" className={`${statusInfo.color} gap-1.5 text-sm px-3 py-1.5 self-start sm:self-auto shrink-0`}>
           <StatusIcon className="h-3.5 w-3.5" />
           {statusInfo.label}
         </Badge>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ── Quick Stats (responsive grid) ── */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         {[
           { label: "DOT Number", value: account.dot_number || "—", icon: Truck },
           { label: "Fleet Size", value: powerUnits?.length ?? account.fleet_size ?? "—", icon: Package },
@@ -199,76 +213,92 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
           { label: "Operating States", value: account.operating_states?.length ?? "—", icon: MapPin },
         ].map((stat) => (
           <Card key={stat.label} className="glass-panel">
-            <CardContent className="p-4 flex items-center gap-3">
-              <stat.icon className="h-5 w-5 text-primary opacity-70" />
-              <div>
-                <p className="text-lg font-bold text-foreground">{stat.value}</p>
-                <p className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider">{stat.label}</p>
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <stat.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary opacity-70 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-base sm:text-lg font-bold text-foreground truncate">{stat.value}</p>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground font-mono uppercase tracking-wider truncate">{stat.label}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Application Progress */}
-      <Card className="glass-panel">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+      {/* ── Journey Timeline (replaces step chips when submitted) ── */}
+      {isComplete && (
+        <Card className="glass-panel">
+          <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Application Progress</CardTitle>
+              <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Your Journey</CardTitle>
             </div>
-            <span className="text-sm font-bold text-primary">{appProgress}%</span>
-          </div>
-          <CardDescription className="text-xs">
-            {isComplete ? "Your application has been submitted and is being reviewed." : `Currently on: ${currentStepName}`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Progress value={appProgress} className="h-2" />
-          <div className="flex flex-wrap gap-1.5">
-            {WIZARD_STEPS.map((step) => (
-              <span
-                key={step.id}
-                className={`text-[10px] font-mono px-2 py-1 rounded border ${
-                  step.id < appStep
-                    ? "bg-success/10 text-success border-success/20"
-                    : step.id === appStep
-                    ? "bg-primary/15 text-primary border-primary/30"
-                    : "bg-secondary text-muted-foreground border-border"
-                }`}
-              >
-                {step.id < appStep ? "✓" : step.id} {step.shortTitle}
-              </span>
-            ))}
-          </div>
-          {!isComplete && (
+          </CardHeader>
+          <CardContent className="pt-2">
+            <JourneyTimeline accountStatus={account.status} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Policy Renewal Tracking (bound only) ── */}
+      {isBound && <PolicyRenewalCard currentCoverageExpiry={account.current_coverage_expiry} />}
+
+      {/* ── Application Progress (pre-submit only) ── */}
+      {!isComplete && (
+        <Card className="glass-panel">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-primary" />
+                <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">Application Progress</CardTitle>
+              </div>
+              <span className="text-sm font-bold text-primary">{appProgress}%</span>
+            </div>
+            <CardDescription className="text-xs">Currently on: {currentStepName}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Progress value={appProgress} className="h-2" />
+            <div className="flex flex-wrap gap-1 sm:gap-1.5">
+              {WIZARD_STEPS.map((step) => (
+                <span
+                  key={step.id}
+                  className={`text-[9px] sm:text-[10px] font-mono px-1.5 sm:px-2 py-0.5 sm:py-1 rounded border ${
+                    step.id < appStep
+                      ? "bg-success/10 text-success border-success/20"
+                      : step.id === appStep
+                      ? "bg-primary/15 text-primary border-primary/30"
+                      : "bg-secondary text-muted-foreground border-border"
+                  }`}
+                >
+                  {step.id < appStep ? "✓" : step.id} {step.shortTitle}
+                </span>
+              ))}
+            </div>
             <Button onClick={() => setShowWizard(true)} className="w-full sm:w-auto gap-2">
               {appStep > 1 ? "Continue Application" : "Start Application"}
               <ChevronRight className="h-4 w-4" />
             </Button>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Action Needed */}
+      {/* ── Action Needed ── */}
       {actionNeededQuotes.length > 0 && (
-        <Card className="glass-panel border-amber-500/30 bg-amber-500/5">
+        <Card className="glass-panel border-warning/30 bg-warning/5">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <CardTitle className="text-sm font-mono uppercase tracking-wider text-amber-600">Action Needed</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <CardTitle className="text-sm font-mono uppercase tracking-wider text-warning">Action Needed</CardTitle>
             </div>
             <CardDescription className="text-xs">These carriers have requested additional information</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {actionNeededQuotes.map((q: any) => (
-                <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
-                  <CarrierAvatar carrier={q.carriers} fallbackClass="bg-amber-500/20" />
+                <div key={q.id} className="flex items-center gap-3 p-3 rounded-md bg-warning/10 border border-warning/20">
+                  <CarrierAvatar carrier={q.carriers} fallbackClass="bg-warning/20" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
-                    <p className="text-[11px] text-amber-600 font-mono">Additional info requested</p>
+                    <p className="text-[11px] text-warning font-mono">Additional info requested</p>
                   </div>
                 </div>
               ))}
@@ -277,7 +307,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
         </Card>
       )}
 
-      {/* Carriers Reviewing */}
+      {/* ── Carriers Reviewing ── */}
       <Card className="glass-panel">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -288,7 +318,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
         </CardHeader>
         <CardContent>
           {reviewingQuotes.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {reviewingQuotes.map((q: any) => {
                 const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.submitted;
                 return (
@@ -298,7 +328,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
                       <p className="font-medium text-sm text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
                       <p className="text-[11px] text-muted-foreground font-mono">{cfg.label}</p>
                     </div>
-                    <span className="relative flex h-2.5 w-2.5">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
                     </span>
@@ -317,7 +347,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
         </CardContent>
       </Card>
 
-      {/* Quotes Section */}
+      {/* ── Quotes ── */}
       <Card className="glass-panel">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -327,24 +357,24 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
         </CardHeader>
         <CardContent>
           {completedQuotes.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {completedQuotes.map((q: any) => {
                 const cfg = quoteStatusConfig[q.status] ?? quoteStatusConfig.quoted;
                 return (
-                  <div key={q.id} className="flex items-center justify-between p-4 rounded-md bg-secondary/50 border border-border">
-                    <div>
-                      <p className="font-semibold text-foreground">{q.carriers?.name ?? "Carrier"}</p>
+                  <div key={q.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-md bg-secondary/50 border border-border gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground truncate">{q.carriers?.name ?? "Carrier"}</p>
                       <div className="flex gap-3 text-xs text-muted-foreground font-mono mt-1">
                         {q.premium_estimate && <span>Premium: ${Number(q.premium_estimate).toLocaleString()}</span>}
                       </div>
                     </div>
-                    <Badge variant="outline" className={cfg.color}>{cfg.label}</Badge>
+                    <Badge variant="outline" className={`${cfg.color} shrink-0 self-start sm:self-auto`}>{cfg.label}</Badge>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="text-center py-8">
+            <div className="text-center py-6 sm:py-8">
               <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
                 {isComplete ? "Your application is under review. Quotes will appear here once available." : "Complete your application to receive quotes from carriers."}
@@ -378,9 +408,8 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
         </CardContent>
       </Card>
 
-      {/* Documents */}
+      {/* ── Documents ── */}
       <DocumentHub accountId={account.id} readOnly={false} />
-
     </div>
   );
 };
