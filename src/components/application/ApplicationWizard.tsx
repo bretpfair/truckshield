@@ -370,7 +370,11 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
             Next <ChevronRight className="h-4 w-4" />
           </Button>
         ) : (
-          <Button onClick={() => handleSave({ ...formData, status: "info_complete" })} className="gap-2 bg-success hover:bg-success/90">
+          <Button
+            onClick={() => handleSave({ ...formData, status: "info_complete" })}
+            className="gap-2 bg-success hover:bg-success/90"
+            disabled={!Array.from({ length: 9 }, (_, i) => i + 1).every(getStepComplete)}
+          >
             <Check className="h-4 w-4" /> Submit Application
           </Button>
         )}
