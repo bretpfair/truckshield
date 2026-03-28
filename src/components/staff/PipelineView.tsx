@@ -176,6 +176,13 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   if (staleFilter) {
     filteredAccounts = filteredAccounts.filter(isStale);
   }
+  if (producerFilter !== "all") {
+    if (producerFilter === "unassigned") {
+      filteredAccounts = filteredAccounts.filter((a) => !a.assigned_producer_id);
+    } else {
+      filteredAccounts = filteredAccounts.filter((a) => a.assigned_producer_id === producerFilter);
+    }
+  }
 
   const moveAccount = useMutation({
     mutationFn: async ({ accountId, newStatus }: { accountId: string; newStatus: string }) => {
