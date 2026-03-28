@@ -386,5 +386,3 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
 };
 
 export default ClientPortal;
-
-export default ClientPortal;
