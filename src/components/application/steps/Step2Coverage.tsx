@@ -93,7 +93,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
         <p className="text-sm text-muted-foreground font-mono">Select your coverage types and limits</p>
       </div>
 
-      {/* Primary Coverage */}
+      {/* AUTO LIABILITY LIMITS */}
       <div>
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Primary Coverage</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -107,7 +107,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>ICC Filing Required?</Label>
+            <Label>DOT Filing Required?</Label>
             <Select value={coverage.icc_filing || ""} onValueChange={(v) => setCoverage("icc_filing", v)}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
@@ -128,7 +128,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
           </div>
           {coverage.state_filing === "Yes" && (
             <div className="space-y-2">
-              <Label>Number of State Filings</Label>
+              <Label>CA # or Other State ID</Label>
               <Input type="number" value={coverage.num_state_filings || ""} onChange={(e) => setCoverage("num_state_filings", e.target.value)} />
             </div>
           )}
