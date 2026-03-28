@@ -51,7 +51,7 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
     { name: "Commodities", step: 4, complete: Object.keys(formData.commodity_info?.selected_commodities || {}).length > 0 },
     { name: "Power Units", step: 5, complete: (powerUnits?.length || 0) > 0 || (formData.total_trucks || 0) > 0 },
     { name: "Trailers", step: 6, complete: (trailers?.length || 0) > 0 || !!(formData.general_questions as any)?.no_trailers || (formData.total_owned_trailers || 0) > 0 },
-    { name: "Drivers", step: 7, complete: (drivers?.length || 0) > 0 || (formData.total_drivers || 0) > 0 },
+    { name: "Drivers", step: 7, complete: (drivers?.length || 0) > 0 && drivers!.every((d: any) => d.first_name && d.last_name && d.date_of_birth && d.license_number && d.license_state && d.driver_type) },
     { name: "Loss History", step: 8, complete: (lossHistory?.length || 0) > 0 || !!(formData.general_questions as any)?.new_venture },
     { name: "General Questions", step: 9, complete: Object.keys(formData.general_questions || {}).length >= 5 },
   ];
