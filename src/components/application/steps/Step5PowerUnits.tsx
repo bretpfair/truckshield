@@ -158,19 +158,58 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Debounced auto-save
+  // Debounced auto-save with save-on-unmount
   const [initialized, setInitialized] = useState(false);
+  const unitsRef = useRef(units);
+  const initializedRef = useRef(false);
+  const pendingSave = useRef(false);
+
+  useEffect(() => { unitsRef.current = units; }, [units]);
+
   useEffect(() => {
-    if (data) setInitialized(true);
+    if (data) {
+      setInitialized(true);
+      initializedRef.current = true;
+    }
   }, [data]);
+
+  const doSave = useCallback(async () => {
+    if (!initializedRef.current || unitsRef.current.length === 0) return;
+    pendingSave.current = false;
+    await saveMutation.mutateAsync();
+  }, [saveMutation]);
 
   useEffect(() => {
     if (!initialized || units.length === 0) return;
+    pendingSave.current = true;
     const timer = setTimeout(() => {
-      saveMutation.mutate();
+      doSave();
     }, 1500);
     return () => clearTimeout(timer);
   }, [units, initialized]);
+
+  // Save on unmount if there's a pending change
+  useEffect(() => {
+    return () => {
+      if (pendingSave.current && initializedRef.current && unitsRef.current.length > 0) {
+        // Fire-and-forget save on unmount
+        const toInsert = unitsRef.current.map((u, i) => ({
+          ...u,
+          account_id: account.id,
+          sort_order: i,
+          id: undefined,
+          created_at: undefined,
+          updated_at: undefined,
+          physdam_amount: u.physdam_amount ? parseFloat(u.physdam_amount) : null,
+        }));
+        supabase.from("power_units").delete().eq("account_id", account.id).then(() => {
+          supabase.from("power_units").insert(toInsert).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["power-units"] });
+          });
+        });
+      }
+    };
+  }, [account.id, queryClient]);
 
   const addUnit = () => setUnits([...units, { ...emptyUnit, account_id: account.id }]);
   const removeUnit = (idx: number) => setUnits(units.filter((_, i) => i !== idx));
