@@ -11,12 +11,14 @@ import { Check, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from "lucide
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { FileWarning } from "lucide-react";
 import Step1Applicant from "./steps/Step1Applicant";
 import Step2Coverage from "./steps/Step2Coverage";
 import Step3Radius from "./steps/Step3Radius";
@@ -39,6 +41,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [showRadiusError, setShowRadiusError] = useState(false);
   const [showCommodityError, setShowCommodityError] = useState(false);
+  const [showCabCardWarning, setShowCabCardWarning] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,7 +123,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     return Object.values(selected).reduce((sum, pct) => sum + (parseFloat(pct) || 0), 0);
   };
 
-  const handleNext = () => {
+  const checkCabCards = async (): Promise<boolean> => {
+    if (isPreview) return true;
+    const { data: powerUnits } = await supabase
+      .from("power_units")
+      .select("cab_card_path")
+      .eq("account_id", account.id);
+    if (!powerUnits || powerUnits.length === 0) return true;
+    const missing = powerUnits.some((u) => !u.cab_card_path);
+    return !missing;
+  };
+
+  const proceedFromStep = () => {
+    handleSave();
+    setCurrentStep((s: number) => Math.min(s + 1, WIZARD_STEPS.length));
+  };
+
+  const handleNext = async () => {
     if (currentStep === 3 && getRadiusTotal() !== 100) {
       setShowRadiusError(true);
       return;
@@ -129,8 +148,14 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
       setShowCommodityError(true);
       return;
     }
-    handleSave();
-    setCurrentStep((s: number) => Math.min(s + 1, WIZARD_STEPS.length));
+    if (currentStep === 5) {
+      const allHaveCabCards = await checkCabCards();
+      if (!allHaveCabCards) {
+        setShowCabCardWarning(true);
+        return;
+      }
+    }
+    proceedFromStep();
   };
 
   const handlePrev = () => {
@@ -259,6 +284,26 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setShowCommodityError(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCabCardWarning} onOpenChange={setShowCabCardWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FileWarning className="h-5 w-5 text-yellow-500" />
+              Missing Cab Card / Registration
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              One or more power units are missing a Cab Card or Registration upload. <strong>Some markets require a Cab Card or Registration to release quotes.</strong> Would you like to go back and upload them, or continue without?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowCabCardWarning(false)}>Go Back & Upload</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowCabCardWarning(false); proceedFromStep(); }}>
+              Continue Without
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
