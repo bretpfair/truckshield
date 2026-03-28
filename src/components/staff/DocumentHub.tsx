@@ -182,8 +182,8 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
           {!readOnly && (
             <>
               <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                <SelectTrigger className="w-[140px] h-8 text-xs">
-                  <SelectValue placeholder="Category" />
+                <SelectTrigger className={`w-[160px] h-8 text-xs ${!uploadCategory ? "border-destructive/50" : ""}`}>
+                  <SelectValue placeholder="Select type *" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.filter(c => c.value !== "all").map((c) => (
@@ -191,8 +191,8 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
                   ))}
                 </SelectContent>
               </Select>
-              <label className="cursor-pointer">
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" asChild disabled={uploading}>
+              <label className={!uploadCategory ? "pointer-events-none opacity-50" : "cursor-pointer"}>
+                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" asChild disabled={uploading || !uploadCategory}>
                   <span>
                     <Upload className="h-3 w-3" /> {uploading ? "Uploading..." : "Upload"}
                   </span>
