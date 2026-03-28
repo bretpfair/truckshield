@@ -287,6 +287,26 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={showCabCardWarning} onOpenChange={setShowCabCardWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FileWarning className="h-5 w-5 text-yellow-500" />
+              Missing Cab Card / Registration
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              One or more power units are missing a Cab Card or Registration upload. <strong>Some markets require a Cab Card or Registration to release quotes.</strong> Would you like to go back and upload them, or continue without?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowCabCardWarning(false)}>Go Back & Upload</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowCabCardWarning(false); proceedFromStep(); }}>
+              Continue Without
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
