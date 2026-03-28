@@ -205,31 +205,9 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
           </Select>
 
           {!readOnly && (
-            <>
-              <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                <SelectTrigger className={`w-[160px] h-8 text-xs ${!uploadCategory ? "border-destructive/50" : ""}`}>
-                  <SelectValue placeholder="Select type *" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.filter(c => c.value !== "all").map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className={!uploadCategory ? "pointer-events-none opacity-50" : "cursor-pointer"}>
-                <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" asChild disabled={uploading || !uploadCategory}>
-                  <span>
-                    <Upload className="h-3 w-3" /> {uploading ? "Uploading..." : "Upload"}
-                  </span>
-                </Button>
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
-                  onChange={(e) => handleUpload(e.target.files)}
-                />
-              </label>
+              <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={openUploadDialog}>
+                <Upload className="h-3 w-3" /> Upload
+              </Button>
             </>
           )}
 
