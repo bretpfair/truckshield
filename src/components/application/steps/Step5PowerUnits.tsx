@@ -139,15 +139,15 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     mutationFn: async () => {
       // Delete existing then insert all
       await supabase.from("power_units").delete().eq("account_id", account.id);
-      const toInsert = units.map((u, i) => ({
-        ...u,
-        account_id: account.id,
-        sort_order: i,
-        id: undefined,
-        created_at: undefined,
-        updated_at: undefined,
-        physdam_amount: u.physdam_amount ? parseFloat(u.physdam_amount) : null,
-      }));
+      const toInsert = units.map((u, i) => {
+        const { id, created_at, updated_at, ...rest } = u;
+        return {
+          ...rest,
+          account_id: account.id,
+          sort_order: i,
+          physdam_amount: u.physdam_amount ? parseFloat(u.physdam_amount) : null,
+        };
+      });
       const { error } = await supabase.from("power_units").insert(toInsert);
       if (error) throw error;
     },
@@ -193,15 +193,15 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     return () => {
       if (pendingSave.current && initializedRef.current && unitsRef.current.length > 0) {
         // Fire-and-forget save on unmount
-        const toInsert = unitsRef.current.map((u, i) => ({
-          ...u,
-          account_id: account.id,
-          sort_order: i,
-          id: undefined,
-          created_at: undefined,
-          updated_at: undefined,
-          physdam_amount: u.physdam_amount ? parseFloat(u.physdam_amount) : null,
-        }));
+        const toInsert = unitsRef.current.map((u, i) => {
+          const { id, created_at, updated_at, ...rest } = u;
+          return {
+            ...rest,
+            account_id: account.id,
+            sort_order: i,
+            physdam_amount: u.physdam_amount ? parseFloat(u.physdam_amount) : null,
+          };
+        });
         supabase.from("power_units").delete().eq("account_id", account.id).then(() => {
           supabase.from("power_units").insert(toInsert).then(() => {
             queryClient.invalidateQueries({ queryKey: ["power-units"] });
