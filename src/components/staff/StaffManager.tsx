@@ -88,12 +88,24 @@ const StaffManager = () => {
       const roleMap = new Map((roles || []).map((r) => [r.user_id, r.role]));
 
       // Build list from invitations as the source of truth
+      // First pass: group invitations by email, preferring accepted over pending
+      const invByEmail = new Map<string, typeof invitations[number]>();
+      for (const inv of invitations || []) {
+        const email = inv.email.toLowerCase();
+        const existing = invByEmail.get(email);
+        if (!existing) {
+          invByEmail.set(email, inv);
+        } else if (inv.status === "accepted" && existing.status !== "accepted") {
+          // Prefer accepted invitation
+          invByEmail.set(email, inv);
+        }
+      }
+
       const members: StaffMember[] = [];
       const seenEmails = new Set<string>();
 
-      for (const inv of invitations || []) {
+      for (const inv of invByEmail.values()) {
         const email = inv.email.toLowerCase();
-        if (seenEmails.has(email)) continue; // skip older dupes
         seenEmails.add(email);
 
         const isExpired = new Date(inv.expires_at) < new Date() && inv.status === "pending";
@@ -105,12 +117,10 @@ const StaffManager = () => {
         let currentRole = (inv.invited_role || "producer") as "admin" | "producer";
 
         if (effectiveStatus === "accepted") {
-          // Find the user by matching email in profiles
           const matchedProfile = profiles.find((p) => p.email?.toLowerCase() === email);
           if (matchedProfile) {
             userId = matchedProfile.user_id;
             profile = matchedProfile;
-            // Use current role from user_roles (may have been changed after invite)
             const liveRole = roleMap.get(userId!);
             if (liveRole) currentRole = liveRole as "admin" | "producer";
           }
@@ -129,16 +139,33 @@ const StaffManager = () => {
       }
 
       // Also include any staff with roles who weren't invited through the system (e.g. first admin)
+      // Build a map of user_id -> invitation email for accepted invitations (fallback when profile is empty)
+      const acceptedInvEmailMap = new Map<string, string>();
+      for (const m of members) {
+        if (m.user_id && m.status === "accepted") {
+          acceptedInvEmailMap.set(m.user_id, m.email);
+        }
+      }
+
       for (const r of roles || []) {
         const p = profileMap.get(r.user_id);
         const email = p?.email?.toLowerCase();
+        // Check if this user was already added via invitation matching
         if (email && seenEmails.has(email)) continue;
-        if (email) seenEmails.add(email);
+        // Also check if user_id is already in the list from accepted invitations
+        const alreadyListed = members.some((m) => m.user_id === r.user_id);
+        if (alreadyListed) continue;
+
+        // Try to find an invitation email for this user as a fallback
+        const fallbackEmail = acceptedInvEmailMap.get(r.user_id);
+        const displayEmail = email || fallbackEmail || r.user_id;
+        if (displayEmail && displayEmail !== r.user_id) seenEmails.add(displayEmail);
+
         members.unshift({
           user_id: r.user_id,
           role: r.role as "admin" | "producer",
           full_name: p?.full_name ?? null,
-          email: email || r.user_id,
+          email: displayEmail,
           phone: p?.phone ?? null,
           company_name: p?.company_name ?? null,
           status: "accepted",
