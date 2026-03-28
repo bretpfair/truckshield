@@ -122,12 +122,14 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     },
   });
 
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
-    if (data) {
+    if (data && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
       if (data.length > 0) {
         setUnits(data);
       } else {
-        // Auto-create rows based on total_trucks from Section 1
         const targetCount = Math.max(1, Math.min(parentFormData?.total_trucks || 1, 100));
         const rows = Array.from({ length: targetCount }, () => ({ ...emptyUnit, account_id: account.id }));
         setUnits(rows);
