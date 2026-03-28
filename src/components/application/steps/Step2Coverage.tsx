@@ -12,6 +12,8 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+
 const SUPPLEMENTAL_COVERAGES = [
   {
     key: "general_liability",
@@ -78,7 +80,6 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
 
   const toggleSupplemental = (key: string, checked: boolean) => {
     const updated = { ...coverage, [key]: checked };
-    // Clear follow-up fields when unchecked
     if (!checked) {
       const def = SUPPLEMENTAL_COVERAGES.find(c => c.key === key);
       def?.fields.forEach(f => { updated[f.key] = undefined; });
@@ -100,7 +101,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
           <div className="space-y-2">
             <Label>Primary BI-PD Limit</Label>
             <Select value={coverage.primary_bipd || ""} onValueChange={(v) => setCoverage("primary_bipd", v)}>
-              <SelectTrigger><SelectValue placeholder="Select limit" /></SelectTrigger>
+              <SelectTrigger className={req(coverage.primary_bipd)}><SelectValue placeholder="Select limit" /></SelectTrigger>
               <SelectContent>
                 {PRIMARY_BIPD_LIMITS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
               </SelectContent>
@@ -109,7 +110,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
           <div className="space-y-2">
             <Label>DOT Filing Required?</Label>
             <Select value={coverage.icc_filing || ""} onValueChange={(v) => setCoverage("icc_filing", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger className={req(coverage.icc_filing)}><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Yes">Yes</SelectItem>
                 <SelectItem value="No">No</SelectItem>
@@ -119,7 +120,7 @@ const Step2Coverage = ({ formData, updateFormData }: StepProps) => {
           <div className="space-y-2">
             <Label>State Filing Required?</Label>
             <Select value={coverage.state_filing || ""} onValueChange={(v) => setCoverage("state_filing", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger className={req(coverage.state_filing)}><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Yes">Yes</SelectItem>
                 <SelectItem value="No">No</SelectItem>

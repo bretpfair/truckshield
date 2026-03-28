@@ -11,6 +11,8 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+
 const RADIUS_RANGES = [
   { key: "under_50", label: "Under 50 Miles", helper: "% of Hauls up to 50 Miles" },
   { key: "51_200", label: "51-200 Miles", helper: "% of Hauls 51-200 miles" },
@@ -56,7 +58,7 @@ const Step3Radius = ({ formData, updateFormData }: StepProps) => {
             Please indicate if your operations are within one state or across state lines (Must match their MCS-150 as shown on SAFER)
           </p>
           <Select value={radius.operation_type || ""} onValueChange={(v) => updateField("operation_type", v)}>
-            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+            <SelectTrigger className={req(radius.operation_type)}><SelectValue placeholder="Select type" /></SelectTrigger>
             <SelectContent>
               {OPERATION_TYPES.map((t) => (
                 <SelectItem key={t} value={t}>{t}</SelectItem>
@@ -72,6 +74,7 @@ const Step3Radius = ({ formData, updateFormData }: StepProps) => {
             Subject to ongoing inspection via telematics and DOT data. Routes can change over time and mileage and radius must be updated as well by endorsement.
           </p>
           <Input
+            className={req(radius.annual_mileage)}
             type="number"
             value={radius.annual_mileage || ""}
             onChange={(e) => updateField("annual_mileage", e.target.value)}
@@ -107,6 +110,7 @@ const Step3Radius = ({ formData, updateFormData }: StepProps) => {
               <Label className="text-sm">{range.label}</Label>
               <div className="flex items-center gap-2">
                 <Input
+                  className={total !== 100 ? req(radius.radius_details?.[range.key]) : ""}
                   type="number"
                   value={radius.radius_details?.[range.key] || ""}
                   onChange={(e) => updateRadiusPct(range.key, e.target.value)}

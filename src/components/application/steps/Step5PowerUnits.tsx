@@ -17,6 +17,8 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+
 const emptyUnit = {
   vin: "", gvw_class: "", truck_type: "", is_service_vehicle: false,
   year: "", make: "", model: "", titled_state: "", garage_zip: "",
@@ -34,7 +36,7 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
 
   const handleFileUpload = useCallback(async (file: File, idx: number) => {
     if (!file) return;
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       toast({ title: "File too large", description: "Max file size is 10MB", variant: "destructive" });
       return;
@@ -139,7 +141,6 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Delete existing then insert all
       await supabase.from("power_units").delete().eq("account_id", account.id);
       const currentUnits = unitsRef.current;
       const toInsert = currentUnits.map((u, i) => {
@@ -161,18 +162,13 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Track user edits vs initialization
   const dirtyRef = useRef(false);
   const unitsRef = useRef(units);
   const initializedRef = useRef(false);
 
   useEffect(() => { unitsRef.current = units; }, [units]);
+  useEffect(() => { if (data) initializedRef.current = true; }, [data]);
 
-  useEffect(() => {
-    if (data) initializedRef.current = true;
-  }, [data]);
-
-  // Debounced auto-save — only fires when dirty
   useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
@@ -182,7 +178,6 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     return () => clearTimeout(timer);
   }, [units]);
 
-  // Save on unmount if dirty
   useEffect(() => {
     return () => {
       if (dirtyRef.current && initializedRef.current && unitsRef.current.length > 0) {
@@ -242,6 +237,7 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
               <Label className="text-xs">VIN</Label>
               <div className="relative">
                 <Input
+                  className={req(unit.vin)}
                   value={unit.vin || ""}
                   onChange={(e) => updateUnit(idx, "vin", e.target.value.toUpperCase())}
                   onBlur={(e) => decodeVin(e.target.value, idx)}
@@ -256,25 +252,25 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
             <div className="space-y-1">
               <Label className="text-xs">GVW Class</Label>
               <Select value={unit.gvw_class || ""} onValueChange={(v) => updateUnit(idx, "gvw_class", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className={req(unit.gvw_class)}><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>{GVW_CLASSES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Truck Type</Label>
               <Select value={unit.truck_type || ""} onValueChange={(v) => updateUnit(idx, "truck_type", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className={req(unit.truck_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>{TRUCK_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Year</Label>
-              <Input value={unit.year || ""} onChange={(e) => updateUnit(idx, "year", e.target.value)} placeholder="2024" maxLength={4} />
+              <Input className={req(unit.year)} value={unit.year || ""} onChange={(e) => updateUnit(idx, "year", e.target.value)} placeholder="2024" maxLength={4} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Make</Label>
               <Select value={unit.make || ""} onValueChange={(v) => updateUnit(idx, "make", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className={req(unit.make)}><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>{TRUCK_MAKES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
               </Select>
             </div>
@@ -285,13 +281,13 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
             <div className="space-y-1">
               <Label className="text-xs">Titled State</Label>
               <Select value={unit.titled_state || ""} onValueChange={(v) => updateUnit(idx, "titled_state", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className={req(unit.titled_state)}><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Garage ZIP</Label>
-              <Input value={unit.garage_zip || ""} onChange={(e) => updateUnit(idx, "garage_zip", e.target.value)} />
+              <Input className={req(unit.garage_zip)} value={unit.garage_zip || ""} onChange={(e) => updateUnit(idx, "garage_zip", e.target.value)} />
             </div>
           </div>
           <div className="flex flex-wrap gap-4">

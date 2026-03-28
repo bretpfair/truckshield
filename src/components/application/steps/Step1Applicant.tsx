@@ -17,9 +17,12 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+
 const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [dotDuplicate, setDotDuplicate] = useState<{ company_name: string; id: string } | null>(null);
+  const isNewVenture = !!(formData.general_questions as any)?.new_venture;
 
   const checkDotDuplicate = async (dotNumber: string) => {
     const clean = dotNumber.trim();
@@ -59,7 +62,6 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
       const carrier = data.data;
       const updates: Record<string, any> = {};
 
-      // Only fill fields that have data from FMCSA
       if (carrier.company_name) updates.company_name = carrier.company_name;
       if (carrier.dba_name) updates.dba_name = carrier.dba_name;
       if (carrier.mc_number) updates.mc_number = carrier.mc_number;
@@ -72,7 +74,6 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
       if (carrier.total_trucks != null) updates.total_trucks = carrier.total_trucks;
       if (carrier.total_drivers != null) updates.total_drivers = carrier.total_drivers;
 
-      // Map FMCSA cargo carried to commodity_info
       if (Array.isArray(carrier.cargo_carried) && carrier.cargo_carried.length > 0) {
         const COMMODITY_OPTIONS = [
           "Agricultural/Farm Supplies", "Beverages", "Building Materials", "Chemicals",
@@ -143,12 +144,12 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Requested Effective Date</Label>
-          <Input type="date" value={formData.requested_effective_date || ""} onChange={(e) => updateFormData({ requested_effective_date: e.target.value })} />
+          <Input className={req(formData.requested_effective_date)} type="date" value={formData.requested_effective_date || ""} onChange={(e) => updateFormData({ requested_effective_date: e.target.value })} />
         </div>
         <div className="space-y-2">
           <Label>DOT Number</Label>
           <div className="flex gap-2">
-            <Input value={formData.dot_number || ""} onChange={(e) => { updateFormData({ dot_number: e.target.value }); checkDotDuplicate(e.target.value); }} placeholder="1234567" />
+            <Input className={req(formData.dot_number)} value={formData.dot_number || ""} onChange={(e) => { updateFormData({ dot_number: e.target.value }); checkDotDuplicate(e.target.value); }} placeholder="1234567" />
             <Button
               type="button"
               variant="outline"
@@ -174,7 +175,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         </div>
         <div className="space-y-2">
           <Label>Applicant Name (Legal Entity)</Label>
-          <Input value={formData.company_name || ""} onChange={(e) => updateFormData({ company_name: e.target.value })} placeholder="Company legal name" />
+          <Input className={req(formData.company_name)} value={formData.company_name || ""} onChange={(e) => updateFormData({ company_name: e.target.value })} placeholder="Company legal name" />
         </div>
         <div className="space-y-2">
           <Label>DBA Name</Label>
@@ -182,7 +183,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         </div>
         <div className="space-y-2">
           <Label>EIN / Tax ID#</Label>
-          <Input value={formData.ein_tax_id || ""} onChange={(e) => updateFormData({ ein_tax_id: e.target.value })} placeholder="XX-XXXXXXX" />
+          <Input className={req(formData.ein_tax_id)} value={formData.ein_tax_id || ""} onChange={(e) => updateFormData({ ein_tax_id: e.target.value })} placeholder="XX-XXXXXXX" />
         </div>
       </div>
 
@@ -192,15 +193,15 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
           <div className="space-y-2">
             <Label>Contact Name</Label>
-            <Input value={formData.business_owner_name || ""} onChange={(e) => updateFormData({ business_owner_name: e.target.value })} placeholder="Full name" />
+            <Input className={req(formData.business_owner_name)} value={formData.business_owner_name || ""} onChange={(e) => updateFormData({ business_owner_name: e.target.value })} placeholder="Full name" />
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input type="email" value={formData.contact_email || ""} onChange={(e) => updateFormData({ contact_email: e.target.value })} placeholder="email@example.com" />
+            <Input className={req(formData.contact_email)} type="email" value={formData.contact_email || ""} onChange={(e) => updateFormData({ contact_email: e.target.value })} placeholder="email@example.com" />
           </div>
           <div className="space-y-2">
             <Label>Phone</Label>
-            <Input type="tel" value={formData.contact_phone || ""} onChange={(e) => updateFormData({ contact_phone: e.target.value })} placeholder="(555) 555-5555" />
+            <Input className={req(formData.contact_phone)} type="tel" value={formData.contact_phone || ""} onChange={(e) => updateFormData({ contact_phone: e.target.value })} placeholder="(555) 555-5555" />
           </div>
         </div>
       </div>
@@ -211,16 +212,16 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           <div className="space-y-2 md:col-span-2">
             <Label>Street Address</Label>
-            <Input value={formData.mailing_address || ""} onChange={(e) => updateFormData({ mailing_address: e.target.value })} />
+            <Input className={req(formData.mailing_address)} value={formData.mailing_address || ""} onChange={(e) => updateFormData({ mailing_address: e.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>City</Label>
-            <Input value={formData.mailing_city || ""} onChange={(e) => updateFormData({ mailing_city: e.target.value })} />
+            <Input className={req(formData.mailing_city)} value={formData.mailing_city || ""} onChange={(e) => updateFormData({ mailing_city: e.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>State</Label>
             <Select value={formData.mailing_state || ""} onValueChange={(v) => updateFormData({ mailing_state: v })}>
-              <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+              <SelectTrigger className={req(formData.mailing_state)}><SelectValue placeholder="Select state" /></SelectTrigger>
               <SelectContent>
                 {US_STATES.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
               </SelectContent>
@@ -228,7 +229,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
           </div>
           <div className="space-y-2">
             <Label>ZIP Code</Label>
-            <Input value={formData.mailing_zip || ""} onChange={(e) => updateFormData({ mailing_zip: e.target.value })} placeholder="12345" maxLength={5} />
+            <Input className={req(formData.mailing_zip)} value={formData.mailing_zip || ""} onChange={(e) => updateFormData({ mailing_zip: e.target.value })} placeholder="12345" maxLength={5} />
           </div>
           <div className="space-y-2">
             <Label>County</Label>
@@ -243,11 +244,11 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           <div className="space-y-2">
             <Label>Full Name</Label>
-            <Input value={formData.business_owner_name || ""} onChange={(e) => updateFormData({ business_owner_name: e.target.value })} />
+            <Input className={req(formData.business_owner_name)} value={formData.business_owner_name || ""} onChange={(e) => updateFormData({ business_owner_name: e.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Date of Birth</Label>
-            <Input type="date" value={formData.business_owner_dob || ""} onChange={(e) => updateFormData({ business_owner_dob: e.target.value })} />
+            <Input className={req(formData.business_owner_dob)} type="date" value={formData.business_owner_dob || ""} onChange={(e) => updateFormData({ business_owner_dob: e.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Driver's License #</Label>
@@ -284,7 +285,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
           <div className="space-y-2">
             <Label>Business Type</Label>
             <Select value={formData.business_type || ""} onValueChange={(v) => updateFormData({ business_type: v })}>
-              <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectTrigger className={req(formData.business_type)}><SelectValue placeholder="Select type" /></SelectTrigger>
               <SelectContent>
                 {BUSINESS_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
@@ -301,20 +302,21 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Years in Business</Label>
-          <Input type="number" value={formData.years_in_business ?? ""} onChange={(e) => updateFormData({ years_in_business: e.target.value ? parseInt(e.target.value) : null })} placeholder="0" min={0} />
+          <Input className={req(formData.years_in_business)} type="number" value={formData.years_in_business ?? ""} onChange={(e) => updateFormData({ years_in_business: e.target.value ? parseInt(e.target.value) : null })} placeholder="0" min={0} />
         </div>
         <div className="space-y-2">
           <Label>Current Coverage Expiry Date</Label>
           <Input
+            className={!isNewVenture ? req(formData.current_coverage_expiry) : ""}
             type="date"
             value={formData.current_coverage_expiry || ""}
             onChange={(e) => updateFormData({ current_coverage_expiry: e.target.value })}
-            disabled={!!(formData.general_questions as any)?.new_venture}
+            disabled={isNewVenture}
           />
           <div className="flex items-center gap-2 mt-2">
             <Checkbox
               id="new_venture"
-              checked={!!(formData.general_questions as any)?.new_venture}
+              checked={isNewVenture}
               onCheckedChange={(checked) => {
                 const newVal = !!checked;
                 updateFormData({
@@ -334,7 +336,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
       {/* Business Categories */}
       <div className="space-y-2">
         <Label>Business Categories</Label>
-        <div className="flex flex-wrap gap-2">
+        <div className={`flex flex-wrap gap-2 p-2 rounded-md ${(formData.business_categories || []).length === 0 ? "border border-destructive/50" : ""}`}>
           {BUSINESS_CATEGORIES.map((cat) => (
             <button
               key={cat}
@@ -387,7 +389,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
           <div className="space-y-2">
             <Label>Total Trucks</Label>
-            <Input type="number" value={formData.total_trucks || ""} onChange={(e) => updateFormData({ total_trucks: e.target.value ? parseInt(e.target.value) : null })} />
+            <Input className={req(formData.total_trucks)} type="number" value={formData.total_trucks || ""} onChange={(e) => updateFormData({ total_trucks: e.target.value ? parseInt(e.target.value) : null })} />
           </div>
           <div className="space-y-2">
             <Label>Owned Trailers</Label>
@@ -399,7 +401,7 @@ const Step1Applicant = ({ account, formData, updateFormData }: StepProps) => {
           </div>
           <div className="space-y-2">
             <Label>Total Drivers</Label>
-            <Input type="number" value={formData.total_drivers || ""} onChange={(e) => updateFormData({ total_drivers: e.target.value ? parseInt(e.target.value) : null })} />
+            <Input className={req(formData.total_drivers)} type="number" value={formData.total_drivers || ""} onChange={(e) => updateFormData({ total_drivers: e.target.value ? parseInt(e.target.value) : null })} />
           </div>
         </div>
       {/* Notes - Description of Operations */}
