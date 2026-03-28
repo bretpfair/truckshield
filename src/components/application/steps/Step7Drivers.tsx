@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -95,34 +95,28 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Debounced auto-save with save-on-unmount
-  const [initialized, setInitialized] = useState(false);
+  // Track user edits vs initialization
+  const dirtyRef = useRef(false);
   const driversRef = useRef(drivers);
   const initializedRef = useRef(false);
-  const pendingSave = useRef(false);
 
   useEffect(() => { driversRef.current = drivers; }, [drivers]);
+  useEffect(() => { if (data) initializedRef.current = true; }, [data]);
 
+  // Debounced auto-save — only fires when dirty
   useEffect(() => {
-    if (data) {
-      setInitialized(true);
-      initializedRef.current = true;
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (!initialized || drivers.length === 0) return;
-    pendingSave.current = true;
+    if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
-      pendingSave.current = false;
+      dirtyRef.current = false;
       saveMutation.mutate();
     }, 1500);
     return () => clearTimeout(timer);
-  }, [drivers, initialized]);
+  }, [drivers]);
 
+  // Save on unmount if dirty
   useEffect(() => {
     return () => {
-      if (pendingSave.current && initializedRef.current && driversRef.current.length > 0) {
+      if (dirtyRef.current && initializedRef.current && driversRef.current.length > 0) {
         const toInsert = cleanForInsert(driversRef.current, account.id);
         supabase.from("drivers").delete().eq("account_id", account.id).then(() => {
           supabase.from("drivers").insert(toInsert).then(() => {
@@ -134,11 +128,13 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
   }, [account.id, queryClient]);
 
   const addDriver = () => {
+    dirtyRef.current = true;
     setDrivers([...drivers, { ...emptyDriver, account_id: account.id }]);
     setExpandedIdx(drivers.length);
   };
-  const removeDriver = (idx: number) => setDrivers(drivers.filter((_, i) => i !== idx));
+  const removeDriver = (idx: number) => { dirtyRef.current = true; setDrivers(drivers.filter((_, i) => i !== idx)); };
   const updateDriver = (idx: number, field: string, value: any) => {
+    dirtyRef.current = true;
     const updated = [...drivers];
     updated[idx] = { ...updated[idx], [field]: value };
     setDrivers(updated);

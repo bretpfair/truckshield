@@ -41,6 +41,7 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
   const noTrailers = !!(parentFormData.general_questions as any)?.no_trailers;
 
   const setNoTrailers = (val: boolean) => {
+    dirtyRef.current = true;
     updateFormData({
       general_questions: { ...(parentFormData.general_questions || {}), no_trailers: val },
     });
@@ -66,7 +67,9 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
       } else {
         const ownedCount = parentFormData?.total_owned_trailers || 0;
         if (ownedCount === 0 && !(parentFormData.general_questions as any)?.no_trailers) {
-          setNoTrailers(true);
+          updateFormData({
+            general_questions: { ...(parentFormData.general_questions || {}), no_trailers: true },
+          });
         }
         const targetCount = Math.max(1, Math.min(ownedCount || 1, 100));
         setItems(Array.from({ length: targetCount }, () => ({ ...emptyTrailer, account_id: account.id })));
@@ -90,36 +93,30 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  // Debounced auto-save with save-on-unmount
-  const [initialized, setInitialized] = useState(false);
+  // Track user edits vs initialization
+  const dirtyRef = useRef(false);
   const itemsRef = useRef(items);
   const initializedRef = useRef(false);
-  const pendingSave = useRef(false);
   const noTrailersRef = useRef(noTrailers);
 
   useEffect(() => { itemsRef.current = items; }, [items]);
   useEffect(() => { noTrailersRef.current = noTrailers; }, [noTrailers]);
+  useEffect(() => { if (data) initializedRef.current = true; }, [data]);
 
+  // Debounced auto-save — only fires when dirty
   useEffect(() => {
-    if (data) {
-      setInitialized(true);
-      initializedRef.current = true;
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (!initialized) return;
-    pendingSave.current = true;
+    if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
-      pendingSave.current = false;
+      dirtyRef.current = false;
       saveMutation.mutate();
     }, 1500);
     return () => clearTimeout(timer);
-  }, [items, initialized, noTrailers]);
+  }, [items, noTrailers]);
 
+  // Save on unmount if dirty
   useEffect(() => {
     return () => {
-      if (pendingSave.current && initializedRef.current) {
+      if (dirtyRef.current && initializedRef.current) {
         supabase.from("trailers").delete().eq("account_id", account.id).then(() => {
           if (!noTrailersRef.current && itemsRef.current.length > 0) {
             const toInsert = cleanForInsert(itemsRef.current, account.id);
@@ -134,9 +131,10 @@ const Step6Trailers = ({ account, formData: parentFormData, updateFormData }: St
     };
   }, [account.id, queryClient]);
 
-  const addItem = () => setItems([...items, { ...emptyTrailer, account_id: account.id }]);
-  const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
+  const addItem = () => { dirtyRef.current = true; setItems([...items, { ...emptyTrailer, account_id: account.id }]); };
+  const removeItem = (idx: number) => { dirtyRef.current = true; setItems(items.filter((_, i) => i !== idx)); };
   const updateItem = (idx: number, field: string, value: any) => {
+    dirtyRef.current = true;
     const updated = [...items];
     updated[idx] = { ...updated[idx], [field]: value };
     setItems(updated);
