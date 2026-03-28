@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,6 +54,14 @@ const Step4Commodities = ({ formData, updateFormData }: StepProps) => {
 
   const selectedCommodities: Record<string, string> = commodity.selected_commodities || {};
   const entries = Object.entries(selectedCommodities);
+
+  // Initialize with one empty row if no commodities exist
+  useEffect(() => {
+    if (Object.keys(selectedCommodities).length === 0) {
+      const first = COMMODITY_OPTIONS[0];
+      setCommodity("selected_commodities", { [first]: "" });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = entries.reduce((sum, [, pct]) => sum + (parseFloat(pct) || 0), 0);
 

@@ -37,6 +37,7 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [showRadiusError, setShowRadiusError] = useState(false);
+  const [showCommodityError, setShowCommodityError] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,9 +112,19 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
     return keys.reduce((sum, k) => sum + (parseFloat(details[k]) || 0), 0);
   };
 
+  const getCommodityTotal = (): number => {
+    const commodity = formData.commodity_info || {};
+    const selected: Record<string, string> = commodity.selected_commodities || {};
+    return Object.values(selected).reduce((sum, pct) => sum + (parseFloat(pct) || 0), 0);
+  };
+
   const handleNext = () => {
     if (currentStep === 3 && getRadiusTotal() !== 100) {
       setShowRadiusError(true);
+      return;
+    }
+    if (currentStep === 4 && getCommodityTotal() !== 100) {
+      setShowCommodityError(true);
       return;
     }
     handleSave();
@@ -229,6 +240,23 @@ const ApplicationWizard = ({ account }: ApplicationWizardProps) => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setShowRadiusError(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCommodityError} onOpenChange={setShowCommodityError}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Commodities Must Equal 100%
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your commodity percentages currently total <strong>{getCommodityTotal()}%</strong>. Please adjust the values so they add up to exactly <strong>100%</strong> before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowCommodityError(false)}>OK</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
