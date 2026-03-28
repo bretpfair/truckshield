@@ -54,6 +54,17 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
       const { error } = await supabase.storage.from("cab-cards").upload(filePath, file, { upsert: true });
       if (error) throw error;
       updateUnit(idx, "cab_card_path", filePath);
+
+      // Also record in account_documents so it appears in Document Hub
+      await supabase.from("account_documents").insert({
+        account_id: account.id,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        category: "cab_cards",
+        notes: `Cab card for power unit #${idx + 1}`,
+      });
+
       toast({ title: "File uploaded", description: file.name });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e.message, variant: "destructive" });
