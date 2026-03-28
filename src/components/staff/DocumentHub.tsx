@@ -66,6 +66,9 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
   const [category, setCategory] = useState("all");
   const [uploadCategory, setUploadCategory] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
