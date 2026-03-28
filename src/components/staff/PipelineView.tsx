@@ -164,6 +164,44 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
         action_type: "status_change",
         description: `${account?.company_name ?? "Account"} moved to ${label}`,
       });
+
+      // Send pipeline status change email to client
+      try {
+        const { data: acct } = await supabase
+          .from("accounts")
+          .select("client_user_id, contact_email, company_name")
+          .eq("id", accountId)
+          .single();
+
+        const clientEmail = acct?.contact_email;
+        if (clientEmail) {
+          let firstName: string | undefined;
+          if (acct?.client_user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", acct.client_user_id)
+              .single();
+            firstName = profile?.full_name?.split(" ")[0];
+          }
+
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "pipeline-status-change",
+              recipientEmail: clientEmail,
+              idempotencyKey: `pipeline-status-${accountId}-${newStatus}-${Date.now()}`,
+              templateData: {
+                firstName,
+                companyName: acct?.company_name,
+                newStatus,
+                portalLink: `${window.location.origin}/client`,
+              },
+            },
+          });
+        }
+      } catch (emailErr) {
+        console.error("Failed to send pipeline status change email:", emailErr);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
