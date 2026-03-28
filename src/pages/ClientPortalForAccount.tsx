@@ -149,7 +149,7 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
         <Button variant="ghost" size="sm" onClick={() => setShowWizard(false)} className="gap-1.5 text-muted-foreground">
           ← Back to Dashboard
         </Button>
-        <ApplicationWizard account={account} />
+        <ApplicationWizard account={account} onSubmitComplete={() => setShowWizard(false)} />
       </div>
     );
   }
