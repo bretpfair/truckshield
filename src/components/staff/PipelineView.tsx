@@ -1,6 +1,7 @@
 import { useState, useRef, DragEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,10 +74,35 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [producerFilter, setProducerFilter] = useState<string>("all");
   const [staleFilter, setStaleFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+
+  // Fetch staff members for producer filter
+  const { data: staffMembers } = useQuery({
+    queryKey: ["staff-members-pipeline"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", ["admin", "producer"] as any[]);
+      if (!roles?.length) return [];
+      const userIds = roles.map((r) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", userIds);
+      return roles.map((r) => {
+        const p = profiles?.find((pr) => pr.user_id === r.user_id);
+        return { userId: r.user_id, role: r.role, name: p?.full_name || p?.email || r.user_id.slice(0, 8) };
+      });
+    },
+  });
 
   // Fetch quote submissions per account for carrier badges
   const { data: quotesByAccount } = useQuery({
