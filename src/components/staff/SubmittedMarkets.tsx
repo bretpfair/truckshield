@@ -128,7 +128,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
     },
   });
 
-  const handleStatusChange = (quoteId: string, status: string, carrierName: string) => {
+  const handleStatusChange = (quoteId: string, status: string, carrierName: string, currentPremium?: number | null) => {
     if (status === "info_requested") {
       setInfoRequestDialog({ quoteId, carrierName });
       setInfoRequestDetails("");
@@ -137,6 +137,12 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
     if (status === "declined") {
       setDeclineDialog({ quoteId, carrierName });
       setDeclineReason("");
+      return;
+    }
+    if (status === "bound") {
+      setBindDialog({ quoteId, carrierName, currentPremium: currentPremium ?? null });
+      setBoundPremium(currentPremium ? String(currentPremium) : "");
+      setBindFile(null);
       return;
     }
     updateStatus.mutate({ quoteId, status, carrierName });
