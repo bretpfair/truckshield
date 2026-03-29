@@ -50,14 +50,20 @@ interface Props {
 
 const SubmittedMarkets = ({ accountId, quotes }: Props) => {
   const [uploadDialog, setUploadDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [updateQuoteDialog, setUpdateQuoteDialog] = useState<{ quoteId: string; carrierName: string; currentPremium: number | null } | null>(null);
+  const [bindDialog, setBindDialog] = useState<{ quoteId: string; carrierName: string; currentPremium: number | null } | null>(null);
   const [infoRequestDialog, setInfoRequestDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
   const [declineDialog, setDeclineDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   const [submittingDecline, setSubmittingDecline] = useState(false);
   const [infoRequestDetails, setInfoRequestDetails] = useState("");
   const [premiumAmount, setPremiumAmount] = useState("");
+  const [boundPremium, setBoundPremium] = useState("");
   const [quoteFile, setQuoteFile] = useState<File | null>(null);
+  const [bindFile, setBindFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [updatingQuote, setUpdatingQuote] = useState(false);
+  const [submittingBind, setSubmittingBind] = useState(false);
   const [submittingInfoRequest, setSubmittingInfoRequest] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
