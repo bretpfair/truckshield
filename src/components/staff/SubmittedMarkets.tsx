@@ -50,14 +50,20 @@ interface Props {
 
 const SubmittedMarkets = ({ accountId, quotes }: Props) => {
   const [uploadDialog, setUploadDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
+  const [updateQuoteDialog, setUpdateQuoteDialog] = useState<{ quoteId: string; carrierName: string; currentPremium: number | null } | null>(null);
+  const [bindDialog, setBindDialog] = useState<{ quoteId: string; carrierName: string; currentPremium: number | null } | null>(null);
   const [infoRequestDialog, setInfoRequestDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
   const [declineDialog, setDeclineDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   const [submittingDecline, setSubmittingDecline] = useState(false);
   const [infoRequestDetails, setInfoRequestDetails] = useState("");
   const [premiumAmount, setPremiumAmount] = useState("");
+  const [boundPremium, setBoundPremium] = useState("");
   const [quoteFile, setQuoteFile] = useState<File | null>(null);
+  const [bindFile, setBindFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [updatingQuote, setUpdatingQuote] = useState(false);
+  const [submittingBind, setSubmittingBind] = useState(false);
   const [submittingInfoRequest, setSubmittingInfoRequest] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -122,7 +128,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
     },
   });
 
-  const handleStatusChange = (quoteId: string, status: string, carrierName: string) => {
+  const handleStatusChange = (quoteId: string, status: string, carrierName: string, currentPremium?: number | null) => {
     if (status === "info_requested") {
       setInfoRequestDialog({ quoteId, carrierName });
       setInfoRequestDetails("");
@@ -131,6 +137,12 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
     if (status === "declined") {
       setDeclineDialog({ quoteId, carrierName });
       setDeclineReason("");
+      return;
+    }
+    if (status === "bound") {
+      setBindDialog({ quoteId, carrierName, currentPremium: currentPremium ?? null });
+      setBoundPremium(currentPremium ? String(currentPremium) : "");
+      setBindFile(null);
       return;
     }
     updateStatus.mutate({ quoteId, status, carrierName });
@@ -339,7 +351,167 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
     }
   };
 
-  if (!quotes || quotes.length === 0) return null;
+  const handleUpdateQuote = async () => {
+    if (!updateQuoteDialog || !premiumAmount) return;
+    setUpdatingQuote(true);
+
+    try {
+      const premium = parseFloat(premiumAmount);
+      if (isNaN(premium)) throw new Error("Invalid premium amount");
+
+      let filePath: string | null = null;
+      if (quoteFile) {
+        const ext = quoteFile.name.split(".").pop();
+        const path = `${accountId}/${updateQuoteDialog.quoteId}-updated-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("account-documents")
+          .upload(path, quoteFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        filePath = path;
+
+        // Index in account_documents
+        await supabase.from("account_documents").insert({
+          account_id: accountId,
+          file_name: quoteFile.name,
+          file_path: `account-documents/${path}`,
+          category: "quotes",
+          file_size: quoteFile.size,
+        });
+      }
+
+      const updateData: any = { premium_estimate: premium };
+      // Preserve existing coverage_details and merge quote_file_path
+      if (filePath) {
+        const { data: existing } = await supabase.from("quotes").select("coverage_details").eq("id", updateQuoteDialog.quoteId).single();
+        updateData.coverage_details = { ...(existing?.coverage_details as any || {}), quote_file_path: filePath };
+      }
+
+      const { error } = await supabase
+        .from("quotes")
+        .update(updateData)
+        .eq("id", updateQuoteDialog.quoteId);
+      if (error) throw error;
+
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${updateQuoteDialog.carrierName} quote updated — premium: $${premium.toLocaleString()}`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      toast({ title: "Quote updated successfully" });
+      setUpdateQuoteDialog(null);
+      setPremiumAmount("");
+      setQuoteFile(null);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUpdatingQuote(false);
+    }
+  };
+
+  const handleSubmitBind = async () => {
+    if (!bindDialog || !boundPremium) return;
+    setSubmittingBind(true);
+
+    try {
+      const premium = parseFloat(boundPremium);
+      if (isNaN(premium)) throw new Error("Invalid premium amount");
+
+      let filePath: string | null = null;
+      if (bindFile) {
+        const ext = bindFile.name.split(".").pop();
+        const path = `${accountId}/${bindDialog.quoteId}-binder-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("account-documents")
+          .upload(path, bindFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        filePath = path;
+
+        // Index in account_documents
+        await supabase.from("account_documents").insert({
+          account_id: accountId,
+          file_name: bindFile.name,
+          file_path: `account-documents/${path}`,
+          category: "policies",
+          file_size: bindFile.size,
+        });
+      }
+
+      // Get existing coverage_details
+      const { data: existing } = await supabase.from("quotes").select("coverage_details").eq("id", bindDialog.quoteId).single();
+      const coverageDetails = { ...(existing?.coverage_details as any || {}) };
+      coverageDetails.bound_premium = premium;
+      if (filePath) coverageDetails.binder_file_path = filePath;
+
+      const { error } = await supabase
+        .from("quotes")
+        .update({
+          status: "bound",
+          premium_estimate: premium,
+          coverage_details: coverageDetails,
+        })
+        .eq("id", bindDialog.quoteId);
+      if (error) throw error;
+
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${bindDialog.carrierName} bound at $${premium.toLocaleString()}`,
+      });
+
+      // Send status change email
+      try {
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("client_user_id, contact_email")
+          .eq("id", accountId)
+          .single();
+
+        const clientEmail = account?.contact_email;
+        if (clientEmail) {
+          let firstName: string | undefined;
+          if (account?.client_user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", account.client_user_id)
+              .single();
+            firstName = profile?.full_name?.split(" ")[0];
+          }
+
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "carrier-status-change",
+              recipientEmail: clientEmail,
+              idempotencyKey: `carrier-bound-${bindDialog.quoteId}-${Date.now()}`,
+              templateData: {
+                firstName,
+                carrierName: bindDialog.carrierName,
+                newStatus: "bound",
+                portalLink: `${window.location.origin}/client`,
+              },
+            },
+          });
+        }
+      } catch (emailErr) {
+        console.error("Failed to send bind email:", emailErr);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      toast({ title: "Coverage bound", description: `${bindDialog.carrierName} bound at $${premium.toLocaleString()}` });
+      setBindDialog(null);
+      setBoundPremium("");
+      setBindFile(null);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingBind(false);
+    }
+  };
+
 
   return (
     <>
@@ -380,7 +552,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                   </Badge>
                   <Select
                     value={q.status}
-                    onValueChange={(val) => handleStatusChange(q.id, val, (q.carriers as any)?.name ?? "Carrier")}
+                    onValueChange={(val) => handleStatusChange(q.id, val, (q.carriers as any)?.name ?? "Carrier", q.premium_estimate)}
                   >
                     <SelectTrigger className="w-[140px] h-8 text-xs">
                       <SelectValue />
@@ -407,6 +579,24 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                       }
                     >
                       <Upload className="h-3.5 w-3.5" /> Upload Quote
+                    </Button>
+                  )}
+                  {q.status === "quoted" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setUpdateQuoteDialog({
+                          quoteId: q.id,
+                          carrierName: (q.carriers as any)?.name ?? "Carrier",
+                          currentPremium: q.premium_estimate,
+                        });
+                        setPremiumAmount(q.premium_estimate ? String(q.premium_estimate) : "");
+                        setQuoteFile(null);
+                      }}
+                    >
+                      <DollarSign className="h-3.5 w-3.5" /> Update Quote
                     </Button>
                   )}
                 </div>
@@ -524,6 +714,91 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
               variant="destructive"
             >
               {submittingDecline ? "Submitting..." : "Confirm Decline"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Quote Dialog */}
+      <Dialog open={!!updateQuoteDialog} onOpenChange={(open) => !open && setUpdateQuoteDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Update Quote — {updateQuoteDialog?.carrierName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="update-premium" className="flex items-center gap-1.5">
+                <DollarSign className="h-4 w-4" /> Updated Premium
+              </Label>
+              <Input
+                id="update-premium"
+                type="number"
+                placeholder="e.g. 12500"
+                value={premiumAmount}
+                onChange={(e) => setPremiumAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="update-quote-file">Updated Quote Document (optional)</Label>
+              <Input
+                id="update-quote-file"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => setQuoteFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setUpdateQuoteDialog(null)}>Cancel</Button>
+            <Button onClick={handleUpdateQuote} disabled={!premiumAmount || updatingQuote}>
+              {updatingQuote ? "Updating..." : "Update Quote"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bind Coverage Dialog */}
+      <Dialog open={!!bindDialog} onOpenChange={(open) => !open && setBindDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              Bind Coverage — {bindDialog?.carrierName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Enter the final bound premium and upload a copy of the policy or binder.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="bound-premium" className="flex items-center gap-1.5">
+                <DollarSign className="h-4 w-4" /> Final Bound Premium
+              </Label>
+              <Input
+                id="bound-premium"
+                type="number"
+                placeholder="e.g. 12500"
+                value={boundPremium}
+                onChange={(e) => setBoundPremium(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bind-file">Policy or Binder Document</Label>
+              <Input
+                id="bind-file"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => setBindFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBindDialog(null)}>Cancel</Button>
+            <Button onClick={handleSubmitBind} disabled={!boundPremium || submittingBind}>
+              {submittingBind ? "Binding..." : "Confirm Bind"}
             </Button>
           </DialogFooter>
         </DialogContent>
