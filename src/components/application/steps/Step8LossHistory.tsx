@@ -149,14 +149,15 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
         const { error } = await supabase.storage.from("loss-runs").upload(filePath, file);
         if (error) throw error;
         // Also save to account_documents so it appears in the client record
-        await supabase.from("account_documents").insert({
+        const { error: docError } = await supabase.from("account_documents").insert({
           account_id: account.id,
           file_name: file.name,
           file_path: `loss-runs/${filePath}`,
-          category: "Loss Runs",
+          category: "loss_runs",
           file_size: file.size,
           uploaded_by: user?.id || null,
         });
+        if (docError) console.error("Failed to index document:", docError.message);
       }
       toast({ title: "Files uploaded successfully" });
       refetchFiles();
