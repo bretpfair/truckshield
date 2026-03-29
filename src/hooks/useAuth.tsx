@@ -35,6 +35,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole((data?.role as AppRole) ?? null);
   };
 
+  const trackLogin = async (userId: string) => {
+    // Insert into login_history
+    await supabase.from("login_history" as any).insert({
+      user_id: userId,
+      user_agent: navigator.userAgent,
+    } as any);
+    // Update last_login_at on profile
+    await supabase
+      .from("profiles")
+      .update({ last_login_at: new Date().toISOString() } as any)
+      .eq("user_id", userId);
+  };
+
   useEffect(() => {
     // Restore session first
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,6 +67,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         if (session?.user) {
           fetchRole(session.user.id);
+          // Track login on SIGNED_IN event
+          if (_event === "SIGNED_IN") {
+            trackLogin(session.user.id);
+          }
         } else {
           setRole(null);
         }
