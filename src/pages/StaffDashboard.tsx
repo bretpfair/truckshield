@@ -330,7 +330,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                 {newAccountMode === "dot" && !dotLookupResult ? (
                   <>
                     <p className="text-sm font-semibold">Enter DOT Number to auto-fill from SAFER</p>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                       <Input
                         placeholder="DOT Number (e.g. 1234567)"
                         value={newDotNumber}
@@ -338,11 +338,13 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                         className="flex-1"
                         onKeyDown={(e) => e.key === "Enter" && newDotNumber.trim() && handleDotLookup()}
                       />
-                      <Button onClick={handleDotLookup} disabled={!newDotNumber.trim() || isDotLookingUp}>
-                        {isDotLookingUp ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-                        {isDotLookingUp ? "Looking up..." : "Lookup DOT"}
-                      </Button>
-                      <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                      <div className="flex gap-2">
+                        <Button onClick={handleDotLookup} disabled={!newDotNumber.trim() || isDotLookingUp} className="flex-1 sm:flex-none">
+                          {isDotLookingUp ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                          {isDotLookingUp ? "Looking up..." : "Lookup DOT"}
+                        </Button>
+                        <Button variant="ghost" onClick={resetNewAccountForm}>Cancel</Button>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -360,12 +362,14 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                       <>
                         <p className="text-sm font-semibold">SAFER Lookup Results — DOT# {dotLookupResult.dot_number}</p>
                         {existingAccount && (
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-warning/10 border border-warning/30 text-warning text-sm">
-                            <AlertTriangle className="h-4 w-4 shrink-0" />
-                            <span>
-                              An account for <strong>"{existingAccount.company_name}"</strong> already exists with this DOT number.
-                            </span>
-                            <div className="ml-auto flex items-center gap-2 shrink-0">
+                          <div className="flex flex-col gap-2 px-3 py-2 rounded-md bg-warning/10 border border-warning/30 text-warning text-sm">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                              <span>
+                                An account for <strong>"{existingAccount.company_name}"</strong> already exists with this DOT number.
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -421,7 +425,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                               </div>
                             ))}
                         </div>
-                        <div className="flex items-center gap-3 pt-1">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1">
                           {!existingAccount && (
                             <Button onClick={handleConfirmDotCreate}>
                               <Plus className="h-4 w-4 mr-2" /> Create Account
