@@ -123,7 +123,7 @@ const PdfUpload = () => {
           .eq("id", accountId);
         if (error) throw error;
       } else {
-        accountFields.status = "lead";
+        accountFields.status = "pending_info";
         const { data, error } = await supabase
           .from("accounts")
           .insert(accountFields as any)

@@ -10,9 +10,8 @@ import { TrendingUp, CalendarClock, AlertTriangle, Activity } from "lucide-react
 import { format, subDays, isAfter } from "date-fns";
 import ProducerPerformance from "./ProducerPerformance";
 
-const statusOrder = ["lead", "pending_info", "info_complete", "quoting", "quoted", "bound"];
+const statusOrder = ["pending_info", "info_complete", "quoting", "quoted", "bound"];
 const statusLabels: Record<string, string> = {
-  lead: "Lead",
   pending_info: "Pending Info",
   info_complete: "Info Complete",
   quoting: "Quoting",
@@ -20,7 +19,6 @@ const statusLabels: Record<string, string> = {
   bound: "Bound",
 };
 const statusChartColors: Record<string, string> = {
-  lead: "hsl(215, 12%, 52%)",
   pending_info: "hsl(38, 92%, 50%)",
   info_complete: "hsl(195, 100%, 50%)",
   quoting: "hsl(195, 90%, 40%)",

@@ -28,7 +28,6 @@ import { useToast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
 
 const pipelineColumns = [
-  { key: "lead", label: "Lead", color: "text-muted-foreground" },
   { key: "pending_info", label: "Pending Info", color: "text-warning" },
   { key: "info_complete", label: "Info Complete", color: "text-primary" },
   { key: "quoting", label: "Quoting", color: "text-accent" },
@@ -37,7 +36,6 @@ const pipelineColumns = [
 ];
 
 const statusColors: Record<string, string> = {
-  lead: "bg-muted/50 border-muted-foreground/10",
   pending_info: "bg-warning/5 border-warning/15",
   info_complete: "bg-primary/5 border-primary/15",
   quoting: "bg-accent/5 border-accent/15",
