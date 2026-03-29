@@ -718,6 +718,91 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Update Quote Dialog */}
+      <Dialog open={!!updateQuoteDialog} onOpenChange={(open) => !open && setUpdateQuoteDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Update Quote — {updateQuoteDialog?.carrierName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="update-premium" className="flex items-center gap-1.5">
+                <DollarSign className="h-4 w-4" /> Updated Premium
+              </Label>
+              <Input
+                id="update-premium"
+                type="number"
+                placeholder="e.g. 12500"
+                value={premiumAmount}
+                onChange={(e) => setPremiumAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="update-quote-file">Updated Quote Document (optional)</Label>
+              <Input
+                id="update-quote-file"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => setQuoteFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setUpdateQuoteDialog(null)}>Cancel</Button>
+            <Button onClick={handleUpdateQuote} disabled={!premiumAmount || updatingQuote}>
+              {updatingQuote ? "Updating..." : "Update Quote"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bind Coverage Dialog */}
+      <Dialog open={!!bindDialog} onOpenChange={(open) => !open && setBindDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              Bind Coverage — {bindDialog?.carrierName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Enter the final bound premium and upload a copy of the policy or binder.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="bound-premium" className="flex items-center gap-1.5">
+                <DollarSign className="h-4 w-4" /> Final Bound Premium
+              </Label>
+              <Input
+                id="bound-premium"
+                type="number"
+                placeholder="e.g. 12500"
+                value={boundPremium}
+                onChange={(e) => setBoundPremium(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bind-file">Policy or Binder Document</Label>
+              <Input
+                id="bind-file"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => setBindFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBindDialog(null)}>Cancel</Button>
+            <Button onClick={handleSubmitBind} disabled={!boundPremium || submittingBind}>
+              {submittingBind ? "Binding..." : "Confirm Bind"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
