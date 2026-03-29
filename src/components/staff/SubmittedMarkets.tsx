@@ -400,6 +400,44 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
         description: `${updateQuoteDialog.carrierName} quote updated — premium: $${premium.toLocaleString()}`,
       });
 
+      // Send quote updated email to client
+      try {
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("client_user_id, contact_email")
+          .eq("id", accountId)
+          .single();
+
+        const clientEmail = account?.contact_email;
+        if (clientEmail) {
+          let firstName: string | undefined;
+          if (account?.client_user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", account.client_user_id)
+              .single();
+            firstName = profile?.full_name?.split(" ")[0];
+          }
+
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "carrier-status-change",
+              recipientEmail: clientEmail,
+              idempotencyKey: `quote-updated-${updateQuoteDialog.quoteId}-${Date.now()}`,
+              templateData: {
+                firstName,
+                carrierName: updateQuoteDialog.carrierName,
+                newStatus: "quote_updated",
+                portalLink: `${window.location.origin}/client`,
+              },
+            },
+          });
+        }
+      } catch (emailErr) {
+        console.error("Failed to send quote updated email:", emailErr);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
       toast({ title: "Quote updated successfully" });
