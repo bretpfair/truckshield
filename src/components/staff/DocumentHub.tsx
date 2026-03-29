@@ -145,10 +145,6 @@ const DocumentHub = ({ accountId, companyName = "Account", readOnly = false }: P
           file_size: file.size,
           category: uploadCategory,
         });
-          file_path: filePath,
-          file_size: file.size,
-          category: uploadCategory,
-        });
         if (dbError) throw dbError;
 
         await supabase.from("activity_log").insert({
