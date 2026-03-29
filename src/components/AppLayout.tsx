@@ -47,25 +47,28 @@ const AppLayout = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center justify-between h-14 px-4">
-          <div className="flex items-center gap-2">
-            <img src={logo360} alt="360 Risk Partners" className="h-7 w-auto" />
-            <Truck className="h-5 w-5 text-primary" />
-            <span className="font-bold text-foreground">TruckShield, powered by 360 Risk Partners</span>
-            <span className="status-badge bg-primary/10 text-primary rounded">
+        <div className="flex items-center justify-between h-14 px-2 sm:px-4 gap-1 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <img src={logo360} alt="360 Risk Partners" className="h-6 sm:h-7 w-auto shrink-0" />
+            <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+            <span className="font-bold text-foreground text-xs sm:text-sm truncate">
+              <span className="sm:hidden">TruckShield</span>
+              <span className="hidden sm:inline">TruckShield, powered by 360 Risk Partners</span>
+            </span>
+            <span className="status-badge bg-primary/10 text-primary rounded text-[10px] sm:text-xs shrink-0">
               {showClient ? "Client" : "Staff"}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {isStaffRole && (
               <Button
                 variant={viewAsClient ? "default" : "outline"}
                 size="sm"
                 onClick={() => viewAsClient ? handleBackToStaff() : handlePreviewClient()}
-                className="gap-1.5 text-xs"
+                className="gap-1 text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
               >
                 <Eye className="h-3 w-3" />
-                {viewAsClient ? "Back to Staff" : "Preview Client"}
+                <span className="hidden xs:inline">{viewAsClient ? "Back to Staff" : "Preview Client"}</span>
               </Button>
             )}
             <NotificationBell
@@ -78,11 +81,11 @@ const AppLayout = () => {
               }}
             />
             <ThemeToggle />
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
-              <span className="hidden sm:inline">{user.email}</span>
+              <span>{user.email}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={signOut}>
+            <Button variant="ghost" size="sm" onClick={signOut} className="h-7 w-7 sm:h-8 sm:w-8 p-0">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -90,7 +93,7 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto px-4 py-6">
+        <main className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6">
           {showClient ? (
             previewAccountId ? (
               <ClientPortalForAccount accountId={previewAccountId} />
