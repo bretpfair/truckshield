@@ -379,12 +379,34 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
                           className="gap-1.5 text-xs"
                           onClick={async () => {
                             const path = (q.coverage_details as any).quote_file_path;
-                            const { data } = await supabase.storage.from("loss-runs").createSignedUrl(path, 3600);
+                            // Try loss-runs first, then account-documents
+                            let { data } = await supabase.storage.from("loss-runs").createSignedUrl(path, 3600);
+                            if (!data?.signedUrl) {
+                              ({ data } = await supabase.storage.from("account-documents").createSignedUrl(path, 3600));
+                            }
                             if (data?.signedUrl) window.open(data.signedUrl, "_blank");
                           }}
                         >
                           <FileText className="h-3.5 w-3.5" />
                           Download Quote
+                        </Button>
+                      )}
+                      {(q.coverage_details as any)?.binder_file_path && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={async () => {
+                            const path = (q.coverage_details as any).binder_file_path;
+                            let { data } = await supabase.storage.from("loss-runs").createSignedUrl(path, 3600);
+                            if (!data?.signedUrl) {
+                              ({ data } = await supabase.storage.from("account-documents").createSignedUrl(path, 3600));
+                            }
+                            if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                          }}
+                        >
+                          <Shield className="h-3.5 w-3.5" />
+                          Download Policy
                         </Button>
                       )}
                     </div>
