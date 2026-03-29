@@ -10,6 +10,7 @@ const statusLabels: Record<string, string> = {
   submitted: 'Submitted for Review',
   reviewing: 'Under Review',
   quoted: 'Quote Available',
+  quote_updated: 'Quote Updated',
   declined: 'Declined',
   bound: 'Bound',
 }
@@ -18,6 +19,7 @@ const statusMessages: Record<string, string> = {
   submitted: 'Your application has been submitted to the carrier for review. We will keep you updated as things progress.',
   reviewing: 'The carrier is currently reviewing your application. No action is needed from you at this time. We will notify you as soon as there is an update.',
   quoted: 'Great news! A quote has been received for your trucking insurance. Log in to your portal to view the details and premium.',
+  quote_updated: 'Your quote has been updated with a revised premium. Log in to your portal to view the latest details.',
   declined: 'Unfortunately, this carrier has declined to provide a quote at this time. Do not worry, we are continuing to work with other markets to find you the best coverage.',
   bound: 'Congratulations! Your policy has been bound. Log in to your portal for the full details.',
 }
@@ -32,7 +34,7 @@ interface CarrierStatusChangeProps {
 const CarrierStatusChangeEmail = ({ firstName, carrierName, newStatus, portalLink }: CarrierStatusChangeProps) => {
   const label = (newStatus && statusLabels[newStatus]) || 'Updated'
   const message = (newStatus && statusMessages[newStatus]) || 'There has been an update on your insurance application. Log in to your portal to view the latest status.'
-  const isPositive = newStatus === 'quoted' || newStatus === 'bound'
+  const isPositive = newStatus === 'quoted' || newStatus === 'bound' || newStatus === 'quote_updated'
 
   return (
     <Html lang="en" dir="ltr">
@@ -54,7 +56,7 @@ const CarrierStatusChangeEmail = ({ firstName, carrierName, newStatus, portalLin
 
           <Text style={text}>{message}</Text>
 
-          {(newStatus === 'quoted' || newStatus === 'bound' || newStatus === 'submitted') && (
+          {(newStatus === 'quoted' || newStatus === 'quote_updated' || newStatus === 'bound' || newStatus === 'submitted') && (
             <Section style={buttonSection}>
               <Button style={isPositive ? buttonGreen : button} href={portalLink || '#'}>
                 View in Your Portal
