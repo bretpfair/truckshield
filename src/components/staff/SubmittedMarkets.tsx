@@ -552,7 +552,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                   </Badge>
                   <Select
                     value={q.status}
-                    onValueChange={(val) => handleStatusChange(q.id, val, (q.carriers as any)?.name ?? "Carrier")}
+                    onValueChange={(val) => handleStatusChange(q.id, val, (q.carriers as any)?.name ?? "Carrier", q.premium_estimate)}
                   >
                     <SelectTrigger className="w-[140px] h-8 text-xs">
                       <SelectValue />
@@ -579,6 +579,24 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
                       }
                     >
                       <Upload className="h-3.5 w-3.5" /> Upload Quote
+                    </Button>
+                  )}
+                  {q.status === "quoted" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setUpdateQuoteDialog({
+                          quoteId: q.id,
+                          carrierName: (q.carriers as any)?.name ?? "Carrier",
+                          currentPremium: q.premium_estimate,
+                        });
+                        setPremiumAmount(q.premium_estimate ? String(q.premium_estimate) : "");
+                        setQuoteFile(null);
+                      }}
+                    >
+                      <DollarSign className="h-3.5 w-3.5" /> Update Quote
                     </Button>
                   )}
                 </div>
