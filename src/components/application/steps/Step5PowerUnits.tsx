@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { GVW_CLASSES, TRUCK_TYPES, TRUCK_MAKES, US_STATES } from "../constants";
 import { Plus, Trash2, Loader2, Upload, FileText, X } from "lucide-react";
+import { buildDocumentPath } from "@/lib/documentNaming";
 import { useToast } from "@/hooks/use-toast";
 
 interface StepProps {
@@ -50,7 +51,7 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
     setUploadingFile((prev) => ({ ...prev, [idx]: true }));
     try {
       const ext = file.name.split(".").pop() || "pdf";
-      const filePath = `${account.id}/truck-${idx}-${Date.now()}.${ext}`;
+      const filePath = buildDocumentPath(account.id, "cab_cards", account.company_name || "Account", file.name, `Unit${idx + 1}`);
       const { error } = await supabase.storage.from("cab-cards").upload(filePath, file, { upsert: true });
       if (error) throw error;
       updateUnit(idx, "cab_card_path", filePath);

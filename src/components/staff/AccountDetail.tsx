@@ -645,14 +645,14 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
       {/* Submitted Markets - moved up */}
       {existingQuotes && existingQuotes.length > 0 && (
-        <SubmittedMarkets accountId={accountId} quotes={existingQuotes} />
+        <SubmittedMarkets accountId={accountId} quotes={existingQuotes} companyName={account.company_name} />
       )}
 
       {/* Tasks & Follow-ups */}
       <TaskManager accountId={accountId} />
 
       {/* Document Hub */}
-      <DocumentHub accountId={accountId} />
+      <DocumentHub accountId={accountId} companyName={account.company_name} />
 
       {/* Market Guidance (collapsible) */}
       {carriers && (

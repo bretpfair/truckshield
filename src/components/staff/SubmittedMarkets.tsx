@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { buildDocumentPath, buildDocumentName } from "@/lib/documentNaming";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,9 +47,10 @@ interface Quote {
 interface Props {
   accountId: string;
   quotes: Quote[];
+  companyName?: string;
 }
 
-const SubmittedMarkets = ({ accountId, quotes }: Props) => {
+const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props) => {
   const [uploadDialog, setUploadDialog] = useState<{ quoteId: string; carrierName: string } | null>(null);
   const [updateQuoteDialog, setUpdateQuoteDialog] = useState<{ quoteId: string; carrierName: string; currentPremium: number | null } | null>(null);
   const [bindDialog, setBindDialog] = useState<{ quoteId: string; carrierName: string; currentPremium: number | null } | null>(null);
@@ -316,7 +318,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
       let filePath: string | null = null;
       if (quoteFile) {
         const ext = quoteFile.name.split(".").pop();
-        const path = `${accountId}/${uploadDialog.quoteId}.${ext}`;
+        const path = buildDocumentPath(accountId, "quotes", companyName, quoteFile.name, uploadDialog.carrierName);
         const { error: uploadError } = await supabase.storage
           .from("loss-runs")
           .upload(path, quoteFile, { upsert: true });
@@ -362,7 +364,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
       let filePath: string | null = null;
       if (quoteFile) {
         const ext = quoteFile.name.split(".").pop();
-        const path = `${accountId}/${updateQuoteDialog.quoteId}-updated-${Date.now()}.${ext}`;
+        const path = buildDocumentPath(accountId, "quotes", companyName, quoteFile.name, updateQuoteDialog.carrierName);
         const { error: uploadError } = await supabase.storage
           .from("loss-runs")
           .upload(path, quoteFile, { upsert: true });
@@ -372,7 +374,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
         // Index in account_documents
         await supabase.from("account_documents").insert({
           account_id: accountId,
-          file_name: quoteFile.name,
+          file_name: buildDocumentName("quotes", companyName, quoteFile.name, updateQuoteDialog.carrierName),
           file_path: `loss-runs/${path}`,
           category: "quotes",
           file_size: quoteFile.size,
@@ -422,7 +424,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
       let filePath: string | null = null;
       if (bindFile) {
         const ext = bindFile.name.split(".").pop();
-        const path = `${accountId}/${bindDialog.quoteId}-binder-${Date.now()}.${ext}`;
+        const path = buildDocumentPath(accountId, "policies", companyName, bindFile.name, bindDialog.carrierName);
         const { error: uploadError } = await supabase.storage
           .from("loss-runs")
           .upload(path, bindFile, { upsert: true });
@@ -432,7 +434,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
         // Index in account_documents
         await supabase.from("account_documents").insert({
           account_id: accountId,
-          file_name: bindFile.name,
+          file_name: buildDocumentName("policies", companyName, bindFile.name, bindDialog.carrierName),
           file_path: `loss-runs/${path}`,
           category: "policies",
           file_size: bindFile.size,

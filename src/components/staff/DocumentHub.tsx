@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { buildDocumentPath, buildDocumentName } from "@/lib/documentNaming";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,10 +60,11 @@ const fileIcon = (name: string) => {
 
 interface Props {
   accountId: string;
+  companyName?: string;
   readOnly?: boolean;
 }
 
-const DocumentHub = ({ accountId, readOnly = false }: Props) => {
+const DocumentHub = ({ accountId, companyName = "Account", readOnly = false }: Props) => {
   const [category, setCategory] = useState("all");
   const [uploadCategory, setUploadCategory] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -128,16 +130,17 @@ const DocumentHub = ({ accountId, readOnly = false }: Props) => {
     setUploading(true);
     try {
       for (const file of pendingFiles) {
-        const filePath = `${accountId}/${Date.now()}-${file.name}`;
+        const filePath = buildDocumentPath(accountId, uploadCategory, companyName, file.name);
         const { error: uploadError } = await supabase.storage
           .from("account-documents")
           .upload(filePath, file);
         if (uploadError) throw uploadError;
 
+        const stdName = buildDocumentName(uploadCategory, companyName, file.name);
         const { error: dbError } = await supabase.from("account_documents").insert({
           account_id: accountId,
           uploaded_by: user!.id,
-          file_name: file.name,
+          file_name: stdName,
           file_path: filePath,
           file_size: file.size,
           category: uploadCategory,
