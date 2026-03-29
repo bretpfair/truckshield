@@ -49,7 +49,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   quoting: { label: "Quoting in Progress", color: "bg-accent/10 text-accent border-accent/30", icon: FileText },
   quoted: { label: "Quotes Available", color: "bg-success/10 text-success border-success/30", icon: CheckCircle2 },
   bound: { label: "Policy Bound", color: "bg-success/20 text-success border-success/40", icon: Shield },
-  lead: { label: "New Lead", color: "bg-muted text-muted-foreground border-border", icon: Clock },
+  
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/30", icon: AlertCircle },
 };
 
@@ -158,7 +158,7 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
   const appProgress = Math.round((appStep / WIZARD_STEPS.length) * 100);
   const currentStepName = WIZARD_STEPS.find((s) => s.id === appStep)?.title ?? "Getting Started";
   const isComplete = ["info_complete", "quoting", "quoted", "bound"].includes(account.status);
-  const statusInfo = statusConfig[account.status] ?? statusConfig.lead;
+  const statusInfo = statusConfig[account.status] ?? statusConfig.pending_info;
   const StatusIcon = statusInfo.icon;
 
   return (

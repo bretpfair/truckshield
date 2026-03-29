@@ -289,7 +289,7 @@ Deno.serve(async (req) => {
         .eq("id", accountId);
       if (error) throw new Error(`Account update failed: ${error.message}`);
     } else {
-      accountData.status = "lead";
+      accountData.status = "pending_info";
       const { data, error } = await supabase
         .from("accounts")
         .insert(accountData)

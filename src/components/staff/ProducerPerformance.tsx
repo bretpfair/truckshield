@@ -18,7 +18,7 @@ interface ProducerStats {
   accountsByStatus: Record<string, number>;
 }
 
-const statusOrder = ["lead", "pending_info", "info_complete", "quoting", "quoted", "bound"];
+const statusOrder = ["pending_info", "info_complete", "quoting", "quoted", "bound"];
 
 const ProducerPerformance = () => {
   const { data: accounts } = useQuery({

@@ -12,7 +12,7 @@ interface JourneyTimelineProps {
 }
 
 const JourneyTimeline = ({ accountStatus }: JourneyTimelineProps) => {
-  const isPreSubmit = ["lead", "pending_info"].includes(accountStatus);
+  const isPreSubmit = accountStatus === "pending_info";
 
   return (
     <div className="flex items-center gap-0 w-full overflow-x-auto pb-1">
