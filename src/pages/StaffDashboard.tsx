@@ -250,7 +250,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
         {[
           { label: "Total Accounts", value: stats.total, icon: Building2, color: "text-foreground" },
           { label: "Pending Info", value: stats.pending, icon: Users, color: "text-warning" },
@@ -258,11 +258,11 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
           { label: "Bound", value: stats.bound, icon: TrendingUp, color: "text-success" },
         ].map((s) => (
           <Card key={s.label} className="glass-panel">
-            <CardContent className="p-4 flex items-center gap-3">
-              <s.icon className={`h-8 w-8 ${s.color} opacity-80`} />
-              <div>
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">{s.label}</p>
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <s.icon className={`h-5 w-5 sm:h-8 sm:w-8 ${s.color} opacity-80 shrink-0`} />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">{s.value}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-mono uppercase tracking-wider truncate">{s.label}</p>
               </div>
             </CardContent>
           </Card>
@@ -270,24 +270,26 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
       </div>
 
       <Tabs defaultValue="accounts" className="space-y-4">
-        <TabsList className="bg-secondary">
-          <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="pdf-upload">
-            <Upload className="h-3 w-3 mr-1" /> PDF Import
-          </TabsTrigger>
-          {isAdmin && <TabsTrigger value="carriers">Carriers</TabsTrigger>}
-          {isAdmin && (
-            <TabsTrigger value="analytics">
-              <BarChart3 className="h-3 w-3 mr-1" /> Analytics
+        <div className="overflow-x-auto -mx-1 px-1 scrollbar-none">
+          <TabsList className="bg-secondary w-max">
+            <TabsTrigger value="accounts">Accounts</TabsTrigger>
+            <TabsTrigger value="pdf-upload">
+              <Upload className="h-3 w-3 mr-1" /> PDF Import
             </TabsTrigger>
-          )}
-          <TabsTrigger value="invite">Invite Client</TabsTrigger>
-          {isAdmin && <TabsTrigger value="invite-staff">Invite Staff</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="staff-manage">Staff Management</TabsTrigger>}
-        </TabsList>
+            {isAdmin && <TabsTrigger value="carriers">Carriers</TabsTrigger>}
+            {isAdmin && (
+              <TabsTrigger value="analytics">
+                <BarChart3 className="h-3 w-3 mr-1" /> Analytics
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="invite">Invite</TabsTrigger>
+            {isAdmin && <TabsTrigger value="invite-staff">Invite Staff</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="staff-manage">Staff</TabsTrigger>}
+          </TabsList>
+        </div>
 
         <TabsContent value="accounts" className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -297,27 +299,29 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                 className="pl-10"
               />
             </div>
-            <div className="flex items-center border rounded-md bg-secondary">
-              <Button
-                variant={viewMode === "pipeline" ? "default" : "ghost"}
-                size="sm"
-                className="h-8 px-2.5"
-                onClick={() => setViewMode("pipeline")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="sm"
-                className="h-8 px-2.5"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="h-4 w-4" />
+            <div className="flex items-center gap-2">
+              <div className="flex items-center border rounded-md bg-secondary">
+                <Button
+                  variant={viewMode === "pipeline" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 px-2.5"
+                  onClick={() => setViewMode("pipeline")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 px-2.5"
+                  onClick={() => setViewMode("list")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button onClick={() => setShowNewAccount(true)} className="flex-1 sm:flex-none">
+                <Plus className="h-4 w-4 mr-2" /> New Account
               </Button>
             </div>
-            <Button onClick={() => setShowNewAccount(true)}>
-              <Plus className="h-4 w-4 mr-2" /> New Account
-            </Button>
           </div>
 
           {showNewAccount && (
