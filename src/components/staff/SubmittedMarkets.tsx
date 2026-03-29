@@ -364,7 +364,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
         const ext = quoteFile.name.split(".").pop();
         const path = `${accountId}/${updateQuoteDialog.quoteId}-updated-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
-          .from("account-documents")
+          .from("loss-runs")
           .upload(path, quoteFile, { upsert: true });
         if (uploadError) throw uploadError;
         filePath = path;
@@ -373,7 +373,7 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
         await supabase.from("account_documents").insert({
           account_id: accountId,
           file_name: quoteFile.name,
-          file_path: `account-documents/${path}`,
+          file_path: `loss-runs/${path}`,
           category: "quotes",
           file_size: quoteFile.size,
         });
