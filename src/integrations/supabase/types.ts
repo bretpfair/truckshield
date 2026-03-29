@@ -657,6 +657,30 @@ export type Database = {
           },
         ]
       }
+      login_history: {
+        Row: {
+          id: string
+          ip_address: string | null
+          logged_in_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          ip_address?: string | null
+          logged_in_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          ip_address?: string | null
+          logged_in_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       loss_history: {
         Row: {
           account_id: string
@@ -923,6 +947,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          last_login_at: string | null
           phone: string | null
           updated_at: string
           user_id: string
@@ -933,6 +958,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          last_login_at?: string | null
           phone?: string | null
           updated_at?: string
           user_id: string
@@ -943,6 +969,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          last_login_at?: string | null
           phone?: string | null
           updated_at?: string
           user_id?: string
