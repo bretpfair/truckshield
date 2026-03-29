@@ -54,6 +54,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         if (session?.user) {
           fetchRole(session.user.id);
+          // Track login on SIGNED_IN event
+          if (_event === "SIGNED_IN") {
+            trackLogin(session.user.id);
+          }
         } else {
           setRole(null);
         }
