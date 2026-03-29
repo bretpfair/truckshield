@@ -351,7 +351,167 @@ const SubmittedMarkets = ({ accountId, quotes }: Props) => {
     }
   };
 
-  if (!quotes || quotes.length === 0) return null;
+  const handleUpdateQuote = async () => {
+    if (!updateQuoteDialog || !premiumAmount) return;
+    setUpdatingQuote(true);
+
+    try {
+      const premium = parseFloat(premiumAmount);
+      if (isNaN(premium)) throw new Error("Invalid premium amount");
+
+      let filePath: string | null = null;
+      if (quoteFile) {
+        const ext = quoteFile.name.split(".").pop();
+        const path = `${accountId}/${updateQuoteDialog.quoteId}-updated-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("account-documents")
+          .upload(path, quoteFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        filePath = path;
+
+        // Index in account_documents
+        await supabase.from("account_documents").insert({
+          account_id: accountId,
+          file_name: quoteFile.name,
+          file_path: `account-documents/${path}`,
+          category: "quotes",
+          file_size: quoteFile.size,
+        });
+      }
+
+      const updateData: any = { premium_estimate: premium };
+      // Preserve existing coverage_details and merge quote_file_path
+      if (filePath) {
+        const { data: existing } = await supabase.from("quotes").select("coverage_details").eq("id", updateQuoteDialog.quoteId).single();
+        updateData.coverage_details = { ...(existing?.coverage_details as any || {}), quote_file_path: filePath };
+      }
+
+      const { error } = await supabase
+        .from("quotes")
+        .update(updateData)
+        .eq("id", updateQuoteDialog.quoteId);
+      if (error) throw error;
+
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${updateQuoteDialog.carrierName} quote updated — premium: $${premium.toLocaleString()}`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      toast({ title: "Quote updated successfully" });
+      setUpdateQuoteDialog(null);
+      setPremiumAmount("");
+      setQuoteFile(null);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUpdatingQuote(false);
+    }
+  };
+
+  const handleSubmitBind = async () => {
+    if (!bindDialog || !boundPremium) return;
+    setSubmittingBind(true);
+
+    try {
+      const premium = parseFloat(boundPremium);
+      if (isNaN(premium)) throw new Error("Invalid premium amount");
+
+      let filePath: string | null = null;
+      if (bindFile) {
+        const ext = bindFile.name.split(".").pop();
+        const path = `${accountId}/${bindDialog.quoteId}-binder-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("account-documents")
+          .upload(path, bindFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        filePath = path;
+
+        // Index in account_documents
+        await supabase.from("account_documents").insert({
+          account_id: accountId,
+          file_name: bindFile.name,
+          file_path: `account-documents/${path}`,
+          category: "policies",
+          file_size: bindFile.size,
+        });
+      }
+
+      // Get existing coverage_details
+      const { data: existing } = await supabase.from("quotes").select("coverage_details").eq("id", bindDialog.quoteId).single();
+      const coverageDetails = { ...(existing?.coverage_details as any || {}) };
+      coverageDetails.bound_premium = premium;
+      if (filePath) coverageDetails.binder_file_path = filePath;
+
+      const { error } = await supabase
+        .from("quotes")
+        .update({
+          status: "bound",
+          premium_estimate: premium,
+          coverage_details: coverageDetails,
+        })
+        .eq("id", bindDialog.quoteId);
+      if (error) throw error;
+
+      await supabase.from("activity_log").insert({
+        account_id: accountId,
+        action_type: "quote_update",
+        description: `${bindDialog.carrierName} bound at $${premium.toLocaleString()}`,
+      });
+
+      // Send status change email
+      try {
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("client_user_id, contact_email")
+          .eq("id", accountId)
+          .single();
+
+        const clientEmail = account?.contact_email;
+        if (clientEmail) {
+          let firstName: string | undefined;
+          if (account?.client_user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", account.client_user_id)
+              .single();
+            firstName = profile?.full_name?.split(" ")[0];
+          }
+
+          await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "carrier-status-change",
+              recipientEmail: clientEmail,
+              idempotencyKey: `carrier-bound-${bindDialog.quoteId}-${Date.now()}`,
+              templateData: {
+                firstName,
+                carrierName: bindDialog.carrierName,
+                newStatus: "bound",
+                portalLink: `${window.location.origin}/client`,
+              },
+            },
+          });
+        }
+      } catch (emailErr) {
+        console.error("Failed to send bind email:", emailErr);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      toast({ title: "Coverage bound", description: `${bindDialog.carrierName} bound at $${premium.toLocaleString()}` });
+      setBindDialog(null);
+      setBoundPremium("");
+      setBindFile(null);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingBind(false);
+    }
+  };
+
 
   return (
     <>
