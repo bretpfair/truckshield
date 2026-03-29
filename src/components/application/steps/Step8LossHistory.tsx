@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ShieldCheck, Upload, FileText, Trash2, Loader2 } from "lucide-react";
+import { buildDocumentPath, buildDocumentName } from "@/lib/documentNaming";
 
 interface StepProps {
   account: any;
@@ -145,13 +146,13 @@ const Step8LossHistory = ({ account, formData, updateFormData }: StepProps) => {
     setUploading(true);
     try {
       for (const file of filesToUpload) {
-        const filePath = `${account.id}/${Date.now()}_${file.name}`;
+        const filePath = buildDocumentPath(account.id, "loss_runs", account.company_name || "Account", file.name);
         const { error } = await supabase.storage.from("loss-runs").upload(filePath, file);
         if (error) throw error;
         // Also save to account_documents so it appears in the client record
         const { error: docError } = await supabase.from("account_documents").insert({
           account_id: account.id,
-          file_name: file.name,
+          file_name: buildDocumentName("loss_runs", account.company_name || "Account", file.name),
           file_path: `loss-runs/${filePath}`,
           category: "loss_runs",
           file_size: file.size,
