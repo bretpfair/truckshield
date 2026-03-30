@@ -72,20 +72,25 @@ const StaffManager = () => {
         .in("role", ["admin", "producer"]);
       if (rolesErr) throw rolesErr;
 
-      // Get profiles for accepted members
-      const acceptedUserIds = (roles || []).map((r) => r.user_id);
+      // Get profiles for all staff users
+      const allStaffUserIds = (roles || []).map((r) => r.user_id);
       let profiles: any[] = [];
-      if (acceptedUserIds.length > 0) {
+      if (allStaffUserIds.length > 0) {
         const { data: p, error: profErr } = await supabase
           .from("profiles")
           .select("user_id, full_name, email, phone, company_name")
-          .in("user_id", acceptedUserIds);
+          .in("user_id", allStaffUserIds);
         if (profErr) throw profErr;
         profiles = p || [];
       }
 
       const profileMap = new Map(profiles.map((p) => [p.user_id, p]));
       const roleMap = new Map((roles || []).map((r) => [r.user_id, r.role]));
+      // Build reverse map: email -> user_id from profiles
+      const emailToUserIdMap = new Map<string, string>();
+      for (const p of profiles) {
+        if (p.email) emailToUserIdMap.set(p.email.toLowerCase(), p.user_id);
+      }
 
       // Build list from invitations as the source of truth
       // First pass: group invitations by email, preferring accepted over pending
@@ -117,11 +122,33 @@ const StaffManager = () => {
         let currentRole = (inv.invited_role || "producer") as "admin" | "producer";
 
         if (effectiveStatus === "accepted") {
-          const matchedProfile = profiles.find((p) => p.email?.toLowerCase() === email);
+          // Try matching by profile email
+          let matchedProfile = profiles.find((p) => p.email?.toLowerCase() === email);
+          
+          // Fallback: if no profile email match, find unmatched staff user_ids
+          // whose profile email is null/missing (profile exists but email wasn't set)
+          if (!matchedProfile) {
+            const matchedEmails = new Set(
+              profiles.filter((p) => p.email).map((p) => p.email!.toLowerCase())
+            );
+            // Find staff with roles whose profile email doesn't match any invitation
+            const unmatchedStaff = (roles || []).filter((r) => {
+              const p = profileMap.get(r.user_id);
+              return p && (!p.email || !matchedEmails.has(p.email.toLowerCase()));
+            });
+            if (unmatchedStaff.length === 1) {
+              // Only one unmatched staff member — safe to assume it's this invitation
+              matchedProfile = profileMap.get(unmatchedStaff[0].user_id);
+            }
+          }
+
           if (matchedProfile) {
             userId = matchedProfile.user_id;
             profile = matchedProfile;
-            const liveRole = roleMap.get(userId!);
+          }
+          
+          if (userId) {
+            const liveRole = roleMap.get(userId);
             if (liveRole) currentRole = liveRole as "admin" | "producer";
           }
         }
