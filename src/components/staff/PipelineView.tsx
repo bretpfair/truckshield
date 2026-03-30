@@ -84,7 +84,7 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   // Fetch staff members for producer filter
   const { data: staffMembers } = useQuery({
     queryKey: ["staff-members-pipeline"],
-    enabled: isAdmin,
+    enabled: isAdmin || isProducer,
     queryFn: async () => {
       const { data: roles } = await supabase
         .from("user_roles")
