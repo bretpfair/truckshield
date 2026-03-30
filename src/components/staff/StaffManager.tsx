@@ -122,30 +122,32 @@ const StaffManager = () => {
         let currentRole = (inv.invited_role || "producer") as "admin" | "producer";
 
         if (effectiveStatus === "accepted") {
-          // First try matching by profile email
-          const matchedProfile = profiles.find((p) => p.email?.toLowerCase() === email);
+          // Try matching by profile email
+          let matchedProfile = profiles.find((p) => p.email?.toLowerCase() === email);
+          
+          // Fallback: if no profile email match, find unmatched staff user_ids
+          // whose profile email is null/missing (profile exists but email wasn't set)
+          if (!matchedProfile) {
+            const matchedEmails = new Set(
+              profiles.filter((p) => p.email).map((p) => p.email!.toLowerCase())
+            );
+            // Find staff with roles whose profile email doesn't match any invitation
+            const unmatchedStaff = (roles || []).filter((r) => {
+              const p = profileMap.get(r.user_id);
+              return p && (!p.email || !matchedEmails.has(p.email.toLowerCase()));
+            });
+            if (unmatchedStaff.length === 1) {
+              // Only one unmatched staff member — safe to assume it's this invitation
+              matchedProfile = profileMap.get(unmatchedStaff[0].user_id);
+            }
+          }
+
           if (matchedProfile) {
             userId = matchedProfile.user_id;
             profile = matchedProfile;
-          } else {
-            // Fallback: find a user_role user whose user_id has no profile email but has a role
-            // This handles cases where profile.email is null but the invitation was accepted
-            const matchedRole = (roles || []).find((r) => {
-              const p = profileMap.get(r.user_id);
-              // Match if profile has no email or email doesn't match any other invitation
-              return p && !p.email;
-            });
-            // Better fallback: check if any staff user_id lacks a profile email match
-            // and use the invitation email to find them
-            for (const r of roles || []) {
-              const p = profileMap.get(r.user_id);
-              if (!p) continue;
-              // If this profile has no email, it might be the user for this invitation
-              // We can't be 100% sure without auth.users, but if there's only one unmatched, use it
-            }
           }
+          
           if (userId) {
-            profile = profileMap.get(userId) || profile;
             const liveRole = roleMap.get(userId);
             if (liveRole) currentRole = liveRole as "admin" | "producer";
           }
