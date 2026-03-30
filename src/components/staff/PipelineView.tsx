@@ -553,6 +553,22 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                 </Select>
                               </div>
                             )}
+                            {isProducer && !isAdmin && !account.assigned_producer_id && (
+                              <div className="pt-1 border-t border-border">
+                                <button
+                                  className="w-full text-xs font-medium bg-primary text-primary-foreground rounded px-2 py-1.5 hover:bg-primary/90 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    assignProducer.mutate({
+                                      accountId: account.id,
+                                      producerId: user?.id ?? null,
+                                    });
+                                  }}
+                                >
+                                  Claim Account
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </HoverCardContent>
                       </HoverCard>
