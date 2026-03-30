@@ -77,8 +77,9 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
+  const isProducer = role === "producer";
 
   // Fetch staff members for producer filter
   const { data: staffMembers } = useQuery({
