@@ -77,13 +77,14 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
+  const isProducer = role === "producer";
 
   // Fetch staff members for producer filter
   const { data: staffMembers } = useQuery({
     queryKey: ["staff-members-pipeline"],
-    enabled: isAdmin,
+    enabled: isAdmin || isProducer,
     queryFn: async () => {
       const { data: roles } = await supabase
         .from("user_roles")
@@ -550,6 +551,22 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                     ))}
                                   </SelectContent>
                                 </Select>
+                              </div>
+                            )}
+                            {isProducer && !isAdmin && !account.assigned_producer_id && (
+                              <div className="pt-1 border-t border-border">
+                                <button
+                                  className="w-full text-xs font-medium bg-primary text-primary-foreground rounded px-2 py-1.5 hover:bg-primary/90 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    assignProducer.mutate({
+                                      accountId: account.id,
+                                      producerId: user?.id ?? null,
+                                    });
+                                  }}
+                                >
+                                  Claim Account
+                                </button>
                               </div>
                             )}
                           </div>
