@@ -172,9 +172,11 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
   const updateAccount = useMutation({
     mutationFn: async (data: Record<string, any>) => {
       if (isPreview) return; // Skip DB writes in preview mode
+      // Cap application_step at 9 during normal saves; step 10 is only set on actual submit
+      const stepToSave = data.application_step === 10 ? 10 : Math.min(currentStep, 9);
       const { error } = await supabase
         .from("accounts")
-        .update({ ...data, application_step: currentStep })
+        .update({ ...data, application_step: stepToSave })
         .eq("id", account.id);
       if (error) throw error;
     },
