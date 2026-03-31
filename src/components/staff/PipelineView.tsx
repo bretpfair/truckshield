@@ -401,8 +401,8 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
         </div>
       )}
 
-      {/* Pipeline columns */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 min-h-[400px]">
+      {/* Pipeline columns — horizontal scroll on mobile */}
+      <div className="flex lg:grid lg:grid-cols-6 gap-3 min-h-[400px] overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none -mx-2 px-2 sm:mx-0 sm:px-0">
         {pipelineColumns.map((col) => {
           const colAccounts = filteredAccounts.filter((a) => a.status === col.key);
           const isOver = dragOverCol === col.key;
