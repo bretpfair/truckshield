@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Truck, Shield, Mail, Loader2 } from "lucide-react";
-import logo360 from "@/assets/360-logo.png";
+import sitelogo from "@/assets/logo.png";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
