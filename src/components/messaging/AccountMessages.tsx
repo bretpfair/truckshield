@@ -76,7 +76,7 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
 
   // Presence channel for typing indicators
   useEffect(() => {
-    const channel = supabase.channel(`typing-${accountId}`, {
+    const channel = supabase.channel(`typing-${accountId}-${Date.now()}`, {
       config: { presence: { key: user?.id || "anon" } },
     });
 
