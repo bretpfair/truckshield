@@ -404,7 +404,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                             </div>
                           </div>
                         )}
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm bg-secondary/50 rounded-lg p-4 border border-border">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-sm bg-secondary/50 rounded-lg p-4 border border-border">
                           {[
                             { label: "Company Name", value: dotLookupResult.company_name },
                             { label: "DBA", value: dotLookupResult.dba_name },
