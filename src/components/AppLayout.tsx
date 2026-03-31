@@ -9,6 +9,7 @@ import logo360 from "@/assets/360-logo.png";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
+import MessagingSidebar from "@/components/messaging/MessagingSidebar";
 import useRealtimeUpdates from "@/hooks/useRealtimeUpdates";
 
 const AppLayout = () => {
@@ -16,6 +17,8 @@ const AppLayout = () => {
   const [viewAsClient, setViewAsClient] = useState(false);
   const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
   const [staffNavigateAccountId, setStaffNavigateAccountId] = useState<string | null>(null);
+  const [messagingExpanded, setMessagingExpanded] = useState(false);
+  const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
   useRealtimeUpdates(user?.id);
 
   if (loading) {
@@ -42,6 +45,11 @@ const AppLayout = () => {
   const handleBackToStaff = () => {
     setViewAsClient(false);
     setPreviewAccountId(null);
+  };
+
+  const handleOpenMessages = (accountId: string) => {
+    setMessagingAccountId(accountId);
+    setMessagingExpanded(true);
   };
 
   return (
@@ -93,7 +101,7 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6">
+        <main className={`flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 transition-all duration-300 ${isStaffRole && !showClient && messagingExpanded ? "mr-[380px]" : isStaffRole && !showClient ? "mr-12" : ""}`}>
           {showClient ? (
             previewAccountId ? (
               <ClientPortalForAccount accountId={previewAccountId} />
@@ -103,12 +111,21 @@ const AppLayout = () => {
           ) : (
             <StaffDashboard
               onPreviewClient={handlePreviewClient}
-              onOpenMessages={() => {}}
+              onOpenMessages={handleOpenMessages}
               navigateToAccountId={staffNavigateAccountId}
               onNavigateHandled={() => setStaffNavigateAccountId(null)}
             />
           )}
         </main>
+
+        {isStaffRole && !showClient && (
+          <MessagingSidebar
+            expanded={messagingExpanded}
+            onToggle={() => setMessagingExpanded((prev) => !prev)}
+            accountId={messagingAccountId}
+            isStaff
+          />
+        )}
       </div>
     </div>
   );
