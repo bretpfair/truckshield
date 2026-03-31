@@ -512,101 +512,113 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back
+      {/* Header row */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
+          <ArrowLeft className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Back</span>
         </Button>
-        <h2 className="text-xl font-bold">{account.company_name}</h2>
-        <Badge variant="outline">{account.status.replace(/_/g, " ")}</Badge>
-        {isAdmin && <ProducerAssignment accountId={accountId} currentProducerId={(account as any).assigned_producer_id} />}
-        <div className="flex-1" />
-        {account.status !== "closed_lost" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-warning border-warning/30 hover:bg-warning/10"
-            onClick={() => setShowCloseLostDialog(true)}
-          >
-            <XCircle className="h-3.5 w-3.5" /> Close / Lost
+        <h2 className="text-lg sm:text-xl font-bold truncate min-w-0">{account.company_name}</h2>
+        <Badge variant="outline" className="shrink-0 text-[10px] sm:text-xs">{account.status.replace(/_/g, " ")}</Badge>
+      </div>
+
+      {/* Producer assignment (admin) */}
+      {isAdmin && (
+        <div className="flex items-center">
+          <ProducerAssignment accountId={accountId} currentProducerId={(account as any).assigned_producer_id} />
+        </div>
+      )}
+
+      {/* Action buttons — horizontal scroll on mobile */}
+      <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-none">
+        <div className="flex items-center gap-2 w-max sm:w-auto sm:flex-wrap">
+          {account.status !== "closed_lost" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-warning border-warning/30 hover:bg-warning/10 shrink-0"
+              onClick={() => setShowCloseLostDialog(true)}
+            >
+              <XCircle className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Close / Lost</span>
+            </Button>
+          )}
+          {account.dot_number && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={handleSaferUpdate}
+              disabled={isSaferUpdating}
+            >
+              {isSaferUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{isSaferUpdating ? "Updating..." : "Update from SAFER"}</span>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5 shrink-0">
+            <ClipboardList className="h-3.5 w-3.5" /> <span className="hidden sm:inline">View</span> Application
           </Button>
-        )}
-        {account.dot_number && (
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5"
-            onClick={handleSaferUpdate}
-            disabled={isSaferUpdating}
+            className="gap-1.5 shrink-0"
+            onClick={() =>
+              generateApplicationPdf({
+                account,
+                drivers: drivers || [],
+                powerUnits: powerUnits || [],
+                trailers: accountTrailers || [],
+                lossHistory: lossHistory || [],
+                garageLocations: garageLocations || [],
+              })
+            }
           >
-            {isSaferUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {isSaferUpdating ? "Updating..." : "Update from SAFER"}
+            <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download</span>
           </Button>
-        )}
-        <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5">
-          <ClipboardList className="h-3.5 w-3.5" /> View Application
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() =>
-            generateApplicationPdf({
-              account,
-              drivers: drivers || [],
-              powerUnits: powerUnits || [],
-              trailers: accountTrailers || [],
-              lossHistory: lossHistory || [],
-              garageLocations: garageLocations || [],
-            })
-          }
-        >
-          <Download className="h-3.5 w-3.5" /> Download Application
-        </Button>
-        {account.contact_email && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={isSendingInvite}
-            onClick={async () => {
-              setIsSendingInvite(true);
-              try {
-                const result = await sendClientInvite({
-                  accountId,
-                  email: account.contact_email!,
-                  invitedBy: user?.id,
-                  companyName: account.company_name,
-                });
-                if (result.sent) {
-                  sonnerToast.success(result.message);
-                  queryClient.invalidateQueries({ queryKey: ["invitations"] });
-                } else {
-                  sonnerToast.info(result.message);
+          {account.contact_email && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              disabled={isSendingInvite}
+              onClick={async () => {
+                setIsSendingInvite(true);
+                try {
+                  const result = await sendClientInvite({
+                    accountId,
+                    email: account.contact_email!,
+                    invitedBy: user?.id,
+                    companyName: account.company_name,
+                  });
+                  if (result.sent) {
+                    sonnerToast.success(result.message);
+                    queryClient.invalidateQueries({ queryKey: ["invitations"] });
+                  } else {
+                    sonnerToast.info(result.message);
+                  }
+                } catch (err: any) {
+                  sonnerToast.error("Failed to send invite", { description: err.message });
+                } finally {
+                  setIsSendingInvite(false);
                 }
-              } catch (err: any) {
-                sonnerToast.error("Failed to send invite", { description: err.message });
-              } finally {
-                setIsSendingInvite(false);
-              }
-            }}
+              }}
+            >
+              {isSendingInvite ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">Send Invite</span>
+            </Button>
+          )}
+          {onPreviewClient && (
+            <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5 shrink-0">
+              <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Preview Client</span>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+            onClick={() => setShowDeleteDialog(true)}
           >
-            {isSendingInvite ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-            Send Invite
+            <Trash2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Delete</span>
           </Button>
-        )}
-        {onPreviewClient && (
-          <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5">
-            <Eye className="h-3.5 w-3.5" /> Preview Client
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
-          onClick={() => setShowDeleteDialog(true)}
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete
-        </Button>
+        </div>
       </div>
 
       {/* Account Info with Contact */}
