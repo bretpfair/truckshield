@@ -511,7 +511,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-3 sm:space-y-6 animate-fade-in">
       {/* Header row */}
       <div className="flex items-center gap-2 sm:gap-3">
         <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
