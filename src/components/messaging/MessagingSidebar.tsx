@@ -1,8 +1,14 @@
-import { useState } from "react";
 import { MessageSquare, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AccountMessages from "./AccountMessages";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 interface Props {
   expanded: boolean;
@@ -12,6 +18,49 @@ interface Props {
 }
 
 const MessagingSidebar = ({ expanded, onToggle, accountId, isStaff }: Props) => {
+  const isMobile = useIsMobile();
+
+  const messageContent = accountId ? (
+    <AccountMessages accountId={accountId} isStaff={isStaff} embedded />
+  ) : (
+    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+      <MessageSquare className="h-8 w-8 opacity-40 mb-2" />
+      <p className="text-sm text-center">Select an account to view messages</p>
+    </div>
+  );
+
+  /* ── Mobile: bottom drawer ── */
+  if (isMobile) {
+    return (
+      <>
+        {/* Floating trigger button */}
+        <Button
+          variant="default"
+          size="icon"
+          onClick={onToggle}
+          className="fixed bottom-4 right-4 z-50 h-12 w-12 rounded-full shadow-lg"
+        >
+          <MessageSquare className="h-5 w-5" />
+        </Button>
+
+        <Drawer open={expanded} onOpenChange={(open) => { if (!open) onToggle(); }}>
+          <DrawerContent className="max-h-[85vh]">
+            <DrawerHeader className="pb-2">
+              <DrawerTitle className="flex items-center gap-2 text-sm font-mono uppercase tracking-wider text-muted-foreground">
+                <MessageSquare className="h-4 w-4 text-primary" />
+                Messages
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="flex-1 overflow-hidden p-3 min-h-[50vh]">
+              {messageContent}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </>
+    );
+  }
+
+  /* ── Desktop: fixed sidebar ── */
   return (
     <aside
       className={cn(
@@ -47,14 +96,7 @@ const MessagingSidebar = ({ expanded, onToggle, accountId, isStaff }: Props) => 
       {/* Content */}
       {expanded && (
         <div className="flex-1 overflow-hidden p-3">
-          {accountId ? (
-            <AccountMessages accountId={accountId} isStaff={isStaff} embedded />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <MessageSquare className="h-8 w-8 opacity-40 mb-2" />
-              <p className="text-sm text-center">Select an account to view messages</p>
-            </div>
-          )}
+          {messageContent}
         </div>
       )}
     </aside>

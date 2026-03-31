@@ -101,7 +101,7 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className={`flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 transition-all duration-300 ${isStaffRole && !showClient && messagingExpanded ? "mr-[380px]" : isStaffRole && !showClient ? "mr-12" : ""}`}>
+        <main className={`flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 transition-all duration-300 ${isStaffRole && !showClient && messagingExpanded ? "md:mr-[380px]" : isStaffRole && !showClient ? "md:mr-12" : ""}`}>
           {showClient ? (
             previewAccountId ? (
               <ClientPortalForAccount accountId={previewAccountId} />
