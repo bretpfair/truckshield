@@ -375,7 +375,7 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
         ) : (
           <Button
             onClick={async () => {
-              handleSave({ ...formData, status: "info_complete" });
+              handleSave({ ...formData, status: "info_complete", application_step: 10 });
               // Send application-received confirmation email
               if (!isPreview && account.contact_email) {
                 try {
