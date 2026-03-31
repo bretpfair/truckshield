@@ -5,7 +5,7 @@ import StaffDashboard from "@/pages/StaffDashboard";
 import ClientPortal from "@/pages/ClientPortal";
 import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
 import { Truck, LogOut, User, Eye } from "lucide-react";
-import logo360 from "@/assets/360-logo.png";
+import sitelogo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -57,8 +57,7 @@ const AppLayout = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center justify-between h-14 px-2 sm:px-4 gap-1 sm:gap-2">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <img src={logo360} alt="360 Risk Partners" className="h-6 sm:h-7 w-auto shrink-0" />
-            <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+            <img src={sitelogo} alt="TruckShield" className="h-7 sm:h-8 w-auto shrink-0 rounded" />
             <span className="font-bold text-foreground text-xs sm:text-sm truncate">
               <span className="sm:hidden">TruckShield</span>
               <span className="hidden sm:inline">TruckShield, powered by 360 Risk Partners</span>
