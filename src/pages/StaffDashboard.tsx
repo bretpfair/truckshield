@@ -482,21 +482,21 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                   className="glass-panel cursor-pointer hover:border-primary/30 transition-colors"
                   onClick={() => setSelectedAccountId(account.id)}
                 >
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <Building2 className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-semibold">{account.company_name}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-                          {account.dot_number && <span>DOT# {account.dot_number}</span>}
-                          {account.fleet_size && <span>{account.fleet_size} trucks</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className={statusColors[account.status] ?? ""}>
-                      {account.status.replace(/_/g, " ")}
-                    </Badge>
-                  </CardContent>
+                  <CardContent className="p-3 sm:p-4 flex items-center justify-between gap-2">
+                     <div className="flex items-center gap-3 min-w-0">
+                       <Building2 className="h-5 w-5 text-muted-foreground shrink-0 hidden sm:block" />
+                       <div className="min-w-0">
+                         <p className="font-semibold text-sm sm:text-base truncate">{account.company_name}</p>
+                         <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground font-mono">
+                           {account.dot_number && <span>DOT# {account.dot_number}</span>}
+                           {account.fleet_size && <span>{account.fleet_size} trucks</span>}
+                         </div>
+                       </div>
+                     </div>
+                     <Badge variant="outline" className={`${statusColors[account.status] ?? ""} text-[10px] sm:text-xs shrink-0`}>
+                       {account.status.replace(/_/g, " ")}
+                     </Badge>
+                   </CardContent>
                 </Card>
               ))}
               {filtered?.length === 0 && (
