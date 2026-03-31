@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
       dot_number: dotNumber ? String(dotNumber) : null,
       mc_number: mcNumber ? String(mcNumber) : null,
       ein_tax_id: (bi("fein_number") as string) || payload.ein_tax_id || null,
-      business_type: (bi("business_type_string") as string) || payload.business_type || null,
+      business_type: normalizeBusinessType((bi("business_type_string") as string) || (payload.business_type as string) || null),
       business_owner_name: (bi("owner_name") as string) || payload.business_owner_name || null,
       business_owner_dob: (bi("owner_dob") as string) || payload.business_owner_dob || null,
       years_in_business: yearsSince(bi("business_starting_date") as string) ?? payload.years_in_business ?? null,
