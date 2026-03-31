@@ -630,11 +630,11 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           {/* Contact Info */}
           <div>
             <p className="text-xs font-mono uppercase tracking-wider text-primary mb-2">Contact Information</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               {contactFields.map((f) => (
                 <div key={f.label}>
                   <p className="text-xs text-muted-foreground font-mono">{f.label}</p>
-                  <p className="text-sm font-medium">{f.value || <span className="text-muted-foreground italic">Missing</span>}</p>
+                  <p className="text-sm font-medium break-words">{f.value || <span className="text-muted-foreground italic">Missing</span>}</p>
                 </div>
               ))}
             </div>
@@ -643,7 +643,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           {/* Business Info */}
           <div>
             <p className="text-xs font-mono uppercase tracking-wider text-primary mb-2">Business Information</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
               {infoFields.map((f) => (
                 <div key={f.label}>
                   <p className="text-xs text-muted-foreground font-mono">{f.label}</p>

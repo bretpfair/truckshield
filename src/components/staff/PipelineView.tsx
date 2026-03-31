@@ -407,7 +407,7 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
           const colAccounts = filteredAccounts.filter((a) => a.status === col.key);
           const isOver = dragOverCol === col.key;
           return (
-            <div key={col.key} className="flex flex-col">
+            <div key={col.key} className="flex flex-col min-w-[200px] sm:min-w-[180px] lg:min-w-0 snap-start shrink-0 lg:shrink">
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className={`text-xs font-mono uppercase tracking-wider ${col.color}`}>
                   {col.label}
