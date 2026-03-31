@@ -57,8 +57,9 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
 
   // Realtime subscription for new messages
   useEffect(() => {
+    const channelName = `messages-${accountId}-${Date.now()}`;
     const channel = supabase
-      .channel(`messages-${accountId}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "messages", filter: `account_id=eq.${accountId}` },
@@ -75,7 +76,7 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
 
   // Presence channel for typing indicators
   useEffect(() => {
-    const channel = supabase.channel(`typing-${accountId}`, {
+    const channel = supabase.channel(`typing-${accountId}-${Date.now()}`, {
       config: { presence: { key: user?.id || "anon" } },
     });
 
