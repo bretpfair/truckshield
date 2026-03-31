@@ -5,7 +5,7 @@ import StaffDashboard from "@/pages/StaffDashboard";
 import ClientPortal from "@/pages/ClientPortal";
 import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
 import { Truck, LogOut, User, Eye } from "lucide-react";
-import logo360 from "@/assets/360-logo.png";
+import sitelogo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
