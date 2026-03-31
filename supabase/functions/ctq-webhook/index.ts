@@ -37,6 +37,22 @@ function normalizeGvw(raw: string | undefined | null): string | null {
 }
 
 
+/** Normalize business type strings from CTQ into our canonical values */
+function normalizeBusinessType(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const lower = raw.trim().toLowerCase();
+  if (lower === "individual" || lower === "sole proprietor" || lower === "sole proprietorship") return "Individual";
+  if (lower === "partnership" || lower === "limited partnership" || lower === "lp") return "Partnership";
+  // Everything else maps to Corporation/LLC
+  if (lower.includes("corp") || lower.includes("llc") || lower.includes("inc") || lower.includes("company") || lower.includes("s-corp") || lower.includes("c-corp")) return "Corporation/LLC";
+  // If it doesn't match any known pattern, still try to preserve it if it's one of our values
+  const KNOWN = ["Individual", "Partnership", "Corporation/LLC"];
+  const exact = KNOWN.find((k) => k.toLowerCase() === lower);
+  if (exact) return exact;
+  // Default: Corporation/LLC for unrecognized values
+  return "Corporation/LLC";
+}
+
 function yearsSince(dateStr: string | undefined | null): number | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
@@ -127,7 +143,7 @@ Deno.serve(async (req) => {
       dot_number: dotNumber ? String(dotNumber) : null,
       mc_number: mcNumber ? String(mcNumber) : null,
       ein_tax_id: (bi("fein_number") as string) || payload.ein_tax_id || null,
-      business_type: (bi("business_type_string") as string) || payload.business_type || null,
+      business_type: normalizeBusinessType((bi("business_type_string") as string) || (payload.business_type as string) || null),
       business_owner_name: (bi("owner_name") as string) || payload.business_owner_name || null,
       business_owner_dob: (bi("owner_dob") as string) || payload.business_owner_dob || null,
       years_in_business: yearsSince(bi("business_starting_date") as string) ?? payload.years_in_business ?? null,

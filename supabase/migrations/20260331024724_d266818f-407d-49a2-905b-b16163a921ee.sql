@@ -1,0 +1,1 @@
+UPDATE accounts SET business_type = 'Corporation/LLC' WHERE business_type IS NOT NULL AND business_type NOT IN ('Individual', 'Partnership', 'Corporation/LLC');
