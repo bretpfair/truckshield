@@ -24,7 +24,7 @@ export const CONTRACTOR_TYPES = [
   "Roofing Contractors","Welding Services","Window/Glass"
 ];
 
-export const BUSINESS_TYPES = ["Individual", "Partnership", "Corporation/LLC"];
+export const BUSINESS_TYPES = ["LLC", "C Corp", "S Corp", "Partnership", "Sole Proprietorship", "Other"];
 export const CARRIER_AUTHORITY_PREFIXES = ["DOT", "MC", "ST", "N/A"];
 
 export const PRIMARY_BIPD_LIMITS = ["$1,000,000", "$750,000", "$500,000", "$300,000", "$100,000"];
