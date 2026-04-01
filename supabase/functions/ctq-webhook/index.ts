@@ -41,16 +41,21 @@ function normalizeGvw(raw: string | undefined | null): string | null {
 function normalizeBusinessType(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const lower = raw.trim().toLowerCase();
-  if (lower === "individual" || lower === "sole proprietor" || lower === "sole proprietorship") return "Individual";
+  if (lower === "sole proprietor" || lower === "sole proprietorship" || lower === "individual") return "Sole Proprietorship";
   if (lower === "partnership" || lower === "limited partnership" || lower === "lp") return "Partnership";
-  // Everything else maps to Corporation/LLC
-  if (lower.includes("corp") || lower.includes("llc") || lower.includes("inc") || lower.includes("company") || lower.includes("s-corp") || lower.includes("c-corp")) return "Corporation/LLC";
-  // If it doesn't match any known pattern, still try to preserve it if it's one of our values
-  const KNOWN = ["Individual", "Partnership", "Corporation/LLC"];
+  if (lower === "s corp" || lower === "s-corp" || lower === "s corporation") return "S Corp";
+  if (lower === "c corp" || lower === "c-corp" || lower === "c corporation") return "C Corp";
+  if (lower === "llc" || lower === "limited liability company") return "LLC";
+  // Fallback mappings for broader patterns
+  if (lower.includes("llc")) return "LLC";
+  if (lower.includes("s-corp") || lower.includes("s corp")) return "S Corp";
+  if (lower.includes("c-corp") || lower.includes("c corp")) return "C Corp";
+  if (lower.includes("corp") || lower.includes("inc") || lower.includes("company")) return "C Corp";
+  // Check exact match against known values
+  const KNOWN = ["LLC", "C Corp", "S Corp", "Partnership", "Sole Proprietorship", "Other"];
   const exact = KNOWN.find((k) => k.toLowerCase() === lower);
   if (exact) return exact;
-  // Default: Corporation/LLC for unrecognized values
-  return "Corporation/LLC";
+  return "Other";
 }
 
 function yearsSince(dateStr: string | undefined | null): number | null {
