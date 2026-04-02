@@ -22,6 +22,7 @@ const actionIcons: Record<string, typeof MessageSquare> = {
   client_linked: UserPlus,
   email_sent: Mail,
   email_failed: TriangleAlert,
+  client_login: LogIn,
 };
 
 const actionColors: Record<string, string> = {
