@@ -1,118 +1,134 @@
 
 
-# Plan: Generate TruckShield System Documentation (Word Document)
+# Cover Whale API Integration Plan
 
-## What We're Building
-A comprehensive `.docx` document covering every feature, automated email, automation, and workflow in the TruckShield / 360 Risk Partners platform. The document will be structured for team onboarding and reference.
+## Overview
 
-## Document Structure
+Integrate Cover Whale's API directly into TruckShield so staff can request quotes, check indications, view submission status, and initiate binding — all from within the account detail view. The system will map existing application data to Cover Whale's API payload format automatically.
 
-### 1. System Overview
-- Platform purpose: trucking insurance CRM and client portal
-- Two user roles: Staff (Admin/Producer) and Client
-- Tech stack summary (web app with backend database and email infrastructure)
+## Prerequisites — API Credentials
 
-### 2. Staff Dashboard Features
-- **Account Management**: Create accounts via DOT lookup (FMCSA/SAFER auto-fill) or manual entry; duplicate DOT detection; search and filter
-- **Pipeline View**: Drag-and-drop Kanban board with columns: Lead → Pending Info → Info Complete → Quoting → Quoted → Bound; stale account warnings; producer filtering
-- **Account Detail View**: Full account record with collapsible sections, producer assignment (admin-only), status management, application preview, PDF export
-- **Carrier Manager**: Add/edit carriers with appetite criteria (fleet size, revenue, authority age, cargo types, states, business types); upload appetite guides and logos
-- **AI Market Guidance**: Gemini-powered carrier matching with scores (0-100), tiers (Strong/Partial/Poor), strengths and concerns; "Mark as Submitted" to enter quoting pipeline
-- **Submitted Markets**: Track carrier quote statuses (Submitted → Under Review → Info Requested → Quoted → Declined → Bound); upload quote documents; update quotes with revised premium; bind coverage with final premium and policy document; request additional info from client; decline with mandatory reason
-- **Document Hub**: Categorized file storage (Loss Runs, Cab Cards, Quotes, Policies, MVR, Drivers License, Misc); upload with category selection; standardized naming: `[Category]_[CompanyName]_[Date].ext`
-- **Task Manager**: Create tasks per account with priority (Low/Medium/High), due dates, assignee, completion tracking
-- **Activity Log**: Chronological audit trail of all actions on an account
-- **Messaging**: Real-time bidirectional chat per account with file attachments, read receipts
-- **Analytics Dashboard** (Admin-only): Pipeline funnel chart, status distribution, stale account alerts, producer performance metrics
-- **Staff Management** (Admin-only): View staff members, invite new staff via email
-- **PDF Import**: Upload existing PDF applications for data extraction
-- **Client Invite**: Send/resend magic link invitations to clients
+Before building, we need to securely store three Cover Whale secrets:
+- **CW_BASE_URL** — `https://api.coverwhale.dev` (dev) or `https://api.coverwhale.com` (prod)
+- **CW_USERNAME** — the username associated with `integrations@360riskpartners.com`
+- **CW_PASSWORD** — the password provided by Cover Whale
 
-### 3. Client Portal Features
-- **Journey Timeline**: Visual 4-stage progress indicator (Submission → Quoting → Quoted → Bound)
-- **Application Wizard**: 10-step form (Applicant Info, Coverage Selections, Radius of Operations, Commodities, Power Units, Trailers, Drivers, Loss History, General Questions, Review & Submit); auto-save; red border validation for incomplete fields; cab card and loss run uploads inline
-- **Info Request Banner**: Persistent alert when a carrier has requested additional information
-- **Quote Display**: Carrier logo, premium amount, downloadable quote PDF
-- **Policy Renewal Card**: For bound policies — shows expiration date and countdown
-- **Document Hub**: View and download documents shared by staff; upload documents
-- **Messaging**: Chat with agency staff, file attachments
+These will be stored as backend secrets and used only by backend functions. You will need to obtain the actual credentials from Cover Whale after registering `integrations@360riskpartners.com`.
 
-### 4. Authentication & Onboarding
-- **Client Authentication**: Magic link (passwordless) via email invitation
-- **Staff Authentication**: Email/password signup via invitation link with token-based role assignment
-- **Client Invitation Auto-trigger**: Whenever `contact_email` is set on an account (via wizard, SAFER import, or manual entry), an invitation is automatically sent
-- **Staff Invitation Flow**: Admin generates time-limited token → email sent → signup/login via invite link → `accept_staff_invitation` grants admin role
+---
 
-### 5. Automated Status Progression (Database Triggers)
-The `auto_update_account_status` trigger automatically transitions account status:
+## Architecture
 
-| Trigger Event | From Status | To Status |
-|---|---|---|
-| Application completed (step ≥ 10) | pending_info | info_complete |
-| First quote submitted to carrier | lead/pending_info/info_complete | quoting |
-| Quote received from carrier | quoting | quoted |
-| Coverage bound | any | bound |
-
-Each transition logs an activity entry and fires the `notify-status-change` edge function for email notifications.
-
-### 6. Automated Emails (9 Templates)
-
-| Template | Trigger | Recipient | Contents |
-|---|---|---|---|
-| **Client Portal Invite** | Contact email set on account | Client | Magic link to access portal |
-| **Application Received** | Application submitted (status → info_complete) | Client | Confirmation that application was received |
-| **Application Completed (Staff)** | Application submitted | All admins + assigned producer | Alert with company name, DOT#, submitter name |
-| **Pipeline Status Change** | Account status changes (quoting/quoted/bound) | Client | Status update with portal link |
-| **Carrier Status Change** | Carrier quote status updated | Client | Carrier name, new status, portal link (statuses: Submitted, Under Review, Quoted, Quote Updated, Declined, Bound) |
-| **Additional Info Request** | Staff requests info from carrier panel | Client | Carrier name, request details, portal link |
-| **Application Reminder** | Daily cron (every 3 days) | Clients with incomplete apps | Completion percentage, portal link |
-| **Info Request Reminder** | Daily cron (every 3 days) | Clients with pending info requests | Carrier name, request details, days pending |
-| **New Message Received** | New message sent | Opposite party (client↔staff) | Message preview, portal link |
-
-### 7. In-App Notifications (Database Triggers)
-The `create_notification_on_event` trigger creates bell notifications:
-- **New message from client** → All admins + assigned producer
-- **New message from staff** → Client
-- **Info requested by carrier** → Client
-- **Quote available** → Client
-
-### 8. Scheduled Jobs
-- **Reminder Emails Cron**: Runs daily, sends application reminders (incomplete apps in pending_info with linked client) and info request reminders (pending info_requests) — throttled to every 3 days per recipient
-
-### 9. Document Naming Convention
-All uploads follow: `[Category]_[Company_Name]_[Suffix]_[Date].[ext]`
-- Examples: `Loss_Run_Acme_Trucking_2026-03-29.pdf`, `Quote_Acme_Trucking_Cover_Whale_2026-03-29.pdf`
-- Applied to: Loss runs, cab cards, Document Hub uploads, quote uploads, bind documents
-
-### 10. Key Workflows (End-to-End)
-
-**New Account → Bound Policy workflow diagram:**
 ```text
-DOT Lookup (SAFER) ──► Account Created ──► Client Invited (auto)
-        │                                        │
-        ▼                                        ▼
-  Staff reviews data                   Client completes 10-step app
-        │                                        │
-        ▼                                        ▼
-  AI Market Guidance ──► Mark Carriers Submitted ──► Status: Quoting
-        │                                               │
-        ▼                                               ▼
-  Carriers review ──► Quote received ──► Status: Quoted
-        │                                      │
-        ▼                                      ▼
-  Staff enters final premium ──► Uploads binder ──► Status: Bound
-                                                      │
-                                                      ▼
-                                              Policy Renewal Card shown
+┌──────────────────────────────┐
+│   Staff UI (AccountDetail)   │
+│  "Get CW Quote" / "Get CW   │
+│   Indication" buttons        │
+└──────────┬───────────────────┘
+           │ supabase.functions.invoke()
+           ▼
+┌──────────────────────────────┐
+│  Edge Function:              │
+│  coverwhale-api              │
+│  ─ authenticates with CW     │
+│  ─ maps account data → CW   │
+│    payload format            │
+│  ─ calls CW endpoints       │
+│  ─ returns results           │
+└──────────┬───────────────────┘
+           │
+           ▼
+┌──────────────────────────────┐
+│  Cover Whale API             │
+│  (api.coverwhale.dev)        │
+└──────────────────────────────┘
 ```
 
-## Technical Approach
-- Generate using `docx-js` (Node.js library)
-- Professional formatting with branded headings, tables, and flow descriptions
-- Output to `/mnt/documents/TruckShield_System_Documentation.docx`
-- QA by converting to images and inspecting each page
+---
 
-## Estimated Scope
-- Single script execution generating ~15-20 page document
-- No codebase changes required
+## Step 1: Store API Credentials
+
+Use the secrets tool to request the Cover Whale username and password from you. The base URL will also be stored as a secret so we can switch between dev/prod easily.
+
+## Step 2: Create `coverwhale-api` Edge Function
+
+A single edge function with action-based routing:
+
+- **`authenticate`** — POST to `/authentication` with username/password, returns an AccessToken (cached for ~24h)
+- **`quote`** — Maps account data to the CW quote payload, POSTs to `/quote`, returns quote result with coverages, submission number, and PDF link
+- **`indication`** — Same mapping but POSTs to `/indication` (accepts incomplete data)
+- **`submission-status`** — GET to `/submission/{submission_number}`, returns current status
+- **`bind`** — PUT to `/bind` with coverage elections, shipping address, and binding method
+
+**Data mapping logic** (account/drivers/vehicles/trailers/loss history → CW payload):
+- `accounts` fields → `insuredInformation`, `garageAddress`, `mailingAddress`, `coverage`, `limits`, `operations`, `radius`
+- `power_units` table → `vehicles` array (VIN, year, make, model, class, body type)
+- `trailers` table → `trailers` array
+- `drivers` table → `drivers` array (name, DOB, license, experience, accidents/violations)
+- `loss_history` table → `losses` object (by year, per coverage line)
+- `commodity_info` from account → `commodities` array
+- `garage_locations` → `terminals` array
+- Retail agent info will use the assigned producer's profile or a default agency config
+
+## Step 3: Database — Track CW Submissions
+
+Add a `coverwhale_submissions` table to store submission tracking data:
+- `id`, `account_id`, `quote_id` (links to existing quotes table)
+- `submission_number` (CW's identifier)
+- `status` (Quoted, Bind Requested, Bound, Declined, etc.)
+- `quote_pdf_url`, `coverages_data` (JSON of returned coverage breakdown)
+- `created_at`, `updated_at`
+
+RLS policies: admins full access, producers on assigned accounts.
+
+## Step 4: UI — Staff-Side Integration
+
+**In SubmittedMarkets / AccountDetail:**
+- Add a "Get Cover Whale Quote" button (visible when Cover Whale is a carrier in the system)
+- When clicked: calls the edge function with `action: "quote"`, passing the account ID
+- The edge function fetches all related data server-side and builds the payload
+- On success: automatically creates/updates a quote record in the `quotes` table with the CW premium, stores the submission number in `coverwhale_submissions`, and logs activity
+- A "Get Indication" button for preliminary pricing before full data is ready
+- A "Check Status" button for existing CW submissions to refresh status
+- A "Bind" action on quoted CW submissions (opens dialog for coverage elections, broker fees, effective date, signature flow)
+
+**Quote result display:**
+- Show per-coverage breakdown (AL, APD, MTC, TGL, NTL) with premium, limit, deductible
+- Link to the CW quote PDF
+- Show submission number for reference
+
+## Step 5: Activity Logging
+
+All CW API interactions will be logged to `activity_log`:
+- "Cover Whale indication requested"
+- "Cover Whale quote received — Submission #XXXXX — Total premium: $XX,XXX"
+- "Cover Whale bind initiated — Submission #XXXXX"
+- "Cover Whale status check — Current status: [status]"
+
+---
+
+## Technical Details
+
+**Authentication flow**: The edge function will authenticate on each request (or cache the token in the response). CW tokens last ~24 hours. The pre-request script pattern from the Postman collection shows: POST to `/authentication` with `{username, password}`, response returns `{AccessToken}`. This token is sent as `AccessToken` header on subsequent requests.
+
+**Payload mapping examples** (key transformations):
+- `account.dot_number` → `insuredInformation.dotNumber` (numeric)
+- `account.company_name` → `insuredInformation.legalName`
+- `account.coverage_selections` → `coverage.requestAl`, `coverage.requestApd`, etc.
+- `account.radius_operations` → `radius.radius0_50`, `radius51_200`, etc.
+- `power_units[].vin` → `vehicles[].vin`, `power_units[].gvw_class` → `vehicles[].classKey`
+- `drivers[].date_of_birth` → formatted as `MM/DD/YYYY`
+- Loss history policy terms → `losses` object keyed by year (1, 2, 3...)
+
+**Error handling**: CW returns 422 for validation errors (e.g., "Commodity % must equal 100%", "VIN numbers must be unique"). These will be surfaced to staff in a toast/dialog with actionable guidance.
+
+---
+
+## Files to Create/Modify
+
+1. **Create** `supabase/functions/coverwhale-api/index.ts` — Edge function
+2. **Create** DB migration for `coverwhale_submissions` table
+3. **Modify** `src/components/staff/SubmittedMarkets.tsx` — Add CW action buttons
+4. **Modify** `src/components/staff/AccountDetail.tsx` — Pass CW submission data, add indication button
+5. **Modify** `src/components/staff/ActivityLog.tsx` — Add icon for CW-related activity types
 
