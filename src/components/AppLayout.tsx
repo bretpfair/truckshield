@@ -100,12 +100,12 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className={`flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 transition-all duration-300 ${isStaffRole && !showClient && messagingExpanded ? "md:mr-[380px]" : isStaffRole && !showClient ? "md:mr-12" : ""}`}>
+        <main className={`flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 transition-all duration-300 ${messagingExpanded ? "md:mr-[380px]" : (isStaffRole && !showClient) || (!isStaffRole) ? "md:mr-12" : ""}`}>
           {showClient ? (
             previewAccountId ? (
               <ClientPortalForAccount accountId={previewAccountId} />
             ) : (
-              <ClientPortal />
+              <ClientPortal onSetMessagingAccount={(id) => setMessagingAccountId(id)} />
             )
           ) : (
             <StaffDashboard
@@ -117,12 +117,21 @@ const AppLayout = () => {
           )}
         </main>
 
-        {isStaffRole && !showClient && (
+        {(isStaffRole && !showClient) && (
           <MessagingSidebar
             expanded={messagingExpanded}
             onToggle={() => setMessagingExpanded((prev) => !prev)}
             accountId={messagingAccountId}
             isStaff
+          />
+        )}
+
+        {!isStaffRole && (
+          <MessagingSidebar
+            expanded={messagingExpanded}
+            onToggle={() => setMessagingExpanded((prev) => !prev)}
+            accountId={messagingAccountId}
+            isStaff={false}
           />
         )}
       </div>
