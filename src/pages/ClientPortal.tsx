@@ -239,6 +239,25 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
         </Card>
       )}
 
+      {/* ── View/Edit Application (post-submit) ── */}
+      {isComplete && (
+        <Card className="glass-panel">
+          <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Your Application</p>
+                <p className="text-xs text-muted-foreground">View or update your submitted application details</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5 shrink-0">
+              <FileText className="h-3.5 w-3.5" />
+              View Application
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Policy Renewal Tracking (bound only) ── */}
       {isBound && <PolicyRenewalCard currentCoverageExpiry={account.current_coverage_expiry} />}
 
