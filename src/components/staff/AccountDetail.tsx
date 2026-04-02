@@ -36,6 +36,7 @@ import DocumentHub from "./DocumentHub";
 import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 import AccountMessages from "@/components/messaging/AccountMessages";
+import CoverWhaleActions from "./CoverWhaleActions";
 
 
 // Producer assignment dropdown (admin-only)
