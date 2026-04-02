@@ -34,6 +34,7 @@ const actionColors: Record<string, string> = {
   client_linked: "text-primary",
   email_sent: "text-accent",
   email_failed: "text-destructive",
+  client_login: "text-primary",
 };
 
 interface TimelineEntry {
