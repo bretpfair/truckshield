@@ -55,6 +55,7 @@ interface Account {
   updated_at?: string;
   created_at?: string;
   assigned_producer_id?: string | null;
+  application_step?: number | null;
 }
 
 interface Props {
