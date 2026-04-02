@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail, TriangleAlert,
+  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail, TriangleAlert, LogIn,
 } from "lucide-react";
 import { format } from "date-fns";
 
