@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail, TriangleAlert,
+  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail, TriangleAlert, LogIn,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -22,6 +22,7 @@ const actionIcons: Record<string, typeof MessageSquare> = {
   client_linked: UserPlus,
   email_sent: Mail,
   email_failed: TriangleAlert,
+  client_login: LogIn,
 };
 
 const actionColors: Record<string, string> = {
@@ -33,6 +34,7 @@ const actionColors: Record<string, string> = {
   client_linked: "text-primary",
   email_sent: "text-accent",
   email_failed: "text-destructive",
+  client_login: "text-primary",
 };
 
 interface TimelineEntry {
