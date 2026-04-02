@@ -17,3 +17,5 @@ project_id = "czowzqkqzvsamfhkaozk"
     verify_jwt = false
   [functions.send-reminder-emails]
     verify_jwt = false
+  [functions.coverwhale-api]
+    verify_jwt = false
