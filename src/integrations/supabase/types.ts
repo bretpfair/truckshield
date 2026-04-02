@@ -383,6 +383,63 @@ export type Database = {
           },
         ]
       }
+      coverwhale_submissions: {
+        Row: {
+          account_id: string
+          api_response: Json | null
+          coverages_data: Json | null
+          created_at: string
+          id: string
+          quote_id: string | null
+          quote_pdf_url: string | null
+          status: string
+          submission_number: string
+          total_premium: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          api_response?: Json | null
+          coverages_data?: Json | null
+          created_at?: string
+          id?: string
+          quote_id?: string | null
+          quote_pdf_url?: string | null
+          status?: string
+          submission_number: string
+          total_premium?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          api_response?: Json | null
+          coverages_data?: Json | null
+          created_at?: string
+          id?: string
+          quote_id?: string | null
+          quote_pdf_url?: string | null
+          status?: string
+          submission_number?: string
+          total_premium?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coverwhale_submissions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coverwhale_submissions_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           accidents: Json | null
