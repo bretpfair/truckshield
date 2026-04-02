@@ -46,6 +46,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .from("profiles")
       .update({ last_login_at: new Date().toISOString() } as any)
       .eq("user_id", userId);
+
+    // Track client logins in activity_log
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("id")
+      .eq("client_user_id", userId)
+      .maybeSingle();
+
+    if (account) {
+      // Check if this is the first login by looking for any prior client_login entry
+      const { data: priorLogins } = await supabase
+        .from("activity_log")
+        .select("id")
+        .eq("account_id", account.id)
+        .eq("action_type", "client_login")
+        .limit(1);
+
+      const isFirstLogin = !priorLogins || priorLogins.length === 0;
+
+      await supabase.from("activity_log").insert({
+        account_id: account.id,
+        user_id: userId,
+        action_type: "client_login",
+        description: isFirstLogin
+          ? "Client signed into the portal for the first time"
+          : "Client signed into the portal",
+      });
+    }
   };
 
   useEffect(() => {
