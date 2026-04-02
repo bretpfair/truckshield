@@ -36,6 +36,7 @@ import DocumentHub from "./DocumentHub";
 import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
 import AccountMessages from "@/components/messaging/AccountMessages";
+import CoverWhaleActions from "./CoverWhaleActions";
 
 
 // Producer assignment dropdown (admin-only)
@@ -654,6 +655,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Cover Whale Integration */}
+      <CoverWhaleActions accountId={accountId} companyName={account.company_name} />
 
       {/* Submitted Markets - moved up */}
       {existingQuotes && existingQuotes.length > 0 && (
