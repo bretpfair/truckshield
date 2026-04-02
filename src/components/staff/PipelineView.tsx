@@ -459,6 +459,19 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                       </span>
                                     )}
                                   </div>
+                                  {/* Application % complete for pending_info */}
+                                  {account.status === "pending_info" && (() => {
+                                    const step = account.application_step || 1;
+                                    const pct = Math.round((step / 10) * 100);
+                                    return (
+                                      <div className="flex items-center gap-1.5 mt-1">
+                                        <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                                          <div className="h-full rounded-full bg-warning transition-all" style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <span className="text-[9px] font-mono text-warning shrink-0">{pct}%</span>
+                                      </div>
+                                    );
+                                  })()}
                                   {/* Carrier submission badges */}
                                   {carriers.length > 0 && (
                                     <div className="flex flex-wrap gap-0.5 mt-1.5">
