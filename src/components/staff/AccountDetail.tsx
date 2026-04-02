@@ -656,6 +656,9 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         </CardContent>
       </Card>
 
+      {/* Cover Whale Integration */}
+      <CoverWhaleActions accountId={accountId} companyName={account.company_name} />
+
       {/* Submitted Markets - moved up */}
       {existingQuotes && existingQuotes.length > 0 && (
         <SubmittedMarkets accountId={accountId} quotes={existingQuotes} companyName={account.company_name} />

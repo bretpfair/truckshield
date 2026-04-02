@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail, TriangleAlert, LogIn,
+  MessageSquare, StickyNote, ArrowRightLeft, FileText, Send, UserPlus, Mail, TriangleAlert, LogIn, Shield,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -23,6 +23,7 @@ const actionIcons: Record<string, typeof MessageSquare> = {
   email_sent: Mail,
   email_failed: TriangleAlert,
   client_login: LogIn,
+  coverwhale_api: Shield,
 };
 
 const actionColors: Record<string, string> = {
