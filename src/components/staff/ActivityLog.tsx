@@ -36,6 +36,7 @@ const actionColors: Record<string, string> = {
   email_sent: "text-accent",
   email_failed: "text-destructive",
   client_login: "text-primary",
+  coverwhale_api: "text-primary",
 };
 
 interface TimelineEntry {
