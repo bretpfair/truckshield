@@ -530,8 +530,7 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                                   </div>
                                   {/* Application % complete for pending_info */}
                                   {account.status === "pending_info" && (() => {
-                                    const step = account.application_step || 1;
-                                    const pct = Math.round((step / 10) * 100);
+                                    const pct = progressMap[account.id] ?? 0;
                                     return (
                                       <div className="flex items-center gap-1.5 mt-1">
                                         <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
