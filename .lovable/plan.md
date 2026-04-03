@@ -1,134 +1,62 @@
 
 
-# Cover Whale API Integration Plan
+## Plan: Pipeline Progress, Server-Side Completion Calculation, and Application-Not-Started Reminder
 
-## Overview
+### Summary
 
-Integrate Cover Whale's API directly into TruckShield so staff can request quotes, check indications, view submission status, and initiate binding — all from within the account detail view. The system will map existing application data to Cover Whale's API payload format automatically.
-
-## Prerequisites — API Credentials
-
-Before building, we need to securely store three Cover Whale secrets:
-- **CW_BASE_URL** — `https://api.coverwhale.dev` (dev) or `https://api.coverwhale.com` (prod)
-- **CW_USERNAME** — the username associated with `integrations@360riskpartners.com`
-- **CW_PASSWORD** — the password provided by Cover Whale
-
-These will be stored as backend secrets and used only by backend functions. You will need to obtain the actual credentials from Cover Whale after registering `integrations@360riskpartners.com`.
+Three changes:
+1. **PipelineView** — Replace the inaccurate `application_step`-based progress bar with real section-based completion (reusing the same logic from `useApplicationProgress`).
+2. **send-reminder-emails Edge Function** — Calculate real completion percentage server-side using section-based checks instead of `application_step`, and use that in the `application-reminder` email.
+3. **New "application not started" reminder** — Add a new email template and trigger for clients who logged in but still have `application_step = 1`.
 
 ---
 
-## Architecture
+### Technical Details
 
-```text
-┌──────────────────────────────┐
-│   Staff UI (AccountDetail)   │
-│  "Get CW Quote" / "Get CW   │
-│   Indication" buttons        │
-└──────────┬───────────────────┘
-           │ supabase.functions.invoke()
-           ▼
-┌──────────────────────────────┐
-│  Edge Function:              │
-│  coverwhale-api              │
-│  ─ authenticates with CW     │
-│  ─ maps account data → CW   │
-│    payload format            │
-│  ─ calls CW endpoints       │
-│  ─ returns results           │
-└──────────┬───────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│  Cover Whale API             │
-│  (api.coverwhale.dev)        │
-└──────────────────────────────┘
-```
+#### 1. PipelineView — Accurate Progress Bar
 
----
+Currently (line 464-465): `const pct = Math.round((step / 10) * 100)` — wrong.
 
-## Step 1: Store API Credentials
+**Approach**: For each `pending_info` account, fetch the same related data (power_units, trailers, drivers, loss_history) and run the same 9-section checks. Since PipelineView already has all accounts loaded, we need batch queries.
 
-Use the secrets tool to request the Cover Whale username and password from you. The base URL will also be stored as a secret so we can switch between dev/prod easily.
+- Add queries for `power_units`, `trailers`, `drivers`, `loss_history` scoped to pending_info account IDs.
+- Create a helper function `calculateProgress(account, powerUnits, trailers, drivers, lossHistory)` that mirrors the `useApplicationProgress` logic.
+- Replace the inline `pct` calculation with the real value.
+- The accounts query in StaffDashboard already fetches full account data (`select("*")`), so all fields like `coverage_selections`, `general_questions`, `radius_operations`, `commodity_info` are available.
 
-## Step 2: Create `coverwhale-api` Edge Function
+**File**: `src/components/staff/PipelineView.tsx`
+- Add `useQuery` calls for power_units, trailers, drivers, loss_history for pending_info accounts
+- Extract a pure `calculateAccountProgress` function (shared or inline)
+- Replace lines 463-474
 
-A single edge function with action-based routing:
+#### 2. send-reminder-emails — Server-Side Real Completion %
 
-- **`authenticate`** — POST to `/authentication` with username/password, returns an AccessToken (cached for ~24h)
-- **`quote`** — Maps account data to the CW quote payload, POSTs to `/quote`, returns quote result with coverages, submission number, and PDF link
-- **`indication`** — Same mapping but POSTs to `/indication` (accepts incomplete data)
-- **`submission-status`** — GET to `/submission/{submission_number}`, returns current status
-- **`bind`** — PUT to `/bind` with coverage elections, shipping address, and binding method
+Currently (line 176-178): uses `application_step` to calculate %. 
 
-**Data mapping logic** (account/drivers/vehicles/trailers/loss history → CW payload):
-- `accounts` fields → `insuredInformation`, `garageAddress`, `mailingAddress`, `coverage`, `limits`, `operations`, `radius`
-- `power_units` table → `vehicles` array (VIN, year, make, model, class, body type)
-- `trailers` table → `trailers` array
-- `drivers` table → `drivers` array (name, DOB, license, experience, accidents/violations)
-- `loss_history` table → `losses` object (by year, per coverage line)
-- `commodity_info` from account → `commodities` array
-- `garage_locations` → `terminals` array
-- Retail agent info will use the assigned producer's profile or a default agency config
+**Approach**: After fetching `incompleteAccounts`, also fetch their related data (power_units, trailers, drivers, loss_history) in batch, then run the same 9-section completion logic server-side.
 
-## Step 3: Database — Track CW Submissions
+- Expand the accounts query to `select('*')` to get `coverage_selections`, `general_questions`, `radius_operations`, `commodity_info`.
+- Batch-fetch power_units, trailers, drivers, loss_history for all incomplete account IDs.
+- Port the section-complete checks into a server-side helper function.
+- Pass real `completionPercent` to the email template.
 
-Add a `coverwhale_submissions` table to store submission tracking data:
-- `id`, `account_id`, `quote_id` (links to existing quotes table)
-- `submission_number` (CW's identifier)
-- `status` (Quoted, Bind Requested, Bound, Declined, etc.)
-- `quote_pdf_url`, `coverages_data` (JSON of returned coverage breakdown)
-- `created_at`, `updated_at`
+**File**: `supabase/functions/send-reminder-emails/index.ts`
 
-RLS policies: admins full access, producers on assigned accounts.
+#### 3. New "Application Not Started" Reminder Email
 
-## Step 4: UI — Staff-Side Integration
+For clients who accepted the invite (have `client_user_id`) but `application_step` is still 1 and status is `pending_info`.
 
-**In SubmittedMarkets / AccountDetail:**
-- Add a "Get Cover Whale Quote" button (visible when Cover Whale is a carrier in the system)
-- When clicked: calls the edge function with `action: "quote"`, passing the account ID
-- The edge function fetches all related data server-side and builds the payload
-- On success: automatically creates/updates a quote record in the `quotes` table with the CW premium, stores the submission number in `coverwhale_submissions`, and logs activity
-- A "Get Indication" button for preliminary pricing before full data is ready
-- A "Check Status" button for existing CW submissions to refresh status
-- A "Bind" action on quoted CW submissions (opens dialog for coverage elections, broker fees, effective date, signature flow)
+- Create `supabase/functions/_shared/transactional-email-templates/application-not-started.tsx` — a simpler, more urgent template encouraging the client to begin.
+- Register in `registry.ts`.
+- Add a section in `send-reminder-emails/index.ts` that filters for `application_step = 1` accounts and sends the `application-not-started` template instead of `application-reminder`.
+- The existing `application-reminder` will continue to handle accounts with `application_step > 1` but `< 10`.
 
-**Quote result display:**
-- Show per-coverage breakdown (AL, APD, MTC, TGL, NTL) with premium, limit, deductible
-- Link to the CW quote PDF
-- Show submission number for reference
+**Files**:
+- `supabase/functions/_shared/transactional-email-templates/application-not-started.tsx` (new)
+- `supabase/functions/_shared/transactional-email-templates/registry.ts` (add import)
+- `supabase/functions/send-reminder-emails/index.ts` (split logic)
 
-## Step 5: Activity Logging
+#### 4. Deploy
 
-All CW API interactions will be logged to `activity_log`:
-- "Cover Whale indication requested"
-- "Cover Whale quote received — Submission #XXXXX — Total premium: $XX,XXX"
-- "Cover Whale bind initiated — Submission #XXXXX"
-- "Cover Whale status check — Current status: [status]"
-
----
-
-## Technical Details
-
-**Authentication flow**: The edge function will authenticate on each request (or cache the token in the response). CW tokens last ~24 hours. The pre-request script pattern from the Postman collection shows: POST to `/authentication` with `{username, password}`, response returns `{AccessToken}`. This token is sent as `AccessToken` header on subsequent requests.
-
-**Payload mapping examples** (key transformations):
-- `account.dot_number` → `insuredInformation.dotNumber` (numeric)
-- `account.company_name` → `insuredInformation.legalName`
-- `account.coverage_selections` → `coverage.requestAl`, `coverage.requestApd`, etc.
-- `account.radius_operations` → `radius.radius0_50`, `radius51_200`, etc.
-- `power_units[].vin` → `vehicles[].vin`, `power_units[].gvw_class` → `vehicles[].classKey`
-- `drivers[].date_of_birth` → formatted as `MM/DD/YYYY`
-- Loss history policy terms → `losses` object keyed by year (1, 2, 3...)
-
-**Error handling**: CW returns 422 for validation errors (e.g., "Commodity % must equal 100%", "VIN numbers must be unique"). These will be surfaced to staff in a toast/dialog with actionable guidance.
-
----
-
-## Files to Create/Modify
-
-1. **Create** `supabase/functions/coverwhale-api/index.ts` — Edge function
-2. **Create** DB migration for `coverwhale_submissions` table
-3. **Modify** `src/components/staff/SubmittedMarkets.tsx` — Add CW action buttons
-4. **Modify** `src/components/staff/AccountDetail.tsx` — Pass CW submission data, add indication button
-5. **Modify** `src/components/staff/ActivityLog.tsx` — Add icon for CW-related activity types
+Redeploy `send-reminder-emails` and `send-transactional-email` edge functions after all changes.
 
