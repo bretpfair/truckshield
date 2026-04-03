@@ -16,6 +16,7 @@ import InfoRequestBanner from "@/components/client/InfoRequestBanner";
 import JourneyTimeline from "@/components/client/JourneyTimeline";
 import PolicyRenewalCard from "@/components/client/PolicyRenewalCard";
 import { WIZARD_STEPS } from "@/components/application/constants";
+import { useApplicationProgress } from "@/hooks/useApplicationProgress";
 
 /* ── helpers ─────────────────────────────────────────── */
 
