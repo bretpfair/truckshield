@@ -19,6 +19,7 @@ import { template as pipelineStatusChange } from './pipeline-status-change.tsx'
 import { template as newMessageReceived } from './new-message-received.tsx'
 import { template as applicationCompletedStaff } from './application-completed-staff.tsx'
 import { template as inviteReminder } from './invite-reminder.tsx'
+import { template as applicationNotStarted } from './application-not-started.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'client-portal-invite': clientPortalInvite,
@@ -31,4 +32,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'new-message-received': newMessageReceived,
   'application-completed-staff': applicationCompletedStaff,
   'invite-reminder': inviteReminder,
+  'application-not-started': applicationNotStarted,
 }

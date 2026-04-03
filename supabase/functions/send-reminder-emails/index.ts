@@ -136,6 +136,90 @@ async function enqueueEmail(
   }
 }
 
+// Server-side progress calculation — mirrors client-side calculateAccountProgress
+function calculateServerProgress(
+  account: any,
+  powerUnits: any[],
+  trailers: any[],
+  drivers: any[],
+  lossHistory: any[],
+): number {
+  const gq = (account.general_questions || {}) as any
+  const cov = (account.coverage_selections || {}) as any
+  const isNewVenture = !!gq.new_venture
+
+  const isStep1Complete = !!(
+    account.requested_effective_date &&
+    account.dot_number && account.company_name &&
+    account.ein_tax_id && account.business_type &&
+    account.business_owner_name && account.business_owner_dob &&
+    account.contact_email && account.contact_phone &&
+    account.mailing_address && account.mailing_city && account.mailing_state && account.mailing_zip &&
+    account.years_in_business != null &&
+    (account.current_coverage_expiry || isNewVenture) &&
+    (account.business_categories || []).length > 0 &&
+    account.total_trucks != null && account.total_drivers != null
+  )
+
+  const isStep2Complete = !!(cov.primary_bipd && cov.icc_filing && cov.state_filing)
+
+  const isStep3Complete = (() => {
+    const r = (account.radius_operations as any)?.[0] || {}
+    const details = r.radius_details || {}
+    const total = ['under_50', '51_200', '201_500', '500_plus'].reduce(
+      (s: number, k: string) => s + (parseFloat(details[k]) || 0), 0
+    )
+    return !!(r.operation_type && r.annual_mileage && total === 100)
+  })()
+
+  const isStep4Complete = (() => {
+    const selected = (account.commodity_info as any)?.selected_commodities || {}
+    const total = Object.values(selected).reduce((s: number, v: any) => s + (parseFloat(v) || 0), 0)
+    return Object.keys(selected).length > 0 && total === 100
+  })()
+
+  const isStep5Complete = powerUnits.length > 0 &&
+    powerUnits.every((u: any) => u.vin && u.year && u.make && u.truck_type && u.gvw_class && u.garage_zip && u.titled_state)
+
+  const isStep6Complete = gq.no_trailers ||
+    (trailers.length > 0 && trailers.every((t: any) => t.vin && t.year && t.make && t.trailer_type && t.garage_zip))
+
+  const isStep7Complete = drivers.length > 0 &&
+    drivers.every((d: any) =>
+      d.first_name && d.last_name && d.date_of_birth &&
+      d.license_number && d.license_state && d.license_type && d.driver_type &&
+      d.original_issue_year && d.date_hired_year &&
+      d.experience_years != null && d.lapse_suspension
+    )
+
+  const isStep8Complete = lossHistory.length > 0 || isNewVenture
+
+  const isStep9Complete = (() => {
+    const autoQs = ['q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','q11','q12','q13','q14','q15','q16','q17']
+    const allAutoAnswered = autoQs.every(qId => {
+      const q = gq[qId]
+      if (!q) return false
+      if (qId === 'q17') return q.value != null && q.value !== ''
+      return q.answer === 'Yes' || q.answer === 'No'
+    })
+    const hasGL = cov.general_liability && cov.general_liability !== 'No Coverage'
+    if (hasGL) {
+      const glQs = ['gl1','gl2','gl3','gl4','gl5','gl6','gl7']
+      return allAutoAnswered && glQs.every(qId => {
+        const q = gq[qId]
+        return q && (q.answer === 'Yes' || q.answer === 'No')
+      })
+    }
+    return allAutoAnswered
+  })()
+
+  const sections = [
+    isStep1Complete, isStep2Complete, isStep3Complete, isStep4Complete,
+    isStep5Complete, isStep6Complete, isStep7Complete, isStep8Complete, isStep9Complete,
+  ]
+  return Math.round((sections.filter(Boolean).length / sections.length) * 100)
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -146,45 +230,69 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
   let appReminders = 0
+  let notStartedReminders = 0
   let infoReminders = 0
   let inviteReminders = 0
 
   try {
     // 1. Incomplete application reminders
-    // Find accounts with a linked client that are still in pending_info status
     const { data: incompleteAccounts } = await supabase
       .from('accounts')
-      .select('id, company_name, client_user_id, contact_email, application_step')
+      .select('*')
       .eq('status', 'pending_info')
       .not('client_user_id', 'is', null)
 
     if (incompleteAccounts && incompleteAccounts.length > 0) {
-      // Get profiles for client names/emails
+      const accountIds = incompleteAccounts.map((a: any) => a.id)
       const clientIds = incompleteAccounts.map((a: any) => a.client_user_id)
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, email')
-        .in('user_id', clientIds)
 
-      const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]))
+      // Batch-fetch related data and profiles in parallel
+      const [profilesRes, puRes, trRes, drRes, lhRes] = await Promise.all([
+        supabase.from('profiles').select('user_id, full_name, email').in('user_id', clientIds),
+        supabase.from('power_units').select('account_id,vin,gvw_class,truck_type,year,make,garage_zip,titled_state').in('account_id', accountIds),
+        supabase.from('trailers').select('account_id,vin,trailer_type,year,make,garage_zip').in('account_id', accountIds),
+        supabase.from('drivers').select('account_id,first_name,last_name,date_of_birth,license_number,license_state,license_type,driver_type,original_issue_year,date_hired_year,experience_years,lapse_suspension').in('account_id', accountIds),
+        supabase.from('loss_history').select('account_id,id').in('account_id', accountIds),
+      ])
+
+      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]))
+      const powerUnitsAll = puRes.data || []
+      const trailersAll = trRes.data || []
+      const driversAll = drRes.data || []
+      const lossHistoryAll = lhRes.data || []
 
       for (const account of incompleteAccounts) {
         const profile = profileMap.get(account.client_user_id)
         const email = profile?.email || account.contact_email
         if (!email) continue
 
-        const completionPercent = account.application_step
-          ? Math.round(((account.application_step - 1) / 10) * 100).toString()
-          : '0'
-
+        const step = account.application_step || 1
         const today = new Date().toISOString().split('T')[0]
-        await enqueueEmail(supabase, 'application-reminder', email, {
-          firstName: profile?.full_name?.split(' ')[0] || undefined,
-          companyName: account.company_name,
-          completionPercent,
-          portalLink: PORTAL_LINK,
-        }, `app-reminder-${account.id}-${today}`)
-        appReminders++
+
+        if (step <= 1) {
+          // Application not started — send the not-started template
+          await enqueueEmail(supabase, 'application-not-started', email, {
+            firstName: profile?.full_name?.split(' ')[0] || undefined,
+            companyName: account.company_name,
+            portalLink: PORTAL_LINK,
+          }, `app-not-started-${account.id}-${today}`)
+          notStartedReminders++
+        } else {
+          // In-progress — calculate real completion %
+          const pu = powerUnitsAll.filter((u: any) => u.account_id === account.id)
+          const tr = trailersAll.filter((t: any) => t.account_id === account.id)
+          const dr = driversAll.filter((d: any) => d.account_id === account.id)
+          const lh = lossHistoryAll.filter((l: any) => l.account_id === account.id)
+          const completionPercent = calculateServerProgress(account, pu, tr, dr, lh).toString()
+
+          await enqueueEmail(supabase, 'application-reminder', email, {
+            firstName: profile?.full_name?.split(' ')[0] || undefined,
+            companyName: account.company_name,
+            completionPercent,
+            portalLink: PORTAL_LINK,
+          }, `app-reminder-${account.id}-${today}`)
+          appReminders++
+        }
       }
     }
 
@@ -287,6 +395,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         applicationReminders: appReminders,
+        notStartedReminders,
         infoRequestReminders: infoReminders,
         inviteReminders,
       }),
