@@ -42,6 +42,7 @@ import ApplicationWizard from "@/components/application/ApplicationWizard";
 import DocumentHub from "@/components/staff/DocumentHub";
 
 import { WIZARD_STEPS } from "@/components/application/constants";
+import { useApplicationProgress } from "@/hooks/useApplicationProgress";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending_info: { label: "Pending Information", color: "bg-warning/10 text-warning border-warning/30", icon: Clock },
