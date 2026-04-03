@@ -140,7 +140,75 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     },
   });
 
-  // Activity dates for stale detection
+  // Batch-fetch related data for pending_info accounts to calculate real progress
+  const pendingInfoIds = useMemo(
+    () => accounts.filter((a) => a.status === "pending_info").map((a) => a.id),
+    [accounts]
+  );
+
+  const { data: allPowerUnits } = useQuery({
+    queryKey: ["pipeline-power-units", pendingInfoIds],
+    enabled: pendingInfoIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("power_units")
+        .select("account_id,vin,gvw_class,truck_type,year,make,garage_zip,titled_state")
+        .in("account_id", pendingInfoIds);
+      return data || [];
+    },
+  });
+
+  const { data: allTrailers } = useQuery({
+    queryKey: ["pipeline-trailers", pendingInfoIds],
+    enabled: pendingInfoIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("trailers")
+        .select("account_id,vin,trailer_type,year,make,garage_zip")
+        .in("account_id", pendingInfoIds);
+      return data || [];
+    },
+  });
+
+  const { data: allDrivers } = useQuery({
+    queryKey: ["pipeline-drivers", pendingInfoIds],
+    enabled: pendingInfoIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("drivers")
+        .select("account_id,first_name,last_name,date_of_birth,license_number,license_state,license_type,driver_type,original_issue_year,date_hired_year,experience_years,lapse_suspension")
+        .in("account_id", pendingInfoIds);
+      return data || [];
+    },
+  });
+
+  const { data: allLossHistory } = useQuery({
+    queryKey: ["pipeline-loss-history", pendingInfoIds],
+    enabled: pendingInfoIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("loss_history")
+        .select("account_id,id")
+        .in("account_id", pendingInfoIds);
+      return data || [];
+    },
+  });
+
+  const progressMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const id of pendingInfoIds) {
+      const account = accounts.find((a) => a.id === id);
+      if (!account) continue;
+      const pu = (allPowerUnits || []).filter((u: any) => u.account_id === id);
+      const tr = (allTrailers || []).filter((t: any) => t.account_id === id);
+      const dr = (allDrivers || []).filter((d: any) => d.account_id === id);
+      const lh = (allLossHistory || []).filter((l: any) => l.account_id === id);
+      map[id] = calculateAccountProgress(account, pu, tr, dr, lh).progress;
+    }
+    return map;
+  }, [pendingInfoIds, accounts, allPowerUnits, allTrailers, allDrivers, allLossHistory]);
+
+
   const { data: lastActivityMap } = useQuery({
     queryKey: ["last-activity"],
     queryFn: async () => {
