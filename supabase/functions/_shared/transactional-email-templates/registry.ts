@@ -30,4 +30,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'pipeline-status-change': pipelineStatusChange,
   'new-message-received': newMessageReceived,
   'application-completed-staff': applicationCompletedStaff,
+  'invite-reminder': inviteReminder,
 }
