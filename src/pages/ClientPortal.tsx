@@ -125,25 +125,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
     },
   });
 
-  const { data: powerUnits } = useQuery({
-    queryKey: ["client-power-units", account?.id],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("power_units").select("id").eq("account_id", account!.id);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: drivers } = useQuery({
-    queryKey: ["client-drivers", account?.id],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("drivers").select("id").eq("account_id", account!.id);
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { progress: appProgress, powerUnits, drivers } = useApplicationProgress(account);
 
   /* ── loading / empty states ─────────────────────────── */
 
