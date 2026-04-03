@@ -147,6 +147,7 @@ Deno.serve(async (req: Request) => {
 
   let appReminders = 0
   let infoReminders = 0
+  let inviteReminders = 0
 
   try {
     // 1. Incomplete application reminders
@@ -236,11 +237,58 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // 3. Invite follow-up reminders
+    // Find pending invitations where the client hasn't signed up yet
+    const { data: pendingInvites } = await supabase
+      .from('client_invitations')
+      .select('id, account_id, email, token, created_at, expires_at')
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString())
+
+    if (pendingInvites && pendingInvites.length > 0) {
+      const inviteAccountIds = [...new Set(pendingInvites.map((i: any) => i.account_id))]
+      const { data: inviteAccounts } = await supabase
+        .from('accounts')
+        .select('id, company_name, client_user_id')
+        .in('id', inviteAccountIds)
+
+      const inviteAccountMap = new Map((inviteAccounts || []).map((a: any) => [a.id, a]))
+
+      for (const invite of pendingInvites) {
+        const account = inviteAccountMap.get(invite.account_id)
+        // Skip if account already has a linked client (invite accepted via different path)
+        if (!account || account.client_user_id) continue
+
+        const daysSinceInvite = Math.floor(
+          (Date.now() - new Date(invite.created_at).getTime()) / (1000 * 60 * 60 * 24)
+        )
+
+        // Only send reminders if at least 1 day has passed since invite
+        if (daysSinceInvite < 1) continue
+
+        const portalLink = `${PORTAL_LINK.replace('/client', '')}/auth?invite=${invite.token}`
+        const firstName = invite.email
+          .split('@')[0]
+          .replace(/[._-]/g, ' ')
+          .replace(/\b\w/g, (c: string) => c.toUpperCase())
+
+        const today = new Date().toISOString().split('T')[0]
+        await enqueueEmail(supabase, 'invite-reminder', invite.email, {
+          firstName,
+          portalLink,
+          companyName: account.company_name,
+          daysSinceInvite: daysSinceInvite.toString(),
+        }, `invite-reminder-${invite.id}-${today}`)
+        inviteReminders++
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         applicationReminders: appReminders,
         infoRequestReminders: infoReminders,
+        inviteReminders,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
