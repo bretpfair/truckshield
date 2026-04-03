@@ -395,6 +395,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         applicationReminders: appReminders,
+        notStartedReminders,
         infoRequestReminders: infoReminders,
         inviteReminders,
       }),
