@@ -32,4 +32,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'new-message-received': newMessageReceived,
   'application-completed-staff': applicationCompletedStaff,
   'invite-reminder': inviteReminder,
+  'application-not-started': applicationNotStarted,
 }
