@@ -16,6 +16,7 @@ import InfoRequestBanner from "@/components/client/InfoRequestBanner";
 import JourneyTimeline from "@/components/client/JourneyTimeline";
 import PolicyRenewalCard from "@/components/client/PolicyRenewalCard";
 import { WIZARD_STEPS } from "@/components/application/constants";
+import { useApplicationProgress } from "@/hooks/useApplicationProgress";
 
 /* ── helpers ─────────────────────────────────────────── */
 
@@ -124,25 +125,7 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
     },
   });
 
-  const { data: powerUnits } = useQuery({
-    queryKey: ["client-power-units", account?.id],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("power_units").select("id").eq("account_id", account!.id);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: drivers } = useQuery({
-    queryKey: ["client-drivers", account?.id],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("drivers").select("id").eq("account_id", account!.id);
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { progress: appProgress, powerUnits, drivers } = useApplicationProgress(account);
 
   /* ── loading / empty states ─────────────────────────── */
 
@@ -180,7 +163,6 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
   }
 
   const appStep = account.application_step || 1;
-  const appProgress = Math.round((appStep / WIZARD_STEPS.length) * 100);
   const currentStepName = WIZARD_STEPS.find((s) => s.id === appStep)?.title ?? "Getting Started";
   const isComplete = ["info_complete", "quoting", "quoted", "bound"].includes(account.status);
   const isBound = account.status === "bound";

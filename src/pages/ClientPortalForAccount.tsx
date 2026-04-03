@@ -42,6 +42,7 @@ import ApplicationWizard from "@/components/application/ApplicationWizard";
 import DocumentHub from "@/components/staff/DocumentHub";
 
 import { WIZARD_STEPS } from "@/components/application/constants";
+import { useApplicationProgress } from "@/hooks/useApplicationProgress";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending_info: { label: "Pending Information", color: "bg-warning/10 text-warning border-warning/30", icon: Clock },
@@ -114,25 +115,7 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
   const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
   const completedQuotes = allQuotes?.filter((q: any) => ["quoted", "bound"].includes(q.status)) ?? [];
 
-  const { data: powerUnits } = useQuery({
-    queryKey: ["client-power-units", accountId],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("power_units").select("id").eq("account_id", accountId);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: drivers } = useQuery({
-    queryKey: ["client-drivers", accountId],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("drivers").select("id").eq("account_id", accountId);
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { progress: appProgress, powerUnits, drivers } = useApplicationProgress(account);
 
   if (isLoading || !account) {
     return (
@@ -155,7 +138,6 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
   }
 
   const appStep = account.application_step || 1;
-  const appProgress = Math.round((appStep / WIZARD_STEPS.length) * 100);
   const currentStepName = WIZARD_STEPS.find((s) => s.id === appStep)?.title ?? "Getting Started";
   const isComplete = ["info_complete", "quoting", "quoted", "bound"].includes(account.status);
   const statusInfo = statusConfig[account.status] ?? statusConfig.pending_info;
