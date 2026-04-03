@@ -115,25 +115,7 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
   const actionNeededQuotes = allQuotes?.filter((q: any) => q.status === "info_requested") ?? [];
   const completedQuotes = allQuotes?.filter((q: any) => ["quoted", "bound"].includes(q.status)) ?? [];
 
-  const { data: powerUnits } = useQuery({
-    queryKey: ["client-power-units", accountId],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("power_units").select("id").eq("account_id", accountId);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: drivers } = useQuery({
-    queryKey: ["client-drivers", accountId],
-    enabled: !!account,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("drivers").select("id").eq("account_id", accountId);
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { progress: appProgress, powerUnits, drivers } = useApplicationProgress(account);
 
   if (isLoading || !account) {
     return (
