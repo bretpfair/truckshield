@@ -138,7 +138,6 @@ const ClientPortalForAccount = ({ accountId }: Props) => {
   }
 
   const appStep = account.application_step || 1;
-  const appProgress = Math.round((appStep / WIZARD_STEPS.length) * 100);
   const currentStepName = WIZARD_STEPS.find((s) => s.id === appStep)?.title ?? "Getting Started";
   const isComplete = ["info_complete", "quoting", "quoted", "bound"].includes(account.status);
   const statusInfo = statusConfig[account.status] ?? statusConfig.pending_info;
