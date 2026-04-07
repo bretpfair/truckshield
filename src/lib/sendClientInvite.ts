@@ -46,6 +46,7 @@ export async function sendClientInvite({
         body: {
           templateName: "client-portal-invite",
           recipientEmail: normalizedEmail,
+          accountId,
           idempotencyKey: `portal-invite-resend-${invite.id}-${Date.now()}`,
           templateData: { firstName, portalLink, companyName },
         },
@@ -83,6 +84,7 @@ export async function sendClientInvite({
     body: {
       templateName: "client-portal-invite",
       recipientEmail: normalizedEmail,
+      accountId,
       idempotencyKey: `portal-invite-${invitation.id}`,
       templateData: { firstName, portalLink, companyName },
     },

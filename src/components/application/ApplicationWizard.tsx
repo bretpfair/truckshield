@@ -385,6 +385,7 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
                     body: {
                       templateName: "application-received",
                       recipientEmail: account.contact_email,
+                      accountId: account.id,
                       idempotencyKey: `app-received-${account.id}`,
                       templateData: {
                         companyName: formData.company_name || account.company_name,

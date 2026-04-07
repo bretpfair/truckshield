@@ -239,6 +239,7 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
               body: {
                 templateName: "new-message-received",
                 recipientEmail,
+                accountId,
                 idempotencyKey: `msg-notify-${msgId}`,
                 templateData: {
                   firstName,

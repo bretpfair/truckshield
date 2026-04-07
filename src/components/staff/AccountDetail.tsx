@@ -383,6 +383,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
             body: {
               templateName: "carrier-status-change",
               recipientEmail: clientEmail,
+              accountId,
               idempotencyKey: `market-submitted-${accountId}-${carrierId}-${Date.now()}`,
               templateData: {
                 firstName,

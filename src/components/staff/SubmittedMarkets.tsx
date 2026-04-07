@@ -108,6 +108,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
               body: {
                 templateName: "carrier-status-change",
                 recipientEmail: clientEmail,
+                accountId,
                 idempotencyKey: `carrier-status-${quoteId}-${status}-${Date.now()}`,
                 templateData: {
                   firstName,
@@ -194,6 +195,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
             body: {
               templateName: "carrier-status-change",
               recipientEmail: clientEmail,
+              accountId,
               idempotencyKey: `carrier-declined-${declineDialog.quoteId}-${Date.now()}`,
               templateData: {
                 firstName,
@@ -284,6 +286,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
           body: {
             templateName: "additional-info-request",
             recipientEmail: clientEmail,
+            accountId,
             idempotencyKey: `info-request-${infoRequestDialog.quoteId}-${Date.now()}`,
             templateData: {
               firstName,
@@ -424,6 +427,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
             body: {
               templateName: "carrier-status-change",
               recipientEmail: clientEmail,
+              accountId,
               idempotencyKey: `quote-updated-${updateQuoteDialog.quoteId}-${Date.now()}`,
               templateData: {
                 firstName,
@@ -525,6 +529,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
             body: {
               templateName: "carrier-status-change",
               recipientEmail: clientEmail,
+              accountId,
               idempotencyKey: `carrier-bound-${bindDialog.quoteId}-${Date.now()}`,
               templateData: {
                 firstName,

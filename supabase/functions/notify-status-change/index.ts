@@ -209,6 +209,26 @@ Deno.serve(async (req) => {
       templateData,
       `auto-pipeline-${accountId}-${newStatus}`
     )
+
+    // CC the assigned producer on the client email
+    if (account.assigned_producer_id) {
+      const { data: producerProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('user_id', account.assigned_producer_id)
+        .single()
+
+      if (producerProfile?.email && producerProfile.email.toLowerCase() !== account.contact_email.toLowerCase()) {
+        await enqueueEmailForRecipient(
+          supabase,
+          accountId,
+          producerProfile.email,
+          'pipeline-status-change',
+          templateData,
+          `auto-pipeline-${accountId}-${newStatus}-producer-cc`
+        )
+      }
+    }
   } else {
     await logEmailActivity(supabase, accountId, `Email "pipeline-status-change" could not be sent because no client email is on file.`)
   }
