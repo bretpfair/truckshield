@@ -82,7 +82,7 @@ export const template = {
   displayName: 'Client portal invite',
   previewData: {
     firstName: 'John',
-    portalLink: 'https://truckshield.lovable.app/auth?invite=sample-token',
+    portalLink: 'https://truckshield.360riskpartners.com/auth?invite=sample-token',
   },
 } satisfies TemplateEntry
 
