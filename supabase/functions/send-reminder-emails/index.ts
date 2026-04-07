@@ -238,24 +238,31 @@ Deno.serve(async (req: Request) => {
     // 1. Incomplete application reminders
     const { data: incompleteAccounts } = await supabase
       .from('accounts')
-      .select('*')
+      .select('*, assigned_producer_id')
       .eq('status', 'pending_info')
       .not('client_user_id', 'is', null)
 
     if (incompleteAccounts && incompleteAccounts.length > 0) {
       const accountIds = incompleteAccounts.map((a: any) => a.id)
       const clientIds = incompleteAccounts.map((a: any) => a.client_user_id)
+      const producerIds = [...new Set(incompleteAccounts.map((a: any) => a.assigned_producer_id).filter(Boolean))]
 
-      // Batch-fetch related data and profiles in parallel
-      const [profilesRes, puRes, trRes, drRes, lhRes] = await Promise.all([
+      // Batch-fetch related data, profiles, and producer profiles in parallel
+      const fetchPromises: Promise<any>[] = [
         supabase.from('profiles').select('user_id, full_name, email').in('user_id', clientIds),
         supabase.from('power_units').select('account_id,vin,gvw_class,truck_type,year,make,garage_zip,titled_state').in('account_id', accountIds),
         supabase.from('trailers').select('account_id,vin,trailer_type,year,make,garage_zip').in('account_id', accountIds),
         supabase.from('drivers').select('account_id,first_name,last_name,date_of_birth,license_number,license_state,license_type,driver_type,original_issue_year,date_hired_year,experience_years,lapse_suspension').in('account_id', accountIds),
         supabase.from('loss_history').select('account_id,id').in('account_id', accountIds),
-      ])
+      ]
+      if (producerIds.length > 0) {
+        fetchPromises.push(supabase.from('profiles').select('user_id, email').in('user_id', producerIds))
+      }
+
+      const [profilesRes, puRes, trRes, drRes, lhRes, producerProfilesRes] = await Promise.all(fetchPromises)
 
       const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]))
+      const producerEmailMap = new Map((producerProfilesRes?.data || []).map((p: any) => [p.user_id, p.email]))
       const powerUnitsAll = puRes.data || []
       const trailersAll = trRes.data || []
       const driversAll = drRes.data || []
@@ -268,30 +275,39 @@ Deno.serve(async (req: Request) => {
 
         const step = account.application_step || 1
         const today = new Date().toISOString().split('T')[0]
+        const producerEmail = account.assigned_producer_id ? producerEmailMap.get(account.assigned_producer_id) : undefined
 
         if (step <= 1) {
-          // Application not started — send the not-started template
-          await enqueueEmail(supabase, 'application-not-started', email, {
+          const templateData = {
             firstName: profile?.full_name?.split(' ')[0] || undefined,
             companyName: account.company_name,
             portalLink: PORTAL_LINK,
-          }, `app-not-started-${account.id}-${today}`)
+          }
+          await enqueueEmail(supabase, 'application-not-started', email, templateData, `app-not-started-${account.id}-${today}`)
           notStartedReminders++
+          // CC producer
+          if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
+            await enqueueEmail(supabase, 'application-not-started', producerEmail, templateData, `app-not-started-${account.id}-${today}-producer-cc`)
+          }
         } else {
-          // In-progress — calculate real completion %
           const pu = powerUnitsAll.filter((u: any) => u.account_id === account.id)
           const tr = trailersAll.filter((t: any) => t.account_id === account.id)
           const dr = driversAll.filter((d: any) => d.account_id === account.id)
           const lh = lossHistoryAll.filter((l: any) => l.account_id === account.id)
           const completionPercent = calculateServerProgress(account, pu, tr, dr, lh).toString()
 
-          await enqueueEmail(supabase, 'application-reminder', email, {
+          const templateData = {
             firstName: profile?.full_name?.split(' ')[0] || undefined,
             companyName: account.company_name,
             completionPercent,
             portalLink: PORTAL_LINK,
-          }, `app-reminder-${account.id}-${today}`)
+          }
+          await enqueueEmail(supabase, 'application-reminder', email, templateData, `app-reminder-${account.id}-${today}`)
           appReminders++
+          // CC producer
+          if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
+            await enqueueEmail(supabase, 'application-reminder', producerEmail, templateData, `app-reminder-${account.id}-${today}-producer-cc`)
+          }
         }
       }
     }
