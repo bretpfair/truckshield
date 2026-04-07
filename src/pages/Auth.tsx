@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Truck, Shield, Mail, Loader2 } from "lucide-react";
+import { Shield, Mail, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import sitelogo from "@/assets/logo.png";
 
 const Auth = () => {
@@ -26,9 +26,54 @@ const Auth = () => {
   const [staffUseMagicLink, setStaffUseMagicLink] = useState(false);
   const [staffMagicLinkSent, setStaffMagicLinkSent] = useState(false);
 
+  // Invite token state
+  const [inviteStatus, setInviteStatus] = useState<"loading" | "valid" | "expired" | "invalid" | null>(null);
+  const [inviteEmail, setInviteEmail] = useState<string | null>(null);
+  const [resendingLink, setResendingLink] = useState(false);
+
   useEffect(() => {
     if (staffInviteToken) setIsLogin(false);
   }, [staffInviteToken]);
+
+  // Fetch invite details when invite token is present
+  useEffect(() => {
+    if (!inviteToken || isStaffFlow) return;
+
+    const fetchInviteDetails = async () => {
+      setInviteStatus("loading");
+      try {
+        const { data, error } = await supabase
+          .from("client_invitations")
+          .select("email, status, expires_at")
+          .eq("token", inviteToken)
+          .maybeSingle();
+
+        if (error || !data) {
+          setInviteStatus("invalid");
+          return;
+        }
+
+        if (data.status === "accepted") {
+          setInviteStatus("invalid");
+          return;
+        }
+
+        if (data.status !== "pending") {
+          setInviteStatus("invalid");
+          return;
+        }
+
+        const isExpired = new Date(data.expires_at) < new Date();
+        setInviteEmail(data.email);
+        setEmail(data.email);
+        setInviteStatus(isExpired ? "expired" : "valid");
+      } catch {
+        setInviteStatus("invalid");
+      }
+    };
+
+    fetchInviteDetails();
+  }, [inviteToken, isStaffFlow]);
 
   // Accept staff invitation helper
   const acceptStaffInvitation = async () => {
@@ -76,6 +121,24 @@ const Auth = () => {
       }
     });
   }, [inviteToken, staffInviteToken, navigate]);
+
+  // Resend magic link for expired invite tokens
+  const handleResendInviteLink = async () => {
+    if (!inviteEmail) return;
+    setResendingLink(true);
+    const redirectTo = `${window.location.origin}/auth?invite=${inviteToken}`;
+    const { error } = await supabase.auth.signInWithOtp({
+      email: inviteEmail,
+      options: { emailRedirectTo: redirectTo },
+    });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setMagicLinkSent(true);
+      toast({ title: "Check your email", description: "We sent you a new sign-in link." });
+    }
+    setResendingLink(false);
+  };
 
   // --- STAFF: password-based login/signup ---
   const handleStaffSubmit = async (e: React.FormEvent) => {
@@ -155,6 +218,72 @@ const Auth = () => {
     setLoading(false);
   };
 
+  // Render client invite status banners
+  const renderInviteBanner = () => {
+    if (!inviteToken || isStaffFlow) return null;
+
+    if (inviteStatus === "loading") {
+      return (
+        <div className="mb-4 p-3 rounded-md bg-muted border border-border text-sm text-muted-foreground flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Verifying your invitation…
+        </div>
+      );
+    }
+
+    if (inviteStatus === "invalid") {
+      return (
+        <div className="mb-4 p-4 rounded-md bg-destructive/10 border border-destructive/20 text-sm space-y-2">
+          <div className="flex items-center gap-2 text-destructive font-medium">
+            <AlertCircle className="h-4 w-4" />
+            Invalid or expired invitation
+          </div>
+          <p className="text-muted-foreground">
+            This invitation link is no longer valid. Please contact your agent to request a new one.
+          </p>
+        </div>
+      );
+    }
+
+    if (inviteStatus === "expired") {
+      return (
+        <div className="mb-4 p-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-sm space-y-3">
+          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
+            <AlertCircle className="h-4 w-4" />
+            Your sign-in link has expired
+          </div>
+          <p className="text-muted-foreground">
+            No worries — click below to get a new one sent to <span className="font-medium text-foreground">{inviteEmail}</span>.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleResendInviteLink}
+            disabled={resendingLink || magicLinkSent}
+            className="w-full"
+          >
+            {resendingLink ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {magicLinkSent ? "Link sent — check your email" : "Send me a new link"}
+          </Button>
+        </div>
+      );
+    }
+
+    if (inviteStatus === "valid") {
+      return (
+        <div className="mb-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm text-primary">
+          Welcome! Enter your email below to access your portal.
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md animate-fade-in">
@@ -173,11 +302,7 @@ const Auth = () => {
               You've been invited to join the TruckShield team. {isLogin ? "Sign in" : "Create an account"} to get started.
             </div>
           )}
-          {inviteToken && (
-            <div className="mb-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-sm text-primary">
-              You've been invited to join TruckShield. Enter your email below to sign in.
-            </div>
-          )}
+          {renderInviteBanner()}
 
           <div className="flex items-center gap-2 mb-6">
             <Shield className="h-5 w-5 text-primary" />
@@ -353,10 +478,12 @@ const Auth = () => {
                     Use a different email
                   </button>
                 </div>
-              ) : (
+              ) : inviteStatus === "expired" || inviteStatus === "invalid" ? null : (
                 <form onSubmit={handleMagicLink} className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Enter your email and we'll send you a link to sign in — no password needed.
+                    {inviteEmail
+                      ? "Click below to access your portal — no password needed."
+                      : "Enter your email and we'll send you a link to sign in — no password needed."}
                   </p>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
@@ -367,6 +494,8 @@ const Auth = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@company.com"
                       required
+                      readOnly={!!inviteEmail}
+                      className={inviteEmail ? "bg-muted" : ""}
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
