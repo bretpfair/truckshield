@@ -1,62 +1,72 @@
 
 
-## Plan: Pipeline Progress, Server-Side Completion Calculation, and Application-Not-Started Reminder
+## Problem Analysis
 
-### Summary
+The current client sign-in flow has significant friction:
 
-Three changes:
-1. **PipelineView** — Replace the inaccurate `application_step`-based progress bar with real section-based completion (reusing the same logic from `useApplicationProgress`).
-2. **send-reminder-emails Edge Function** — Calculate real completion percentage server-side using section-based checks instead of `application_step`, and use that in the `application-reminder` email.
-3. **New "application not started" reminder** — Add a new email template and trigger for clients who logged in but still have `application_step = 1`.
+1. **Double email check** — Client receives an invite email, clicks the link, lands on `/auth?invite=TOKEN`, then must type their email and wait for a *second* magic link email. That's two separate emails just to get in.
+2. **Token confusion** — If the magic link redirect loses the `?invite=TOKEN` param (e.g. email client mangles the URL), the invitation is never accepted and the client sees an empty portal.
+3. **No clear error handling** — If the invite token is expired or already used, the client just sees a generic sign-in page with no actionable guidance.
+4. **No "resend" option from the client side** — If the magic link email doesn't arrive, the client has no way to request a new one without re-entering their email.
 
----
+## Proposed Solution: Single-Click Magic Link Invite
+
+Eliminate the two-step process by embedding the magic link directly into the invite email. When a client clicks the invite link, they are authenticated immediately — no second email needed.
+
+### How it works
+
+1. **Staff invites client** → system calls a new Edge Function `create-client-magic-link` that:
+   - Creates/updates the `client_invitations` record as before
+   - Generates a Supabase magic link (using the Admin API's `generateLink`) for the client's email
+   - Combines the magic link with the invite token so both auth and invitation acceptance happen in one click
+   - Sends the invite email with this combined link
+
+2. **Client clicks the single link** → Supabase verifies the OTP, creates a session, and redirects to `/auth?invite=TOKEN`. Since the session already exists on mount, the existing `useEffect` accepts the invitation and redirects to the portal instantly.
+
+3. **Fallback for expired links** — If the magic link has expired (default 1 hour), the `/auth` page detects the invite token, pre-fills the client's email (fetched from the invitation record), and offers a one-click "Send me a new link" button instead of a blank email form.
+
+### Changes
+
+**New Edge Function: `create-client-magic-link`**
+- Uses `supabase.auth.admin.generateLink({ type: 'magiclink', email, options: { redirectTo } })` to create a server-side magic link
+- Returns the combined URL to the caller
+- The invite email template uses this URL as the CTA button link
+
+**Update `sendClientInvite.ts`**
+- Instead of building a plain `/auth?invite=TOKEN` link, call the new Edge Function to get an authenticated magic link
+- Pass the resulting URL to the email template
+
+**Update `Auth.tsx`**
+- When `?invite=TOKEN` is present but no session exists:
+  - Fetch the invitation's email from the DB (new lightweight RPC or direct query)
+  - Pre-fill the email field so the client doesn't have to type it
+  - Show a clear message: "Click below to access your portal"
+  - Auto-submit the magic link request on load (or with a single button click)
+- Add clear error states for expired/invalid invite tokens
+- Add a "Resend link" button that's always visible after the magic link is sent
+
+**Update invite email template**
+- The CTA button URL changes from a plain portal link to the pre-authenticated magic link
 
 ### Technical Details
 
-#### 1. PipelineView — Accurate Progress Bar
+```text
+CURRENT FLOW (2 emails, 4+ steps):
+  Invite email → Click link → Type email → Wait for magic link email → Click magic link → Portal
 
-Currently (line 464-465): `const pct = Math.round((step / 10) * 100)` — wrong.
+NEW FLOW (1 email, 1 step):
+  Invite email → Click link → Portal
+  
+FALLBACK (if link expired, 1 extra step):
+  Invite email → Click expired link → See pre-filled email + "Resend" → Click magic link → Portal
+```
 
-**Approach**: For each `pending_info` account, fetch the same related data (power_units, trailers, drivers, loss_history) and run the same 9-section checks. Since PipelineView already has all accounts loaded, we need batch queries.
+The Edge Function needs `service_role` access for `admin.generateLink()`. The `SUPABASE_SERVICE_ROLE_KEY` secret is already configured.
 
-- Add queries for `power_units`, `trailers`, `drivers`, `loss_history` scoped to pending_info account IDs.
-- Create a helper function `calculateProgress(account, powerUnits, trailers, drivers, lossHistory)` that mirrors the `useApplicationProgress` logic.
-- Replace the inline `pct` calculation with the real value.
-- The accounts query in StaffDashboard already fetches full account data (`select("*")`), so all fields like `coverage_selections`, `general_questions`, `radius_operations`, `commodity_info` are available.
+### Files to create/modify
 
-**File**: `src/components/staff/PipelineView.tsx`
-- Add `useQuery` calls for power_units, trailers, drivers, loss_history for pending_info accounts
-- Extract a pure `calculateAccountProgress` function (shared or inline)
-- Replace lines 463-474
-
-#### 2. send-reminder-emails — Server-Side Real Completion %
-
-Currently (line 176-178): uses `application_step` to calculate %. 
-
-**Approach**: After fetching `incompleteAccounts`, also fetch their related data (power_units, trailers, drivers, loss_history) in batch, then run the same 9-section completion logic server-side.
-
-- Expand the accounts query to `select('*')` to get `coverage_selections`, `general_questions`, `radius_operations`, `commodity_info`.
-- Batch-fetch power_units, trailers, drivers, loss_history for all incomplete account IDs.
-- Port the section-complete checks into a server-side helper function.
-- Pass real `completionPercent` to the email template.
-
-**File**: `supabase/functions/send-reminder-emails/index.ts`
-
-#### 3. New "Application Not Started" Reminder Email
-
-For clients who accepted the invite (have `client_user_id`) but `application_step` is still 1 and status is `pending_info`.
-
-- Create `supabase/functions/_shared/transactional-email-templates/application-not-started.tsx` — a simpler, more urgent template encouraging the client to begin.
-- Register in `registry.ts`.
-- Add a section in `send-reminder-emails/index.ts` that filters for `application_step = 1` accounts and sends the `application-not-started` template instead of `application-reminder`.
-- The existing `application-reminder` will continue to handle accounts with `application_step > 1` but `< 10`.
-
-**Files**:
-- `supabase/functions/_shared/transactional-email-templates/application-not-started.tsx` (new)
-- `supabase/functions/_shared/transactional-email-templates/registry.ts` (add import)
-- `supabase/functions/send-reminder-emails/index.ts` (split logic)
-
-#### 4. Deploy
-
-Redeploy `send-reminder-emails` and `send-transactional-email` edge functions after all changes.
+- **Create** `supabase/functions/create-client-magic-link/index.ts` — new Edge Function
+- **Modify** `src/lib/sendClientInvite.ts` — call the new Edge Function
+- **Modify** `src/pages/Auth.tsx` — pre-fill email from invite, better error states, auto-request flow
+- **Modify** invite email template — use the authenticated URL
 
