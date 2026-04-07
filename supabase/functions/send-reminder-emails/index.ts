@@ -384,10 +384,21 @@ Deno.serve(async (req: Request) => {
       const inviteAccountIds = [...new Set(pendingInvites.map((i: any) => i.account_id))]
       const { data: inviteAccounts } = await supabase
         .from('accounts')
-        .select('id, company_name, client_user_id')
+        .select('id, company_name, client_user_id, assigned_producer_id')
         .in('id', inviteAccountIds)
 
       const inviteAccountMap = new Map((inviteAccounts || []).map((a: any) => [a.id, a]))
+
+      // Fetch producer emails for invite accounts
+      const invProducerIds = [...new Set((inviteAccounts || []).map((a: any) => a.assigned_producer_id).filter(Boolean))]
+      let invProducerEmailMap = new Map<string, string>()
+      if (invProducerIds.length > 0) {
+        const { data: invProducerProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, email')
+          .in('user_id', invProducerIds)
+        invProducerEmailMap = new Map((invProducerProfiles || []).map((p: any) => [p.user_id, p.email]))
+      }
 
       for (const invite of pendingInvites) {
         const account = inviteAccountMap.get(invite.account_id)
@@ -408,13 +419,20 @@ Deno.serve(async (req: Request) => {
           .replace(/\b\w/g, (c: string) => c.toUpperCase())
 
         const today = new Date().toISOString().split('T')[0]
-        await enqueueEmail(supabase, 'invite-reminder', invite.email, {
+        const templateData = {
           firstName,
           portalLink,
           companyName: account.company_name,
           daysSinceInvite: daysSinceInvite.toString(),
-        }, `invite-reminder-${invite.id}-${today}`)
+        }
+        await enqueueEmail(supabase, 'invite-reminder', invite.email, templateData, `invite-reminder-${invite.id}-${today}`)
         inviteReminders++
+
+        // CC producer
+        const producerEmail = account.assigned_producer_id ? invProducerEmailMap.get(account.assigned_producer_id) : undefined
+        if (producerEmail && producerEmail.toLowerCase() !== invite.email.toLowerCase()) {
+          await enqueueEmail(supabase, 'invite-reminder', producerEmail, templateData, `invite-reminder-${invite.id}-${today}-producer-cc`)
+        }
       }
     }
 
