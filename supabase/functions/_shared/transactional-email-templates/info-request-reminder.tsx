@@ -87,7 +87,7 @@ export const template = {
     carrierName: 'Great West Casualty',
     requestDetails: 'Please provide updated loss runs for the past 3 years and a current driver MVR.',
     daysPending: '3',
-    portalLink: 'https://truckshield.lovable.app/client',
+    portalLink: 'https://truckshield.360riskpartners.com/client',
   },
 } satisfies TemplateEntry
 
