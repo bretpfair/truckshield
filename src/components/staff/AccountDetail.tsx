@@ -388,7 +388,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
                 firstName,
                 carrierName,
                 newStatus: "submitted",
-                portalLink: `${window.location.origin}/client`,
+                portalLink: "https://truckshield.360riskpartners.com/client",
               },
             },
           });
