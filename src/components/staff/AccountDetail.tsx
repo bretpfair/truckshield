@@ -183,7 +183,7 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
       const { error: updateError } = await supabase
         .from("accounts")
-        .update(updateFields)
+        .update(updateFields as any)
         .eq("id", accountId);
       if (updateError) throw updateError;
 
