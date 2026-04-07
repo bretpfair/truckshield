@@ -292,6 +292,7 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
             body: {
               templateName: "pipeline-status-change",
               recipientEmail: clientEmail,
+              accountId,
               idempotencyKey: `pipeline-status-${accountId}-${newStatus}-${Date.now()}`,
               templateData: {
                 firstName,

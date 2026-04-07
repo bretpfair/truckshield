@@ -95,6 +95,7 @@ const InviteClientDialog = ({ accountId, defaultEmail }: Props) => {
           body: {
             templateName: "client-portal-invite",
             recipientEmail: email.trim().toLowerCase(),
+            accountId: selectedAccountId,
             idempotencyKey: `portal-invite-${data.id}`,
             templateData: { firstName, portalLink },
           },
