@@ -378,7 +378,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                                     const { dot_number, ...updateFields } = dotLookupResult;
                                     const { error } = await supabase
                                       .from("accounts")
-                                      .update(updateFields)
+                                      .update(updateFields as any)
                                       .eq("id", existingAccount.id);
                                     if (error) throw error;
                                     queryClient.invalidateQueries({ queryKey: ["accounts"] });
