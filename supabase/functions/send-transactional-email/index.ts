@@ -368,6 +368,94 @@ Deno.serve(async (req) => {
 
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
 
+  // CC the assigned producer if accountId was provided
+  if (accountId) {
+    try {
+      const { data: account } = await supabase
+        .from('accounts')
+        .select('assigned_producer_id')
+        .eq('id', accountId)
+        .single()
+
+      if (account?.assigned_producer_id) {
+        const { data: producerProfile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('user_id', account.assigned_producer_id)
+          .single()
+
+        const producerEmail = producerProfile?.email?.toLowerCase()
+        if (producerEmail && producerEmail !== normalizedEmail) {
+          // Check producer suppression
+          const { data: producerSuppressed } = await supabase
+            .from('suppressed_emails')
+            .select('id')
+            .eq('email', producerEmail)
+            .maybeSingle()
+
+          if (!producerSuppressed) {
+            // Get or create unsubscribe token for producer
+            let producerUnsubToken: string
+            const { data: existingProdToken } = await supabase
+              .from('email_unsubscribe_tokens')
+              .select('token, used_at')
+              .eq('email', producerEmail)
+              .maybeSingle()
+
+            if (existingProdToken?.used_at) {
+              console.log(`Skipping producer CC — ${producerEmail} unsubscribed`)
+            } else {
+              if (existingProdToken && !existingProdToken.used_at) {
+                producerUnsubToken = existingProdToken.token
+              } else {
+                producerUnsubToken = generateToken()
+                await supabase
+                  .from('email_unsubscribe_tokens')
+                  .upsert({ token: producerUnsubToken, email: producerEmail }, { onConflict: 'email', ignoreDuplicates: true })
+                const { data: storedProdToken } = await supabase
+                  .from('email_unsubscribe_tokens')
+                  .select('token')
+                  .eq('email', producerEmail)
+                  .maybeSingle()
+                if (storedProdToken) producerUnsubToken = storedProdToken.token
+              }
+
+              const producerMessageId = crypto.randomUUID()
+              await supabase.from('email_send_log').insert({
+                message_id: producerMessageId,
+                template_name: templateName,
+                recipient_email: producerEmail,
+                status: 'pending',
+                metadata: { cc_for: effectiveRecipient, account_id: accountId },
+              })
+
+              await supabase.rpc('enqueue_email', {
+                queue_name: 'transactional_emails',
+                payload: {
+                  message_id: producerMessageId,
+                  to: producerEmail,
+                  from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+                  sender_domain: SENDER_DOMAIN,
+                  subject: resolvedSubject,
+                  html,
+                  text: plainText,
+                  purpose: 'transactional',
+                  label: templateName,
+                  idempotency_key: `${idempotencyKey}-producer-cc`,
+                  unsubscribe_token: producerUnsubToken!,
+                  queued_at: new Date().toISOString(),
+                },
+              })
+              console.log(`Producer CC enqueued for ${producerEmail}`)
+            }
+          }
+        }
+      }
+    } catch (ccErr) {
+      console.error('Failed to CC producer (non-fatal):', ccErr)
+    }
+  }
+
   return new Response(
     JSON.stringify({ success: true, queued: true }),
     {
