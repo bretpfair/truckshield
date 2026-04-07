@@ -99,7 +99,7 @@ export const template = {
     firstName: 'John',
     carrierName: 'Great West Casualty',
     newStatus: 'quoted',
-    portalLink: 'https://truckshield.lovable.app/client',
+    portalLink: 'https://truckshield.360riskpartners.com/client',
   },
 } satisfies TemplateEntry
 

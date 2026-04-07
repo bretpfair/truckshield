@@ -72,7 +72,7 @@ export const template = {
   previewData: {
     firstName: 'John',
     companyName: 'ABC Trucking LLC',
-    portalLink: 'https://truckshield.lovable.app/client',
+    portalLink: 'https://truckshield.360riskpartners.com/client',
   },
 } satisfies TemplateEntry
 

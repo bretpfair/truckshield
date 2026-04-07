@@ -89,7 +89,7 @@ export const template = {
     companyName: 'Acme Trucking LLC',
     dotNumber: '1234567',
     submittedBy: 'John Smith',
-    portalLink: 'https://truckshield.lovable.app',
+    portalLink: 'https://truckshield.360riskpartners.com',
   },
 } satisfies TemplateEntry
 

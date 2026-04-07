@@ -534,7 +534,7 @@ Deno.serve(async (req) => {
             .single();
 
           if (!invErr && invitation) {
-            const portalLink = `https://truckshield.lovable.app/auth?invite=${invitation.token}`;
+            const portalLink = `https://truckshield.360riskpartners.com/auth?invite=${invitation.token}`;
             const firstName = (accountData.business_owner_name as string)?.split(/\s+/)[0]
               || contactEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 

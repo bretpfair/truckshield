@@ -85,7 +85,7 @@ export const template = {
     companyName: 'ABC Trucking LLC',
     senderName: '360 Risk Partners',
     messagePreview: 'Hi John, just wanted to follow up on the quote we discussed earlier this week.',
-    portalLink: 'https://truckshield.lovable.app/client',
+    portalLink: 'https://truckshield.360riskpartners.com/client',
   },
 } satisfies TemplateEntry
 
