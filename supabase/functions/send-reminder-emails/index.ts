@@ -6,7 +6,7 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 const SITE_NAME = '360 Risk Partners'
 const SENDER_DOMAIN = 'notify.360riskpartners.com'
 const FROM_DOMAIN = '360riskpartners.com'
-const PORTAL_LINK = 'https://truckshield.lovable.app/client'
+const PORTAL_LINK = 'https://truckshield.360riskpartners.com/client'
 
 // Send reminders every 3 days (don't spam daily)
 const REMINDER_INTERVAL_DAYS = 3

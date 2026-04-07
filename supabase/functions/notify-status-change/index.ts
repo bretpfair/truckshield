@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
       firstName,
       companyName: account.company_name,
       newStatus,
-      portalLink: 'https://truckshield.lovable.app/client',
+      portalLink: 'https://truckshield.360riskpartners.com/client',
     }
 
     await enqueueEmailForRecipient(
@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
       companyName: account.company_name,
       dotNumber: account.dot_number,
       submittedBy,
-      portalLink: `https://truckshield.lovable.app`,
+      portalLink: `https://truckshield.360riskpartners.com`,
     }
 
     // Collect staff emails to notify: all admins + assigned producer

@@ -97,7 +97,7 @@ export const template = {
     firstName: 'John',
     companyName: 'ABC Trucking LLC',
     newStatus: 'quoting',
-    portalLink: 'https://truckshield.lovable.app/client',
+    portalLink: 'https://truckshield.360riskpartners.com/client',
   },
 } satisfies TemplateEntry
 

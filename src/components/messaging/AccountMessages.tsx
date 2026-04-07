@@ -202,7 +202,7 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
             // Staff sent message → notify client
             recipientEmail = account.contact_email;
             senderName = "360 Risk Partners";
-            portalLink = "https://truckshield.lovable.app/client";
+            portalLink = "https://truckshield.360riskpartners.com/client";
 
             const { data: clientProfile } = await supabase
               .from("profiles")
@@ -229,7 +229,7 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
                 recipientEmail = adminProfile.email;
                 firstName = adminProfile.full_name?.split(" ")[0];
                 senderName = account.company_name || "A client";
-                portalLink = "https://truckshield.lovable.app/staff";
+                portalLink = "https://truckshield.360riskpartners.com/staff";
               }
             }
           }
