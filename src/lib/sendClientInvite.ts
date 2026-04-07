@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Creates a client invitation and sends the invite email.
+ * Creates a client invitation and sends the invite email with a single-click magic link.
  * Returns the invitation record or null if skipped (e.g. already invited).
  */
 export async function sendClientInvite({
@@ -21,41 +21,28 @@ export async function sendClientInvite({
   // Check for existing pending invitation
   const { data: existingInvite } = await supabase
     .from("client_invitations")
-    .select("id")
+    .select("id, token")
     .eq("account_id", accountId)
     .eq("email", normalizedEmail)
     .eq("status", "pending")
     .maybeSingle();
 
   if (existingInvite) {
-    // Resend the email for the existing pending invitation
-    const { data: invite } = await supabase
-      .from("client_invitations")
-      .select("id, token")
-      .eq("id", existingInvite.id)
-      .single();
+    // Resend with a fresh magic link
+    const portalLink = await generateMagicLink(normalizedEmail, existingInvite.token);
+    const firstName = deriveFirstName(normalizedEmail);
 
-    if (invite) {
-      const portalLink = `${window.location.origin}/auth?invite=${invite.token}`;
-      const firstName = normalizedEmail
-        .split("@")[0]
-        .replace(/[._-]/g, " ")
-        .replace(/\b\w/g, (c: string) => c.toUpperCase());
+    await supabase.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "client-portal-invite",
+        recipientEmail: normalizedEmail,
+        accountId,
+        idempotencyKey: `portal-invite-resend-${existingInvite.id}-${Date.now()}`,
+        templateData: { firstName, portalLink, companyName },
+      },
+    });
 
-      await supabase.functions.invoke("send-transactional-email", {
-        body: {
-          templateName: "client-portal-invite",
-          recipientEmail: normalizedEmail,
-          accountId,
-          idempotencyKey: `portal-invite-resend-${invite.id}-${Date.now()}`,
-          templateData: { firstName, portalLink, companyName },
-        },
-      });
-
-      return { sent: true, message: `Invite resent to ${normalizedEmail}` };
-    }
-
-    return { sent: false, message: "An invite is already pending for this email" };
+    return { sent: true, message: `Invite resent to ${normalizedEmail}` };
   }
 
   // Create invitation
@@ -72,12 +59,9 @@ export async function sendClientInvite({
 
   if (error) throw error;
 
-  // Build invite link
-  const portalLink = `${window.location.origin}/auth?invite=${invitation.token}`;
-  const firstName = normalizedEmail
-    .split("@")[0]
-    .replace(/[._-]/g, " ")
-    .replace(/\b\w/g, (c: string) => c.toUpperCase());
+  // Generate a single-click magic link
+  const portalLink = await generateMagicLink(normalizedEmail, invitation.token);
+  const firstName = deriveFirstName(normalizedEmail);
 
   // Send invite email
   await supabase.functions.invoke("send-transactional-email", {
@@ -91,4 +75,35 @@ export async function sendClientInvite({
   });
 
   return { sent: true, message: `Invite sent to ${normalizedEmail}` };
+}
+
+/**
+ * Calls the Edge Function to generate a combined magic link + invite token URL.
+ * Falls back to a plain invite URL if the magic link generation fails.
+ */
+async function generateMagicLink(email: string, inviteToken: string): Promise<string> {
+  const redirectTo = `${window.location.origin}/auth?invite=${inviteToken}`;
+
+  try {
+    const { data, error } = await supabase.functions.invoke("create-client-magic-link", {
+      body: { email, inviteToken, redirectTo },
+    });
+
+    if (error || !data?.magicLink) {
+      console.warn("Magic link generation failed, falling back to plain invite link:", error);
+      return redirectTo;
+    }
+
+    return data.magicLink;
+  } catch (err) {
+    console.warn("Magic link generation failed, falling back to plain invite link:", err);
+    return redirectTo;
+  }
+}
+
+function deriveFirstName(email: string): string {
+  return email
+    .split("@")[0]
+    .replace(/[._-]/g, " ")
+    .replace(/\b\w/g, (c: string) => c.toUpperCase());
 }
