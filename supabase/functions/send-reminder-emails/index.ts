@@ -323,17 +323,20 @@ Deno.serve(async (req: Request) => {
       const accountIds = [...new Set(pendingRequests.map((r: any) => r.account_id))]
       const { data: accounts } = await supabase
         .from('accounts')
-        .select('id, company_name, client_user_id, contact_email')
+        .select('id, company_name, client_user_id, contact_email, assigned_producer_id')
         .in('id', accountIds)
         .not('client_user_id', 'is', null)
 
       const accountMap = new Map((accounts || []).map((a: any) => [a.id, a]))
 
       const clientIds = (accounts || []).map((a: any) => a.client_user_id).filter(Boolean)
+      const infoProducerIds = [...new Set((accounts || []).map((a: any) => a.assigned_producer_id).filter(Boolean))]
+      const allUserIds = [...new Set([...clientIds, ...infoProducerIds])]
+
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, full_name, email')
-        .in('user_id', clientIds)
+        .in('user_id', allUserIds)
       const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]))
 
       for (const request of pendingRequests) {
@@ -349,15 +352,23 @@ Deno.serve(async (req: Request) => {
         ).toString()
 
         const today = new Date().toISOString().split('T')[0]
-        await enqueueEmail(supabase, 'info-request-reminder', email, {
+        const templateData = {
           firstName: profile?.full_name?.split(' ')[0] || undefined,
           companyName: account.company_name,
           carrierName: request.carrier_name,
           requestDetails: request.request_details,
           daysPending,
           portalLink: PORTAL_LINK,
-        }, `info-reminder-${request.id}-${today}`)
+        }
+        await enqueueEmail(supabase, 'info-request-reminder', email, templateData, `info-reminder-${request.id}-${today}`)
         infoReminders++
+
+        // CC producer
+        const producerProfile = account.assigned_producer_id ? profileMap.get(account.assigned_producer_id) : undefined
+        const producerEmail = producerProfile?.email
+        if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
+          await enqueueEmail(supabase, 'info-request-reminder', producerEmail, templateData, `info-reminder-${request.id}-${today}-producer-cc`)
+        }
       }
     }
 
