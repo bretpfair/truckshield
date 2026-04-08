@@ -429,6 +429,10 @@ Deno.serve(async (req) => {
                 metadata: { cc_for: effectiveRecipient, account_id: accountId },
               })
 
+              // Build CC-specific content with a notice banner
+              const ccBanner = `<div style="background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:12px 16px;margin-bottom:20px;font-family:Arial,sans-serif;font-size:13px;color:#0c4a6e;">📋 <strong>FYI copy</strong> — This email was sent to <strong>${effectiveRecipient}</strong>. You're receiving this as the assigned producer on this account.</div>`
+              const ccHtml = html.replace(/(<body[^>]*>)/i, `$1${ccBanner}`)
+
               await supabase.rpc('enqueue_email', {
                 queue_name: 'transactional_emails',
                 payload: {
@@ -436,9 +440,9 @@ Deno.serve(async (req) => {
                   to: producerEmail,
                   from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
                   sender_domain: SENDER_DOMAIN,
-                  subject: resolvedSubject,
-                  html,
-                  text: plainText,
+                  subject: `[CC] ${resolvedSubject}`,
+                  html: ccHtml,
+                  text: `[FYI copy — sent to ${effectiveRecipient}]\n\n${plainText}`,
                   purpose: 'transactional',
                   label: templateName,
                   idempotency_key: `${idempotencyKey}-producer-cc`,
