@@ -302,10 +302,10 @@ Deno.serve(async (req) => {
   }
 
   // 4. Render React Email template to HTML and plain text
-  const html = await renderAsync(
+  let html = await renderAsync(
     React.createElement(template.component, templateData)
   )
-  const plainText = await renderAsync(
+  let plainText = await renderAsync(
     React.createElement(template.component, templateData),
     { plainText: true }
   )
@@ -315,6 +315,37 @@ Deno.serve(async (req) => {
     typeof template.subject === 'function'
       ? template.subject(templateData)
       : template.subject
+
+  // Look up assigned producer email for visible CC line in client email
+  let producerEmail: string | null = null
+  let producerProducerId: string | null = null
+  if (accountId) {
+    try {
+      const { data: acct } = await supabase
+        .from('accounts')
+        .select('assigned_producer_id')
+        .eq('id', accountId)
+        .single()
+      if (acct?.assigned_producer_id) {
+        producerProducerId = acct.assigned_producer_id
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('user_id', acct.assigned_producer_id)
+          .single()
+        if (prof?.email && prof.email.toLowerCase() !== normalizedEmail) {
+          producerEmail = prof.email.toLowerCase()
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // Inject visible CC line into client email if producer is assigned
+  if (producerEmail) {
+    const ccLine = `<div style="font-family:Arial,sans-serif;font-size:12px;color:#6b7280;margin-bottom:16px;">CC: ${producerEmail}</div>`
+    html = html.replace(/(<body[^>]*>)/i, `$1${ccLine}`)
+    plainText = `CC: ${producerEmail}\n\n${plainText}`
+  }
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
