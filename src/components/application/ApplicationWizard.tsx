@@ -156,7 +156,12 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
     }
   };
 
+  const accountIdRef = useRef<string | null>(null);
   useEffect(() => {
+    // Only fully reset formData when loading a different account (or first mount).
+    // Refetches of the same account should NOT overwrite local pending edits.
+    if (accountIdRef.current === account.id) return;
+    accountIdRef.current = account.id;
     setFormData({
       ...account,
       coverage_selections: account.coverage_selections || {},
