@@ -159,15 +159,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     if (!drv.original_issue_year) missing.push("Year Issued");
     if (!drv.date_hired_year) missing.push("Year Hired");
     if (drv.experience_years == null) missing.push("Experience (Years)");
-    if (!drv.lapse_suspension || drv.lapse_suspension === "None") { /* "None" is a valid selection, not missing */ }
-    else { /* has a value */ }
     return missing;
-  };
-
-  const isDriverIncomplete = (drv: any) => {
-    const m = getMissingFields(drv);
-    return m.length > 0;
-  };
   };
 
   const isDriverIncomplete = (drv: any) => getMissingFields(drv).length > 0;
