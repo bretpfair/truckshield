@@ -249,7 +249,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
               {/* Issue & Hire Dates */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Year Issued</Label>
+                  <Label className={`text-xs ${reqLabel(drv.original_issue_year)}`}>Year Issued *</Label>
                   <Input className={req(drv.original_issue_year)} value={drv.original_issue_year || ""} onChange={(e) => updateDriver(idx, "original_issue_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
                 <div className="space-y-1">
@@ -260,7 +260,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Year Hired</Label>
+                  <Label className={`text-xs ${reqLabel(drv.date_hired_year)}`}>Year Hired *</Label>
                   <Input className={req(drv.date_hired_year)} value={drv.date_hired_year || ""} onChange={(e) => updateDriver(idx, "date_hired_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
               </div>
@@ -268,14 +268,14 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
               {/* Experience & Lapse */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Experience (Years)</Label>
+                  <Label className={`text-xs ${reqLabel(drv.experience_years)}`}>Experience (Years) *</Label>
                   <Select value={drv.experience_years?.toString() || ""} onValueChange={(v) => updateDriver(idx, "experience_years", parseInt(v))}>
                     <SelectTrigger className={req(drv.experience_years)}><SelectValue placeholder="Years" /></SelectTrigger>
                     <SelectContent>{[0,1,2,3,4,5,6,7].map((y) => <SelectItem key={y} value={y.toString()}>{y === 7 ? "7+" : y.toString()}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Lapse/Suspension</Label>
+                  <Label className={`text-xs ${reqLabel(drv.lapse_suspension)}`}>Lapse/Suspension *</Label>
                   <Select value={drv.lapse_suspension || "None"} onValueChange={(v) => updateDriver(idx, "lapse_suspension", v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{LAPSE_OPTIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
