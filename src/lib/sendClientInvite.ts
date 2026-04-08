@@ -42,6 +42,14 @@ export async function sendClientInvite({
       },
     });
 
+    // Log activity
+    await supabase.from("activity_log").insert({
+      account_id: accountId,
+      user_id: invitedBy || (await supabase.auth.getUser()).data.user?.id,
+      action_type: "client_invite_resent",
+      description: `Portal invite resent to ${normalizedEmail}`,
+    });
+
     return { sent: true, message: `Invite resent to ${normalizedEmail}` };
   }
 
@@ -72,6 +80,14 @@ export async function sendClientInvite({
       idempotencyKey: `portal-invite-${invitation.id}`,
       templateData: { firstName, portalLink, companyName },
     },
+  });
+
+  // Log activity
+  await supabase.from("activity_log").insert({
+    account_id: accountId,
+    user_id: userId,
+    action_type: "client_invite_sent",
+    description: `Portal invite sent to ${normalizedEmail}`,
   });
 
   return { sent: true, message: `Invite sent to ${normalizedEmail}` };
