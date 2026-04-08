@@ -184,9 +184,16 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
             onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
             className="w-full flex items-center justify-between px-4 py-3 bg-secondary/50 hover:bg-secondary transition-colors"
           >
-            <span className="text-sm font-mono font-medium">
-              Driver #{idx + 1} {drv.first_name ? `— ${drv.first_name} ${drv.last_name}` : ""}
-            </span>
+            <div className="flex flex-col items-start">
+              <span className="text-sm font-mono font-medium">
+                Driver #{idx + 1} {drv.first_name ? `— ${drv.first_name} ${drv.last_name}` : ""}
+              </span>
+              {isDriverIncomplete(drv) && expandedIdx !== idx && (
+                <span className="text-xs text-destructive mt-0.5">
+                  Missing: {getMissingFields(drv).join(", ")}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               {drivers.length > 1 && (
                 <span onClick={(e) => { e.stopPropagation(); removeDriver(idx); }} className="p-1 hover:text-destructive">
