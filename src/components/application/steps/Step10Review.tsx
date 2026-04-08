@@ -82,7 +82,7 @@ const Step10Review = ({ account, formData, onNavigateToStep }: StepProps) => {
     d.first_name && d.last_name && d.date_of_birth &&
     d.license_number && d.license_state && d.license_type && d.driver_type &&
     d.original_issue_year && d.date_hired_year &&
-    d.experience_years != null && d.lapse_suspension
+    d.experience_years != null
   );
 
   const isStep9Complete = (() => {
