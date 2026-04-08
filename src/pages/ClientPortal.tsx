@@ -11,6 +11,7 @@ import {
   ChevronRight, ClipboardList, MapPin, Users, Package, Building, AlertTriangle, Download,
 } from "lucide-react";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
+import AiFaqChat from "@/components/client/AiFaqChat";
 import DocumentHub from "@/components/staff/DocumentHub";
 import InfoRequestBanner from "@/components/client/InfoRequestBanner";
 import JourneyTimeline from "@/components/client/JourneyTimeline";
@@ -452,6 +453,12 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
 
       {/* ── Documents ── */}
       <DocumentHub accountId={account.id} readOnly={false} />
+
+      {/* ── AI FAQ Chat Widget ── */}
+      <AiFaqChat
+        accountId={account.id}
+        onEscalate={() => onSetMessagingAccount?.(account.id)}
+      />
     </div>
   );
 };
