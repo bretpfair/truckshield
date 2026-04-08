@@ -16,7 +16,8 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
-const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50 ring-1 ring-destructive/30" : "");
+const reqLabel = (v: any) => (!v && v !== 0 ? "text-destructive" : "");
 
 const emptyDriver = {
   first_name: "", last_name: "", date_of_birth: null, driver_type: "",
