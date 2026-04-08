@@ -118,7 +118,7 @@ export const AUTO_LIABILITY_QUESTIONS = [
   { id: "q6", text: "Do you allow passengers other than company personnel?", hasExplain: true },
   { id: "q7", text: "Have any of the scheduled drivers been convicted of a felony?", hasExplain: true },
   { id: "q8", text: "Will there be any last mile or residential delivery exposure?", hasExplain: true },
-  { id: "q9", text: "Has the applicant had 2 or more continuous years of commercial auto liability coverage?", hasExplain: true },
+  { id: "q9", text: "Has the applicant had 2 or more continuous years of commercial auto liability coverage?", hasExplain: false },
   { id: "q10", text: "Has the applicant had 2 or more continuous years of personal auto liability coverage?", hasExplain: false },
   { id: "q11", text: "Has the applicant ever filed for bankruptcy?", hasExplain: false, hasDate: true },
   { id: "q12", text: "Has risk been cancelled or non-renewed in the last 3 years?", hasExplain: true },
