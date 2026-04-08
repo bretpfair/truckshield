@@ -128,7 +128,7 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
           d.first_name && d.last_name && d.date_of_birth &&
           d.license_number && d.license_state && d.license_type && d.driver_type &&
           d.original_issue_year && d.date_hired_year &&
-          d.experience_years != null && d.lapse_suspension
+          d.experience_years != null
         );
       }
       case 8: return (lhData?.length || 0) > 0 || isNewVenture;
