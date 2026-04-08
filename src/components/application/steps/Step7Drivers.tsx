@@ -208,37 +208,37 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
             <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">First Name</Label>
+                  <Label className={`text-xs ${reqLabel(drv.first_name)}`}>First Name *</Label>
                   <Input className={req(drv.first_name)} value={drv.first_name || ""} onChange={(e) => updateDriver(idx, "first_name", e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Last Name</Label>
+                  <Label className={`text-xs ${reqLabel(drv.last_name)}`}>Last Name *</Label>
                   <Input className={req(drv.last_name)} value={drv.last_name || ""} onChange={(e) => updateDriver(idx, "last_name", e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Date of Birth</Label>
+                  <Label className={`text-xs ${reqLabel(drv.date_of_birth)}`}>Date of Birth *</Label>
                   <Input className={req(drv.date_of_birth)} type="date" value={drv.date_of_birth || ""} onChange={(e) => updateDriver(idx, "date_of_birth", e.target.value || null)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Driver Type</Label>
+                  <Label className={`text-xs ${reqLabel(drv.driver_type)}`}>Driver Type *</Label>
                   <Select value={drv.driver_type || ""} onValueChange={(v) => updateDriver(idx, "driver_type", v)}>
                     <SelectTrigger className={req(drv.driver_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{DRIVER_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">License Number</Label>
+                  <Label className={`text-xs ${reqLabel(drv.license_number)}`}>License Number *</Label>
                   <Input className={req(drv.license_number)} value={drv.license_number || ""} onChange={(e) => updateDriver(idx, "license_number", e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">License State</Label>
+                  <Label className={`text-xs ${reqLabel(drv.license_state)}`}>License State *</Label>
                   <Select value={drv.license_state || ""} onValueChange={(v) => updateDriver(idx, "license_state", v)}>
                     <SelectTrigger className={req(drv.license_state)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">License Type</Label>
+                  <Label className={`text-xs ${reqLabel(drv.license_type)}`}>License Type *</Label>
                   <Select value={drv.license_type || ""} onValueChange={(v) => updateDriver(idx, "license_type", v)}>
                     <SelectTrigger className={req(drv.license_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{LICENSE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
