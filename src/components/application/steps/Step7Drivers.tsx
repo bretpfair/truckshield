@@ -275,7 +275,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className={`text-xs ${reqLabel(drv.lapse_suspension)}`}>Lapse/Suspension *</Label>
+                  <Label className="text-xs">Lapse/Suspension</Label>
                   <Select value={drv.lapse_suspension || "None"} onValueChange={(v) => updateDriver(idx, "lapse_suspension", v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{LAPSE_OPTIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
