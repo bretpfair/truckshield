@@ -147,11 +147,23 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     });
   };
 
-  const isDriverIncomplete = (drv: any) =>
-    !drv.first_name || !drv.last_name || !drv.date_of_birth ||
-    !drv.license_number || !drv.license_state || !drv.license_type || !drv.driver_type ||
-    !drv.original_issue_year || !drv.date_hired_year ||
-    drv.experience_years == null || !drv.lapse_suspension;
+  const getMissingFields = (drv: any): string[] => {
+    const missing: string[] = [];
+    if (!drv.first_name) missing.push("First Name");
+    if (!drv.last_name) missing.push("Last Name");
+    if (!drv.date_of_birth) missing.push("Date of Birth");
+    if (!drv.license_number) missing.push("License Number");
+    if (!drv.license_state) missing.push("License State");
+    if (!drv.license_type) missing.push("License Type");
+    if (!drv.driver_type) missing.push("Driver Type");
+    if (!drv.original_issue_year) missing.push("Year Issued");
+    if (!drv.date_hired_year) missing.push("Year Hired");
+    if (drv.experience_years == null) missing.push("Experience (Years)");
+    if (!drv.lapse_suspension) missing.push("Lapse/Suspension");
+    return missing;
+  };
+
+  const isDriverIncomplete = (drv: any) => getMissingFields(drv).length > 0;
 
   return (
     <div className="space-y-6">
