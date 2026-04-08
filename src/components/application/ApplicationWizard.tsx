@@ -380,30 +380,43 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
         ) : (
           <Button
             onClick={async () => {
-              handleSave({ ...formData, status: "info_complete", application_step: 10 });
-              // Send application-received confirmation email
-              if (!isPreview && account.contact_email) {
-                try {
-                  const ownerName = formData.business_owner_name || "";
-                  const firstName = ownerName.split(" ")[0] || "";
-                  await supabase.functions.invoke("send-transactional-email", {
-                    body: {
-                      templateName: "application-received",
-                      recipientEmail: account.contact_email,
-                      accountId: account.id,
-                      idempotencyKey: `app-received-${account.id}`,
-                      templateData: {
-                        companyName: formData.company_name || account.company_name,
-                        firstName,
-                      },
-                    },
-                  });
-                } catch {
-                  // Non-fatal: don't block the submit
+              try {
+                if (!isPreview) {
+                  const stepToSave = 10;
+                  const { error } = await supabase
+                    .from("accounts")
+                    .update({ ...formData, status: "info_complete", application_step: stepToSave })
+                    .eq("id", account.id);
+                  if (error) throw error;
+                  queryClient.invalidateQueries({ queryKey: ["client-accounts"] });
+                  queryClient.invalidateQueries({ queryKey: ["account", account.id] });
                 }
+                // Send application-received confirmation email
+                if (!isPreview && account.contact_email) {
+                  try {
+                    const ownerName = formData.business_owner_name || "";
+                    const firstName = ownerName.split(" ")[0] || "";
+                    await supabase.functions.invoke("send-transactional-email", {
+                      body: {
+                        templateName: "application-received",
+                        recipientEmail: account.contact_email,
+                        accountId: account.id,
+                        idempotencyKey: `app-received-${account.id}`,
+                        templateData: {
+                          companyName: formData.company_name || account.company_name,
+                          firstName,
+                        },
+                      },
+                    });
+                  } catch {
+                    // Non-fatal: don't block the submit
+                  }
+                }
+                toast({ title: "Application submitted!", description: "Your application has been received. Our team will begin working on it." });
+                onSubmitComplete?.();
+              } catch (e: any) {
+                toast({ title: "Error submitting", description: e.message, variant: "destructive" });
               }
-              toast({ title: "Application submitted!", description: "Your application has been received. Our team will begin working on it." });
-              onSubmitComplete?.();
             }}
             className="gap-2 bg-success hover:bg-success/90"
             disabled={!Array.from({ length: 9 }, (_, i) => i + 1).every(getStepComplete)}
