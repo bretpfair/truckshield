@@ -16,7 +16,8 @@ interface StepProps {
   onSave: (data?: Record<string, any>) => void;
 }
 
-const req = (v: any) => (!v && v !== 0 ? "border-destructive/50" : "");
+const req = (v: any) => (!v && v !== 0 ? "border-destructive/50 ring-1 ring-destructive/30" : "");
+const reqLabel = (v: any) => (!v && v !== 0 ? "text-destructive" : "");
 
 const emptyDriver = {
   first_name: "", last_name: "", date_of_birth: null, driver_type: "",
@@ -146,11 +147,23 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
     });
   };
 
-  const isDriverIncomplete = (drv: any) =>
-    !drv.first_name || !drv.last_name || !drv.date_of_birth ||
-    !drv.license_number || !drv.license_state || !drv.license_type || !drv.driver_type ||
-    !drv.original_issue_year || !drv.date_hired_year ||
-    drv.experience_years == null || !drv.lapse_suspension;
+  const getMissingFields = (drv: any): string[] => {
+    const missing: string[] = [];
+    if (!drv.first_name) missing.push("First Name");
+    if (!drv.last_name) missing.push("Last Name");
+    if (!drv.date_of_birth) missing.push("Date of Birth");
+    if (!drv.license_number) missing.push("License Number");
+    if (!drv.license_state) missing.push("License State");
+    if (!drv.license_type) missing.push("License Type");
+    if (!drv.driver_type) missing.push("Driver Type");
+    if (!drv.original_issue_year) missing.push("Year Issued");
+    if (!drv.date_hired_year) missing.push("Year Hired");
+    if (drv.experience_years == null) missing.push("Experience (Years)");
+    if (!drv.lapse_suspension) missing.push("Lapse/Suspension");
+    return missing;
+  };
+
+  const isDriverIncomplete = (drv: any) => getMissingFields(drv).length > 0;
 
   return (
     <div className="space-y-6">
@@ -171,9 +184,16 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
             onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
             className="w-full flex items-center justify-between px-4 py-3 bg-secondary/50 hover:bg-secondary transition-colors"
           >
-            <span className="text-sm font-mono font-medium">
-              Driver #{idx + 1} {drv.first_name ? `— ${drv.first_name} ${drv.last_name}` : ""}
-            </span>
+            <div className="flex flex-col items-start">
+              <span className="text-sm font-mono font-medium">
+                Driver #{idx + 1} {drv.first_name ? `— ${drv.first_name} ${drv.last_name}` : ""}
+              </span>
+              {isDriverIncomplete(drv) && expandedIdx !== idx && (
+                <span className="text-xs text-destructive mt-0.5">
+                  Missing: {getMissingFields(drv).join(", ")}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               {drivers.length > 1 && (
                 <span onClick={(e) => { e.stopPropagation(); removeDriver(idx); }} className="p-1 hover:text-destructive">
@@ -188,37 +208,37 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
             <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">First Name</Label>
+                  <Label className={`text-xs ${reqLabel(drv.first_name)}`}>First Name *</Label>
                   <Input className={req(drv.first_name)} value={drv.first_name || ""} onChange={(e) => updateDriver(idx, "first_name", e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Last Name</Label>
+                  <Label className={`text-xs ${reqLabel(drv.last_name)}`}>Last Name *</Label>
                   <Input className={req(drv.last_name)} value={drv.last_name || ""} onChange={(e) => updateDriver(idx, "last_name", e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Date of Birth</Label>
+                  <Label className={`text-xs ${reqLabel(drv.date_of_birth)}`}>Date of Birth *</Label>
                   <Input className={req(drv.date_of_birth)} type="date" value={drv.date_of_birth || ""} onChange={(e) => updateDriver(idx, "date_of_birth", e.target.value || null)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Driver Type</Label>
+                  <Label className={`text-xs ${reqLabel(drv.driver_type)}`}>Driver Type *</Label>
                   <Select value={drv.driver_type || ""} onValueChange={(v) => updateDriver(idx, "driver_type", v)}>
                     <SelectTrigger className={req(drv.driver_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{DRIVER_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">License Number</Label>
+                  <Label className={`text-xs ${reqLabel(drv.license_number)}`}>License Number *</Label>
                   <Input className={req(drv.license_number)} value={drv.license_number || ""} onChange={(e) => updateDriver(idx, "license_number", e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">License State</Label>
+                  <Label className={`text-xs ${reqLabel(drv.license_state)}`}>License State *</Label>
                   <Select value={drv.license_state || ""} onValueChange={(v) => updateDriver(idx, "license_state", v)}>
                     <SelectTrigger className={req(drv.license_state)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">License Type</Label>
+                  <Label className={`text-xs ${reqLabel(drv.license_type)}`}>License Type *</Label>
                   <Select value={drv.license_type || ""} onValueChange={(v) => updateDriver(idx, "license_type", v)}>
                     <SelectTrigger className={req(drv.license_type)}><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{LICENSE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
@@ -229,7 +249,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
               {/* Issue & Hire Dates */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Year Issued</Label>
+                  <Label className={`text-xs ${reqLabel(drv.original_issue_year)}`}>Year Issued *</Label>
                   <Input className={req(drv.original_issue_year)} value={drv.original_issue_year || ""} onChange={(e) => updateDriver(idx, "original_issue_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
                 <div className="space-y-1">
@@ -240,7 +260,7 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Year Hired</Label>
+                  <Label className={`text-xs ${reqLabel(drv.date_hired_year)}`}>Year Hired *</Label>
                   <Input className={req(drv.date_hired_year)} value={drv.date_hired_year || ""} onChange={(e) => updateDriver(idx, "date_hired_year", e.target.value ? parseInt(e.target.value) : null)} maxLength={4} />
                 </div>
               </div>
@@ -248,14 +268,14 @@ const Step7Drivers = ({ account, formData: parentFormData }: StepProps) => {
               {/* Experience & Lapse */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Experience (Years)</Label>
+                  <Label className={`text-xs ${reqLabel(drv.experience_years)}`}>Experience (Years) *</Label>
                   <Select value={drv.experience_years?.toString() || ""} onValueChange={(v) => updateDriver(idx, "experience_years", parseInt(v))}>
                     <SelectTrigger className={req(drv.experience_years)}><SelectValue placeholder="Years" /></SelectTrigger>
                     <SelectContent>{[0,1,2,3,4,5,6,7].map((y) => <SelectItem key={y} value={y.toString()}>{y === 7 ? "7+" : y.toString()}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Lapse/Suspension</Label>
+                  <Label className={`text-xs ${reqLabel(drv.lapse_suspension)}`}>Lapse/Suspension *</Label>
                   <Select value={drv.lapse_suspension || "None"} onValueChange={(v) => updateDriver(idx, "lapse_suspension", v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{LAPSE_OPTIONS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
