@@ -453,6 +453,12 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
 
       {/* ── Documents ── */}
       <DocumentHub accountId={account.id} readOnly={false} />
+
+      {/* ── AI FAQ Chat Widget ── */}
+      <AiFaqChat
+        accountId={account.id}
+        onEscalate={() => onSetMessagingAccount?.(account.id)}
+      />
     </div>
   );
 };
