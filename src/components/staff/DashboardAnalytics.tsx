@@ -62,7 +62,25 @@ const DashboardAnalytics = () => {
     },
   });
 
+  const { data: invitations } = useQuery({
+    queryKey: ["client-invitations-analytics"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_invitations")
+        .select("id, status, created_at");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   if (!accounts) return null;
+
+  // Client adoption metrics
+  const totalInvites = invitations?.length || 0;
+  const acceptedInvites = invitations?.filter((i) => i.status === "accepted").length || 0;
+  const pendingInvites = invitations?.filter((i) => i.status === "pending").length || 0;
+  const expiredInvites = totalInvites - acceptedInvites - pendingInvites;
+  const adoptionRate = totalInvites > 0 ? ((acceptedInvites / totalInvites) * 100).toFixed(0) : "0";
 
   // Funnel data
   const funnelData = statusOrder.map((status) => ({
