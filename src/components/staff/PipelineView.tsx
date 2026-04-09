@@ -574,6 +574,17 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
                         <HoverCardContent className="w-64 text-sm" side="right" align="start">
                           <div className="space-y-2">
                             <p className="font-semibold">{account.company_name}</p>
+                            {account.status === "pending_info" && (() => {
+                              const pct = progressMap[account.id] ?? 0;
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full bg-warning transition-all" style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-xs font-mono text-warning shrink-0">{pct}%</span>
+                                </div>
+                              );
+                            })()}
                             <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground font-mono">
                               {account.dot_number && <span>DOT# {account.dot_number}</span>}
                               {account.fleet_size && <span>{account.fleet_size} trucks</span>}
