@@ -4,9 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  FunnelChart, Funnel, LabelList,
+  PieChart, Pie,
 } from "recharts";
-import { TrendingUp, CalendarClock, AlertTriangle, Activity } from "lucide-react";
+import { TrendingUp, CalendarClock, AlertTriangle, Activity, UserCheck, Send } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 import ProducerPerformance from "./ProducerPerformance";
 
@@ -62,7 +62,25 @@ const DashboardAnalytics = () => {
     },
   });
 
+  const { data: invitations } = useQuery({
+    queryKey: ["client-invitations-analytics"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_invitations")
+        .select("id, status, created_at");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   if (!accounts) return null;
+
+  // Client adoption metrics
+  const totalInvites = invitations?.length || 0;
+  const acceptedInvites = invitations?.filter((i) => i.status === "accepted").length || 0;
+  const pendingInvites = invitations?.filter((i) => i.status === "pending").length || 0;
+  const expiredInvites = totalInvites - acceptedInvites - pendingInvites;
+  const adoptionRate = totalInvites > 0 ? ((acceptedInvites / totalInvites) * 100).toFixed(0) : "0";
 
   // Funnel data
   const funnelData = statusOrder.map((status) => ({
@@ -139,8 +157,68 @@ const DashboardAnalytics = () => {
         </Card>
       </div>
 
-      {/* Funnel + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Client Adoption + Funnel + Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Client Adoption */}
+        <Card className="glass-panel">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
+              Client Adoption
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width={100} height={100}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: "Accepted", value: acceptedInvites, fill: "hsl(142, 76%, 36%)" },
+                      { name: "Pending", value: pendingInvites, fill: "hsl(38, 92%, 50%)" },
+                      { name: "Expired", value: expiredInvites > 0 ? expiredInvites : 0, fill: "hsl(215, 12%, 30%)" },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={28}
+                    outerRadius={44}
+                    paddingAngle={2}
+                    dataKey="value"
+                    strokeWidth={0}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex-1 space-y-2">
+                <div className="text-center mb-2">
+                  <p className="text-2xl font-bold">{adoptionRate}%</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">adoption rate</p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <Send className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">Sent</span>
+                    </div>
+                    <span className="font-mono font-medium">{totalInvites}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <UserCheck className="h-3 w-3 text-success" />
+                      <span className="text-muted-foreground">Accepted</span>
+                    </div>
+                    <span className="font-mono font-medium text-success">{acceptedInvites}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <CalendarClock className="h-3 w-3 text-warning" />
+                      <span className="text-muted-foreground">Pending</span>
+                    </div>
+                    <span className="font-mono font-medium text-warning">{pendingInvites}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Conversion Funnel */}
         <Card className="glass-panel">
           <CardHeader className="pb-2">
