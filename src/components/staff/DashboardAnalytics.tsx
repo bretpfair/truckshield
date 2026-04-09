@@ -157,6 +157,68 @@ const DashboardAnalytics = () => {
         </Card>
       </div>
 
+      {/* Client Adoption + Funnel + Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Client Adoption */}
+        <Card className="glass-panel">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
+              Client Adoption
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width={100} height={100}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: "Accepted", value: acceptedInvites, fill: "hsl(142, 76%, 36%)" },
+                      { name: "Pending", value: pendingInvites, fill: "hsl(38, 92%, 50%)" },
+                      { name: "Expired", value: expiredInvites > 0 ? expiredInvites : 0, fill: "hsl(215, 12%, 30%)" },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={28}
+                    outerRadius={44}
+                    paddingAngle={2}
+                    dataKey="value"
+                    strokeWidth={0}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex-1 space-y-2">
+                <div className="text-center mb-2">
+                  <p className="text-2xl font-bold">{adoptionRate}%</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">adoption rate</p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <Send className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">Sent</span>
+                    </div>
+                    <span className="font-mono font-medium">{totalInvites}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <UserCheck className="h-3 w-3 text-success" />
+                      <span className="text-muted-foreground">Accepted</span>
+                    </div>
+                    <span className="font-mono font-medium text-success">{acceptedInvites}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <CalendarClock className="h-3 w-3 text-warning" />
+                      <span className="text-muted-foreground">Pending</span>
+                    </div>
+                    <span className="font-mono font-medium text-warning">{pendingInvites}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
       {/* Funnel + Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Conversion Funnel */}
