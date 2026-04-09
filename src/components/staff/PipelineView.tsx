@@ -473,12 +473,12 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
       )}
 
       {/* Pipeline columns — horizontal scroll on mobile */}
-      <div className="flex lg:grid lg:grid-cols-6 gap-3 min-h-[400px] overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none -mx-2 px-2 sm:mx-0 sm:px-0">
+      <div className="flex gap-3 min-h-[400px] overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none -mx-2 px-2 sm:mx-0 sm:px-0">
         {pipelineColumns.map((col) => {
           const colAccounts = filteredAccounts.filter((a) => a.status === col.key);
           const isOver = dragOverCol === col.key;
           return (
-            <div key={col.key} className="flex flex-col min-w-[200px] sm:min-w-[180px] lg:min-w-0 snap-start shrink-0 lg:shrink">
+            <div key={col.key} className="flex flex-col min-w-[220px] flex-1 snap-start shrink-0">
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className={`text-xs font-mono uppercase tracking-wider ${col.color}`}>
                   {col.label}
