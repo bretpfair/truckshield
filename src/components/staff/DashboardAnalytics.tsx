@@ -4,9 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  FunnelChart, Funnel, LabelList,
+  PieChart, Pie,
 } from "recharts";
-import { TrendingUp, CalendarClock, AlertTriangle, Activity } from "lucide-react";
+import { TrendingUp, CalendarClock, AlertTriangle, Activity, UserCheck, Send } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 import ProducerPerformance from "./ProducerPerformance";
 
