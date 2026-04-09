@@ -436,6 +436,71 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // 4. Task digest reminders — group overdue/due-today tasks by staff member
+    let taskDigests = 0
+    const today = new Date().toISOString().split('T')[0]
+
+    const { data: openTasks } = await supabase
+      .from('tasks')
+      .select('id, title, priority, due_date, account_id, assigned_to, created_by')
+      .eq('status', 'open')
+      .not('due_date', 'is', null)
+      .lte('due_date', today)
+
+    if (openTasks && openTasks.length > 0) {
+      // Fetch account names
+      const taskAccountIds = [...new Set(openTasks.map((t: any) => t.account_id))]
+      const { data: taskAccounts } = await supabase
+        .from('accounts')
+        .select('id, company_name')
+        .in('id', taskAccountIds)
+      const accountNameMap = new Map((taskAccounts || []).map((a: any) => [a.id, a.company_name]))
+
+      // Group tasks by responsible user (assigned_to or created_by)
+      const tasksByUser = new Map<string, { overdue: any[]; dueToday: any[] }>()
+      for (const task of openTasks) {
+        const userId = task.assigned_to || task.created_by
+        if (!userId) continue
+        if (!tasksByUser.has(userId)) {
+          tasksByUser.set(userId, { overdue: [], dueToday: [] })
+        }
+        const bucket = tasksByUser.get(userId)!
+        const taskItem = {
+          title: task.title,
+          accountName: accountNameMap.get(task.account_id) || 'Unknown',
+          dueDate: task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined,
+          priority: task.priority,
+        }
+        if (task.due_date === today) {
+          bucket.dueToday.push(taskItem)
+        } else {
+          bucket.overdue.push(taskItem)
+        }
+      }
+
+      // Fetch staff emails
+      const staffIds = [...tasksByUser.keys()]
+      const { data: staffProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', staffIds)
+      const staffMap = new Map((staffProfiles || []).map((p: any) => [p.user_id, p]))
+
+      for (const [userId, tasks] of tasksByUser) {
+        const profile = staffMap.get(userId)
+        if (!profile?.email) continue
+
+        const templateData = {
+          firstName: profile.full_name?.split(' ')[0] || undefined,
+          overdueTasks: tasks.overdue,
+          dueTodayTasks: tasks.dueToday,
+          portalLink: 'https://truckshield.lovable.app',
+        }
+        await enqueueEmail(supabase, 'task-digest', profile.email, templateData, `task-digest-${userId}-${today}`)
+        taskDigests++
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -443,6 +508,7 @@ Deno.serve(async (req: Request) => {
         notStartedReminders,
         infoRequestReminders: infoReminders,
         inviteReminders,
+        taskDigests,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
