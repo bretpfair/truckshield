@@ -20,6 +20,7 @@ import { template as newMessageReceived } from './new-message-received.tsx'
 import { template as applicationCompletedStaff } from './application-completed-staff.tsx'
 import { template as inviteReminder } from './invite-reminder.tsx'
 import { template as applicationNotStarted } from './application-not-started.tsx'
+import { template as taskDigest } from './task-digest.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'client-portal-invite': clientPortalInvite,
