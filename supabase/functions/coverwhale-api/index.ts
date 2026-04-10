@@ -817,7 +817,7 @@ Deno.serve(async (req) => {
       const totalPremium = result.coverages
         ? Object.values(result.coverages)
             .filter((c: any) => c != null)
-            .reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
+            .reduce((sum: number, c: any) => sum + (c?.totalCost || c?.premium || 0), 0)
         : null;
 
       let quoteId: string | null = null;
