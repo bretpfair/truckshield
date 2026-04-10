@@ -21,7 +21,9 @@ function getCWCredentials(): CWCredentials {
 }
 
 async function authenticate(creds: CWCredentials): Promise<string> {
-  const res = await fetch(`${creds.baseUrl}/authentication`, {
+  // Auth endpoint is at the API root, not under /quote
+  const authUrl = new URL(creds.baseUrl);
+  const res = await fetch(`${authUrl.origin}/authentication`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username: creds.username, password: creds.password }),
