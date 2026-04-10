@@ -526,7 +526,7 @@ async function buildQuotePayload(supabase: any, accountId: string) {
     retailAgent: {
       FirstName: "Bret",
       LastName: "Fair",
-      Phone: "888-885-4144",
+      Phone: 8888854144,
       Email: "integrations@360riskpartners.com",
       AgencyName: "360 Risk Partners Insurance Solutions, Inc.",
       Street: "1101 Fulton Ave Ste 204",
