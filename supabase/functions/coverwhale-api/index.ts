@@ -407,10 +407,19 @@ async function buildQuotePayload(supabase: any, accountId: string) {
   
   const { commodities, refrigeration } = mapCommodities(ci);
   
+  // Ensure effectiveDate is today or later
+  let effDate = account.requested_effective_date ? new Date(account.requested_effective_date + "T00:00:00") : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (!effDate || effDate < today) {
+    effDate = today;
+  }
+  const effDateStr = `${String(effDate.getMonth() + 1).padStart(2, "0")}/${String(effDate.getDate()).padStart(2, "0")}/${effDate.getFullYear()}`;
+
   const payload: any = {
     coverage: {
       ...mapCoverageSelections(cs),
-      effectiveDate: formatDateMMDDYYYY(account.requested_effective_date) || formatDateMMDDYYYY(new Date().toISOString()),
+      effectiveDate: effDateStr,
     },
     insuredInformation: {
       entityType: mapEntityType(account.business_type),
