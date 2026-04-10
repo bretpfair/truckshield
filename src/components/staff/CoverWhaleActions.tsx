@@ -216,12 +216,12 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
 
                   {sub.coverages_data && Object.keys(sub.coverages_data).length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {Object.entries(sub.coverages_data).map(([key, cov]: [string, any]) => (
+                      {Object.entries(sub.coverages_data).filter(([, cov]) => cov != null).map(([key, cov]: [string, any]) => (
                         <div key={key} className="text-xs space-y-0.5">
                           <p className="font-mono text-muted-foreground uppercase">{coverageLabels[key] || key}</p>
-                          <p className="font-semibold">${Number(cov.totalCost || cov.premium || 0).toLocaleString()}</p>
-                          {cov.limit > 0 && <p className="text-muted-foreground">Limit: ${Number(cov.limit).toLocaleString()}</p>}
-                          {cov.deductible > 0 && <p className="text-muted-foreground">Ded: ${Number(cov.deductible).toLocaleString()}</p>}
+                          <p className="font-semibold">${Number(cov?.totalCost || cov?.premium || 0).toLocaleString()}</p>
+                          {cov?.limit > 0 && <p className="text-muted-foreground">Limit: ${Number(cov.limit).toLocaleString()}</p>}
+                          {cov?.deductible > 0 && <p className="text-muted-foreground">Ded: ${Number(cov.deductible).toLocaleString()}</p>}
                         </div>
                       ))}
                     </div>
@@ -256,12 +256,12 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
               {resultDialog.coverages && (
                 <div className="space-y-2">
                   <p className="text-xs font-mono uppercase text-muted-foreground">Coverage Breakdown</p>
-                  {Object.entries(resultDialog.coverages).map(([key, cov]: [string, any]) => (
+                  {Object.entries(resultDialog.coverages).filter(([, cov]) => cov != null).map(([key, cov]: [string, any]) => (
                     <div key={key} className="flex items-center justify-between text-sm p-2 rounded border">
                       <span>{coverageLabels[key] || key}</span>
                       <div className="text-right">
-                        <p className="font-semibold">${Number(cov.totalCost || 0).toLocaleString()}</p>
-                        {cov.limit > 0 && <p className="text-xs text-muted-foreground">Limit: ${Number(cov.limit).toLocaleString()}</p>}
+                        <p className="font-semibold">${Number(cov?.totalCost || 0).toLocaleString()}</p>
+                        {cov?.limit > 0 && <p className="text-xs text-muted-foreground">Limit: ${Number(cov.limit).toLocaleString()}</p>}
                       </div>
                     </div>
                   ))}
@@ -269,7 +269,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                     <span>Total</span>
                     <span>
                       ${Object.values(resultDialog.coverages)
-                        .reduce((sum: number, c: any) => sum + (c.totalCost || 0), 0)
+                        .reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
                         .toLocaleString()}
                     </span>
                   </div>
