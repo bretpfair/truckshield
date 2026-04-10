@@ -526,13 +526,13 @@ async function buildQuotePayload(supabase: any, accountId: string) {
     retailAgent: {
       FirstName: producer?.full_name?.split(" ")[0] || "360 Risk",
       LastName: producer?.full_name?.split(" ").slice(1).join(" ") || "Partners",
-      Phone: producer?.phone || "5555555555",
+      Phone: (producer?.phone || "5555555555").replace(/\D/g, ""),
       Email: producer?.email || "integrations@360riskpartners.com",
       AgencyName: "360 Risk Partners",
-      Street: "",
-      City: "",
-      State: "",
-      Zip: "",
+      Street: account.mailing_address || "1234 Main St",
+      City: account.mailing_city || "Dallas",
+      State: account.mailing_state || "TX",
+      Zip: account.mailing_zip || "75201",
     },
   };
   
