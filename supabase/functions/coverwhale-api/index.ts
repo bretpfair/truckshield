@@ -181,14 +181,15 @@ function mapCoverageSelections(cs: any) {
   const hasAL = !!(cs?.auto_liability || cs?.primary_bipd);
   const hasAPD = !!(cs?.auto_physical_damage || cs?.physical_damage);
   const hasMTC = !!(cs?.motor_truck_cargo || cs?.cargo_liability);
-  const hasTGL = !!(cs?.truckers_general_liability || cs?.general_liability?.enabled);
-  const hasNTL = !!(cs?.non_trucking_liability?.enabled || cs?.bobtail_liability?.enabled);
+  // Support both { general_liability: true } and { general_liability: { enabled: true } }
+  const hasTGL = !!(cs?.truckers_general_liability || cs?.general_liability === true || cs?.general_liability?.enabled);
+  const hasNTL = !!(cs?.non_trucking_liability === true || cs?.non_trucking_liability?.enabled || cs?.bobtail_liability === true || cs?.bobtail_liability?.enabled);
   const anyRequested = hasAL || hasAPD || hasMTC || hasTGL || hasNTL;
 
   return {
     requestAl: hasAL || !anyRequested ? "Y" : "N",
-    optAlPip: cs?.pip?.enabled ? "Y" : "N",
-    optAlUm: cs?.um_uim?.enabled ? "Y" : "N",
+    optAlPip: cs?.pip?.enabled || cs?.pip === true ? "Y" : "N",
+    optAlUm: cs?.um_uim?.enabled || cs?.um_bi ? "Y" : "N",
     requestApd: hasAPD ? "Y" : "N",
     requestMtc: hasMTC ? "Y" : "N",
     requestTgl: hasTGL ? "Y" : "N",
@@ -816,7 +817,7 @@ Deno.serve(async (req) => {
       const totalPremium = result.coverages
         ? Object.values(result.coverages)
             .filter((c: any) => c != null)
-            .reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
+            .reduce((sum: number, c: any) => sum + (c?.totalCost || c?.premium || 0), 0)
         : null;
 
       let quoteId: string | null = null;
