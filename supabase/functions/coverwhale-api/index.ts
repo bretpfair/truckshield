@@ -1,8 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
+// ============================================================================
+// TruckShield ↔ Cover Whale API Integration  (v2 – 2026-04)
+// ============================================================================
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface CWCredentials {
   baseUrl: string;
@@ -10,71 +18,174 @@ interface CWCredentials {
   password: string;
 }
 
+interface QuoteResult {
+  success: boolean;
+  status?: string;
+  submission_number?: string;
+  quote_pdf?: string;
+  coverages?: Record<string, any>;
+  raw?: any;
+  error?: string;
+  details?: any;
+}
+
+// ---------------------------------------------------------------------------
+// Token cache (in-memory, per isolate)
+// ---------------------------------------------------------------------------
+
+let cachedToken: string | null = null;
+let tokenExpiry = 0; // unix ms
+
+// ---------------------------------------------------------------------------
+// Credentials
+// ---------------------------------------------------------------------------
+
 function getCWCredentials(): CWCredentials {
   const baseUrl = Deno.env.get("CW_BASE_URL");
   const username = Deno.env.get("CW_USERNAME");
   const password = Deno.env.get("CW_PASSWORD");
   if (!baseUrl || !username || !password) {
-    throw new Error("Cover Whale API credentials not configured. Please add CW_BASE_URL, CW_USERNAME, and CW_PASSWORD secrets.");
+    throw new Error(
+      "Cover Whale API credentials not configured. Please add CW_BASE_URL, CW_USERNAME, and CW_PASSWORD secrets.",
+    );
   }
-  return { baseUrl, username, password };
+  return { baseUrl: baseUrl.replace(/\/+$/, ""), username, password };
 }
 
-async function authenticate(creds: CWCredentials): Promise<string> {
-  // Auth endpoint is at the API root, not under /quote
-  const authUrl = new URL(creds.baseUrl);
-  const res = await fetch(`${authUrl.origin}/authentication`, {
+// ---------------------------------------------------------------------------
+// Authentication (with caching)
+// ---------------------------------------------------------------------------
+
+async function getAccessToken(creds: CWCredentials): Promise<string> {
+  // Check in-memory cache first
+  if (cachedToken && Date.now() < tokenExpiry) {
+    return cachedToken;
+  }
+
+  // Check env-based cache (persists across cold starts if set externally)
+  const envToken = Deno.env.get("CW_ACCESS_TOKEN");
+  const envExpiry = Number(Deno.env.get("CW_TOKEN_EXPIRATION") || "0") * 1000;
+  if (envToken && Date.now() < envExpiry) {
+    cachedToken = envToken;
+    tokenExpiry = envExpiry;
+    return envToken;
+  }
+
+  console.log("[CW] Authenticating…");
+  const res = await fetch(`${creds.baseUrl}/authentication`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username: creds.username, password: creds.password }),
   });
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`CW auth failed (${res.status}): ${text}`);
   }
+
   const data = await res.json();
   if (!data.AccessToken) throw new Error("No AccessToken in auth response");
+
+  cachedToken = data.AccessToken;
+  tokenExpiry = Date.now() + 23 * 60 * 60 * 1000; // 23 h safety margin
+  console.log("[CW] Authenticated successfully");
   return data.AccessToken;
 }
 
-async function cwFetch(token: string, baseUrl: string, path: string, method: string, body?: unknown) {
+// ---------------------------------------------------------------------------
+// HTTP helper with retry
+// ---------------------------------------------------------------------------
+
+async function cwFetch(
+  token: string,
+  baseUrl: string,
+  path: string,
+  method: string,
+  body?: unknown,
+  retries = 2,
+): Promise<any> {
+  const url = `${baseUrl}${path}`;
   const opts: RequestInit = {
     method,
     headers: {
       "Content-Type": "application/json",
-      "Accept": "application/json",
-      "AccessToken": token,
+      Accept: "application/json",
+      AccessToken: token,
     },
   };
   if (body && (method === "POST" || method === "PUT")) {
     opts.body = JSON.stringify(body);
   }
-  const res = await fetch(`${baseUrl}${path}`, opts);
-  const text = await res.text();
-  let json: any;
-  try { json = JSON.parse(text); } catch { json = { raw: text }; }
-  if (!res.ok) {
-    throw { status: res.status, data: json };
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      console.log(`[CW] ${method} ${path} (attempt ${attempt + 1})`);
+      const res = await fetch(url, opts);
+      const text = await res.text();
+      let json: any;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = { raw: text };
+      }
+
+      if (!res.ok) {
+        // Don't retry client errors (4xx) except 429
+        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+          throw { status: res.status, data: json };
+        }
+        // Retry on 429 or 5xx
+        if (attempt < retries) {
+          const delay = res.status === 429 ? 3000 : 1000 * (attempt + 1);
+          console.warn(`[CW] ${res.status} – retrying in ${delay}ms…`);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        throw { status: res.status, data: json };
+      }
+
+      return json;
+    } catch (err: any) {
+      if (err.status) throw err; // already structured
+      if (attempt < retries) {
+        console.warn(`[CW] Network error – retrying… ${err.message}`);
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
   }
-  return json;
 }
 
-// ---- Data mapping helpers ----
+// ---------------------------------------------------------------------------
+// Unavailable-state guard
+// ---------------------------------------------------------------------------
+
+const UNAVAILABLE_STATES = new Set(["AK", "CA", "HI", "MI", "MT", "UT", "WA", "NJ"]);
+
+function guardState(state: string | null): string | null {
+  if (!state) return null;
+  const upper = state.toUpperCase().trim();
+  if (UNAVAILABLE_STATES.has(upper)) {
+    return `Cover Whale does not currently write policies in ${upper}. Unavailable states: ${[...UNAVAILABLE_STATES].join(", ")}.`;
+  }
+  return null;
+}
+
+// ============================================================================
+// Data mapping helpers
+// ============================================================================
 
 function mapCoverageSelections(cs: any) {
-  // Map from TruckShield field names to Cover Whale request flags
-  // primary_bipd being set implies Auto Liability is requested
   const hasAL = !!(cs?.auto_liability || cs?.primary_bipd);
   const hasAPD = !!(cs?.auto_physical_damage || cs?.physical_damage);
   const hasMTC = !!(cs?.motor_truck_cargo || cs?.cargo_liability);
   const hasTGL = !!(cs?.truckers_general_liability || cs?.general_liability?.enabled);
   const hasNTL = !!(cs?.non_trucking_liability?.enabled || cs?.bobtail_liability?.enabled);
-
-  // If nothing mapped, default to requesting AL so the API doesn't reject
   const anyRequested = hasAL || hasAPD || hasMTC || hasTGL || hasNTL;
 
   return {
-    requestAl: (hasAL || !anyRequested) ? "Y" : "N",
+    requestAl: hasAL || !anyRequested ? "Y" : "N",
     optAlPip: cs?.pip?.enabled ? "Y" : "N",
     optAlUm: cs?.um_uim?.enabled ? "Y" : "N",
     requestApd: hasAPD ? "Y" : "N",
@@ -95,7 +206,7 @@ function mapEntityType(bt: string | null): string {
   return "llc";
 }
 
-function formatDateMMDDYYYY(d: string | null): string {
+function fmtDate(d: string | null): string {
   if (!d) return "";
   const date = new Date(d);
   if (isNaN(date.getTime())) return "";
@@ -105,96 +216,119 @@ function formatDateMMDDYYYY(d: string | null): string {
 function mapGvwToClass(gvw: string | null): string {
   if (!gvw) return "8";
   const g = gvw.toLowerCase().replace(/[^0-9a-z]/g, "");
-  if (g.includes("2a") || g === "2a") return "2a";
-  if (g.includes("2b") || g === "2b") return "2b";
-  if (g === "3") return "3";
-  if (g === "4") return "4";
-  if (g === "5") return "5";
-  if (g === "6") return "6";
-  if (g === "7") return "7";
+  for (const c of ["2a", "2b", "3", "4", "5", "6", "7"]) {
+    if (g.includes(c) || g === c) return c;
+  }
   return "8";
 }
 
-function mapTruckTypeToBody(tt: string | null, gvw: string | null): string {
+function mapTruckTypeToBody(tt: string | null, _gvw: string | null): string {
   if (!tt) return "tractor";
-  const lower = tt.toLowerCase();
-  if (lower.includes("tractor")) return "tractor";
-  if (lower.includes("box")) return "box_truck";
-  if (lower.includes("straight")) return "straight_truck";
-  if (lower.includes("flatbed")) return "flatbed_truck";
-  if (lower.includes("dump")) return "dump_truck";
-  if (lower.includes("pick") || lower.includes("pickup")) return "pick_up";
-  if (lower.includes("stake")) return "stake_truck";
+  const l = tt.toLowerCase();
+  if (l.includes("tractor")) return "tractor";
+  if (l.includes("box")) return "box_truck";
+  if (l.includes("straight")) return "straight_truck";
+  if (l.includes("flatbed")) return "flatbed_truck";
+  if (l.includes("dump")) return "dump_truck";
+  if (l.includes("pick")) return "pick_up";
+  if (l.includes("stake")) return "stake_truck";
   return "tractor";
 }
 
 function mapTrailerType(tt: string | null): string {
   if (!tt) return "dry_van_trailer";
-  const lower = tt.toLowerCase();
-  if (lower.includes("dry van")) return "dry_van_trailer";
-  if (lower.includes("flatbed")) return "flatbed_trailer";
-  if (lower.includes("refriger") || lower.includes("reefer")) return "refrigerated_van_trailer";
-  if (lower.includes("step")) return "step_deck_trailer";
-  if (lower.includes("dump")) return "dump_trailer";
-  if (lower.includes("lowboy") || lower.includes("low boy")) return "low_boy_trailer";
-  if (lower.includes("auto") || lower.includes("car")) return "auto_transporter_trailer";
-  if (lower.includes("curtain")) return "curtain_van_trailer";
-  if (lower.includes("gooseneck")) return "gooseneck_trailer";
-  if (lower.includes("intermodal")) return "intermodal_container_hauler_trailer";
-  if (lower.includes("tilt")) return "tilt_deck_trailer";
-  if (lower.includes("utility")) return "utility_trailer";
-  if (lower.includes("bulk")) return "dry_bulk_trailer";
+  const l = tt.toLowerCase();
+  const map: [string, string][] = [
+    ["dry van", "dry_van_trailer"],
+    ["flatbed", "flatbed_trailer"],
+    ["refriger", "refrigerated_van_trailer"],
+    ["reefer", "refrigerated_van_trailer"],
+    ["step", "step_deck_trailer"],
+    ["dump", "dump_trailer"],
+    ["lowboy", "low_boy_trailer"],
+    ["low boy", "low_boy_trailer"],
+    ["auto", "auto_transporter_trailer"],
+    ["car", "auto_transporter_trailer"],
+    ["curtain", "curtain_van_trailer"],
+    ["gooseneck", "gooseneck_trailer"],
+    ["intermodal", "intermodal_container_hauler_trailer"],
+    ["tilt", "tilt_deck_trailer"],
+    ["utility", "utility_trailer"],
+    ["bulk", "dry_bulk_trailer"],
+  ];
+  for (const [k, v] of map) {
+    if (l.includes(k)) return v;
+  }
   return "dry_van_trailer";
 }
+
+// ---------------------------------------------------------------------------
+// Commodities
+// ---------------------------------------------------------------------------
+
+const COMMODITY_MAP: Record<string, string> = {
+  "general freight": "general_merchandise",
+  "agricultural/farm supplies": "agricultural_farm_supplies",
+  beverages: "beverages",
+  "building materials": "building_materials",
+  chemicals: "chemicals_packaged_or_bulk",
+  "coal/coke": "coal",
+  construction: "building_materials",
+  "fresh produce": "produce",
+  "garbage/refuse": "refuse_garbage",
+  "grain, feed, hay": "grain_hay_feed",
+  "household goods": "household_goods",
+  "liquids/gases": "liquid_haulers",
+  livestock: "livestock_and_live_poultry",
+  "logs, poles, beams, lumber": "lumber",
+  "machinery, large objects": "machinery_and_heavy_equipment",
+  meat: "meat",
+  "metal: sheets, coils, rolls": "metal_and steel",
+  "mobile homes": "mobile_homes",
+  "motor vehicles": "automobiles_5_vehicles_or_less",
+  "oilfield equipment": "machinery_and_heavy_equipment",
+  "paper products": "paper_and_paper_products",
+  "refrigerated food": "frozen_or_refrigerated",
+  "dirt / sand / gravel": "cement_sand_or_gravel",
+  other: "general_merchandise",
+};
 
 function mapCommodities(ci: any): { commodities: any[]; refrigeration: string } {
   const commodities: any[] = [];
   let refrigeration = "N";
-  
-  const COMMODITY_MAP: Record<string, string> = {
-    "general freight": "general_merchandise",
-    "agricultural/farm supplies": "agricultural_farm_supplies",
-    "beverages": "beverages",
-    "building materials": "building_materials",
-    "chemicals": "chemicals_packaged_or_bulk",
-    "coal/coke": "coal",
-    "construction": "building_materials",
-    "fresh produce": "produce",
-    "garbage/refuse": "refuse_garbage",
-    "grain, feed, hay": "grain_hay_feed",
-    "household goods": "household_goods",
-    "liquids/gases": "liquid_haulers",
-    "livestock": "livestock_and_live_poultry",
-    "logs, poles, beams, lumber": "lumber",
-    "machinery, large objects": "machinery_and_heavy_equipment",
-    "meat": "meat",
-    "metal: sheets, coils, rolls": "metal_and steel",
-    "mobile homes": "mobile_homes",
-    "motor vehicles": "automobiles_5_vehicles_or_less",
-    "oilfield equipment": "machinery_and_heavy_equipment",
-    "paper products": "paper_and_paper_products",
-    "refrigerated food": "frozen_or_refrigerated",
-    "dirt / sand / gravel": "cement_sand_or_gravel",
-    "other": "general_merchandise",
-  };
-  
+
   if (ci?.selected_commodities && typeof ci.selected_commodities === "object") {
     for (const [name, pct] of Object.entries(ci.selected_commodities)) {
       const key = COMMODITY_MAP[name.toLowerCase()] || "general_merchandise";
-      commodities.push({
-        commodityKey: key,
-        commodityPercentage: String(pct),
-      });
+      commodities.push({ commodityKey: key, commodityPercentage: String(pct) });
       if (name.toLowerCase().includes("refriger")) refrigeration = "Y";
     }
   }
-  
+
   if (commodities.length === 0) {
     commodities.push({ commodityKey: "general_merchandise", commodityPercentage: "100" });
   }
-  
+
+  // Validate totals = 100
+  const total = commodities.reduce((s: number, c: any) => s + Number(c.commodityPercentage || 0), 0);
+  if (total !== 100 && commodities.length > 0) {
+    // Normalise proportionally
+    const factor = 100 / (total || 1);
+    let running = 0;
+    for (let i = 0; i < commodities.length - 1; i++) {
+      const val = Math.round(Number(commodities[i].commodityPercentage) * factor);
+      commodities[i].commodityPercentage = String(val);
+      running += val;
+    }
+    commodities[commodities.length - 1].commodityPercentage = String(100 - running);
+  }
+
   return { commodities, refrigeration };
 }
+
+// ---------------------------------------------------------------------------
+// Radius
+// ---------------------------------------------------------------------------
 
 function mapRadius(ro: any): any {
   const radius: any = {
@@ -205,7 +339,7 @@ function mapRadius(ro: any): any {
     radius201_500: "0",
     radius501: "0",
   };
-  
+
   if (Array.isArray(ro) && ro.length > 0) {
     for (const r of ro) {
       if (r.range === "0-50" || r.range === "local") radius.radius0_50 = String(r.percentage || 0);
@@ -219,50 +353,48 @@ function mapRadius(ro: any): any {
     radius.radius201_500 = String(ro.radius201_500 || ro["201-500"] || 0);
     radius.radius501 = String(ro.radius501 || ro["501+"] || 0);
   }
-  
-  // Default: if all zeros, set 100% to 51-200
-  const total = parseInt(radius.radius0_50) + parseInt(radius.radius51_200) + parseInt(radius.radius201_500) + parseInt(radius.radius501);
-  if (total === 0) {
-    radius.radius51_200 = "100";
-  }
-  
+
+  const total =
+    parseInt(radius.radius0_50) +
+    parseInt(radius.radius51_200) +
+    parseInt(radius.radius201_500) +
+    parseInt(radius.radius501);
+  if (total === 0) radius.radius51_200 = "100";
+
   return radius;
 }
 
+// ---------------------------------------------------------------------------
+// Loss history
+// ---------------------------------------------------------------------------
+
 function mapLossHistory(lh: any[]): any {
+  const emptyYear = () => ({
+    lossConfirmed: "Y",
+    lossAlCount: 0, lossAlPaid: 0,
+    lossApdCount: 0, lossApdPaid: 0,
+    lossMtcCount: 0, lossMtcPaid: 0,
+    lossTglCount: 0, lossTglPaid: 0,
+    lossNtlCount: 0, lossNtlPaid: 0,
+  });
+
   const losses: any = {};
   if (!lh || lh.length === 0) {
-    losses["1"] = {
-      lossConfirmed: "Y",
-      lossAlCount: "0", lossAlPaid: "0",
-      lossApdCount: "0", lossApdPaid: "0",
-      lossMtcCount: "0", lossMtcPaid: "0",
-      lossTglCount: "0", lossTglPaid: "0",
-      lossNtlCount: "0", lossNtlPaid: "0",
-    };
+    losses["1"] = { ...emptyYear(), ...stringifyLossYear(emptyYear()) };
     return losses;
   }
-  
-  // Aggregate by policy term year (up to 3 years)
-  const yearData: Record<string, any> = {};
+
+  const yearData: Record<string, ReturnType<typeof emptyYear>> = {};
   for (const entry of lh) {
     const terms = entry.policy_terms as any[];
     if (!Array.isArray(terms)) continue;
     for (const term of terms) {
       const year = term.year || "1";
-      if (!yearData[year]) {
-        yearData[year] = {
-          lossConfirmed: "Y",
-          lossAlCount: 0, lossAlPaid: 0,
-          lossApdCount: 0, lossApdPaid: 0,
-          lossMtcCount: 0, lossMtcPaid: 0,
-          lossTglCount: 0, lossTglPaid: 0,
-          lossNtlCount: 0, lossNtlPaid: 0,
-        };
-      }
-      const ct = entry.coverage_type || "";
+      if (!yearData[year]) yearData[year] = emptyYear();
+      const ct = (entry.coverage_type || "").toLowerCase();
       const claims = Number(term.num_claims) || 0;
       const paid = Number(term.amount_paid) || 0;
+
       if (ct.includes("auto_liability") || ct.includes("al")) {
         yearData[year].lossAlCount += claims;
         yearData[year].lossAlPaid += paid;
@@ -284,38 +416,37 @@ function mapLossHistory(lh: any[]): any {
       }
     }
   }
-  
+
   const keys = Object.keys(yearData).sort();
   for (let i = 0; i < Math.min(keys.length, 3); i++) {
-    const d = yearData[keys[i]];
-    losses[String(i + 1)] = {
-      lossConfirmed: "Y",
-      lossAlCount: String(d.lossAlCount),
-      lossAlPaid: String(d.lossAlPaid),
-      lossApdCount: String(d.lossApdCount),
-      lossApdPaid: String(d.lossApdPaid),
-      lossMtcCount: String(d.lossMtcCount),
-      lossMtcPaid: String(d.lossMtcPaid),
-      lossTglCount: String(d.lossTglCount),
-      lossTglPaid: String(d.lossTglPaid),
-      lossNtlCount: String(d.lossNtlCount),
-      lossNtlPaid: String(d.lossNtlPaid),
-    };
+    losses[String(i + 1)] = stringifyLossYear(yearData[keys[i]]);
   }
-  
+
   if (Object.keys(losses).length === 0) {
-    losses["1"] = {
-      lossConfirmed: "Y",
-      lossAlCount: "0", lossAlPaid: "0",
-      lossApdCount: "0", lossApdPaid: "0",
-      lossMtcCount: "0", lossMtcPaid: "0",
-      lossTglCount: "0", lossTglPaid: "0",
-      lossNtlCount: "0", lossNtlPaid: "0",
-    };
+    losses["1"] = stringifyLossYear(emptyYear());
   }
-  
   return losses;
 }
+
+function stringifyLossYear(d: any) {
+  return {
+    lossConfirmed: "Y",
+    lossAlCount: String(d.lossAlCount),
+    lossAlPaid: String(d.lossAlPaid),
+    lossApdCount: String(d.lossApdCount),
+    lossApdPaid: String(d.lossApdPaid),
+    lossMtcCount: String(d.lossMtcCount),
+    lossMtcPaid: String(d.lossMtcPaid),
+    lossTglCount: String(d.lossTglCount),
+    lossTglPaid: String(d.lossTglPaid),
+    lossNtlCount: String(d.lossNtlCount),
+    lossNtlPaid: String(d.lossNtlPaid),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Operations
+// ---------------------------------------------------------------------------
 
 function mapOperations(account: any, gq: any): any {
   const ops: any = {
@@ -342,18 +473,15 @@ function mapOperations(account: any, gq: any): any {
     UIIAintermodal: "N",
     dataSharingOption: "eld_only",
   };
-  
-  // Derive from general_questions if available
+
   if (gq) {
     if (gq.prior_cancelled) ops.priorInsuranceCancelledNonrenewed = "Y";
     if (gq.bankruptcies) ops.bankruptcies = "Y";
     if (gq.personal_use) ops.personalUseOfVehicle = "Y";
   }
-  
-  // Derive operation types from business_categories or cargo
-  const cats = account.business_categories || [];
-  const cargo = account.cargo_types || [];
-  for (const c of [...cats, ...cargo]) {
+
+  const combined = [...(account.business_categories || []), ...(account.cargo_types || [])];
+  for (const c of combined) {
     const lower = (c || "").toLowerCase();
     if (lower.includes("refriger") || lower.includes("reefer")) ops.opsRefrigirated = "Y";
     if (lower.includes("dump")) ops.opsDumpTruckOther = "Y";
@@ -363,22 +491,26 @@ function mapOperations(account: any, gq: any): any {
     if (lower.includes("auto") && lower.includes("haul")) ops.opsAutomobileHauler = "Y";
     if (lower.includes("log")) ops.opsLogging = "Y";
   }
-  
+
   return ops;
 }
 
+// ============================================================================
+// Build full quote payload
+// ============================================================================
+
 async function buildQuotePayload(supabase: any, accountId: string) {
-  // Fetch all related data
-  const [accountRes, driversRes, powerUnitsRes, trailersRes, lossHistoryRes, garageRes, producerRes] = await Promise.all([
-    supabase.from("accounts").select("*").eq("id", accountId).single(),
-    supabase.from("drivers").select("*").eq("account_id", accountId).order("sort_order"),
-    supabase.from("power_units").select("*").eq("account_id", accountId).order("sort_order"),
-    supabase.from("trailers").select("*").eq("account_id", accountId).order("sort_order"),
-    supabase.from("loss_history").select("*").eq("account_id", accountId),
-    supabase.from("garage_locations").select("*").eq("account_id", accountId).order("sort_order"),
-    null, // Will fetch producer separately if needed
-  ]);
-  
+  // Fetch all related data in parallel
+  const [accountRes, driversRes, powerUnitsRes, trailersRes, lossHistoryRes, garageRes] =
+    await Promise.all([
+      supabase.from("accounts").select("*").eq("id", accountId).single(),
+      supabase.from("drivers").select("*").eq("account_id", accountId).order("sort_order"),
+      supabase.from("power_units").select("*").eq("account_id", accountId).order("sort_order"),
+      supabase.from("trailers").select("*").eq("account_id", accountId).order("sort_order"),
+      supabase.from("loss_history").select("*").eq("account_id", accountId),
+      supabase.from("garage_locations").select("*").eq("account_id", accountId).order("sort_order"),
+    ]);
+
   if (accountRes.error) throw new Error(`Failed to fetch account: ${accountRes.error.message}`);
   const account = accountRes.data;
   const drivers = driversRes.data || [];
@@ -386,47 +518,121 @@ async function buildQuotePayload(supabase: any, accountId: string) {
   const trailers = trailersRes.data || [];
   const lossHistory = lossHistoryRes.data || [];
   const garages = garageRes.data || [];
-  
+
+  // ---- State guard ----
+  const principalGarage = garages.find((g: any) => g.is_principal) || garages[0];
+  const garageState = principalGarage?.state || account.mailing_state || null;
+  const stateErr = guardState(garageState);
+  if (stateErr) throw new Error(stateErr);
+
+  // ---- Validation: at least 1 vehicle & 1 driver ----
+  if (powerUnits.length === 0) {
+    throw new Error("No power units found. At least one vehicle is required for a Cover Whale quote.");
+  }
+  if (drivers.length === 0) {
+    throw new Error("No drivers found. At least one driver is required for a Cover Whale quote.");
+  }
+
+  // ---- Duplicate VIN check ----
+  const vins = powerUnits.map((pu: any) => pu.vin).filter(Boolean);
+  const trailerVins = trailers.filter((t: any) => !t.is_nonowned).map((t: any) => t.vin).filter(Boolean);
+  const allVins = [...vins, ...trailerVins];
+  const vinSet = new Set(allVins);
+  if (vinSet.size < allVins.length) {
+    throw new Error("Duplicate VINs detected. Each vehicle/trailer must have a unique VIN.");
+  }
+
   const cs = account.coverage_selections || {};
   const ci = account.commodity_info || {};
   const gq = account.general_questions || {};
   const ro = account.radius_operations;
-  
-  // Build principal garage address
-  const principalGarage = garages.find((g: any) => g.is_principal) || garages[0];
-  
-  // Producer info for retail agent
-  let producer: any = null;
-  if (account.assigned_producer_id) {
-    const { data: p } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", account.assigned_producer_id)
-      .single();
-    producer = p;
-  }
-  
-  // Owner name parsing
+
+  // Owner name
   const ownerName = account.business_owner_name || account.company_name;
   const ownerParts = ownerName.split(" ");
   const ownerFirst = ownerParts[0] || "Owner";
   const ownerLast = ownerParts.slice(1).join(" ") || ownerFirst;
-  
-  // Calculate total truck/trailer values for limits
-  const totalTruckValue = powerUnits.reduce((sum: number, pu: any) => sum + (Number(pu.physdam_amount) || 0), 0);
-  const totalTrailerValue = trailers.reduce((sum: number, t: any) => sum + (Number(t.physdam_amount) || 0), 0);
-  
+
+  // Truck / trailer values
+  const totalTruckValue = powerUnits.reduce(
+    (sum: number, pu: any) => sum + (Number(pu.physdam_amount) || 0),
+    0,
+  );
+  const totalTrailerValue = trailers.reduce(
+    (sum: number, t: any) => sum + (Number(t.physdam_amount) || 0),
+    0,
+  );
+
   const { commodities, refrigeration } = mapCommodities(ci);
-  
-  // Ensure effectiveDate is today or later
-  let effDate = account.requested_effective_date ? new Date(account.requested_effective_date + "T00:00:00") : null;
+
+  // ---- Effective date (today or later) ----
+  let effDate = account.requested_effective_date
+    ? new Date(account.requested_effective_date + "T00:00:00")
+    : null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  if (!effDate || effDate < today) {
-    effDate = today;
-  }
+  if (!effDate || effDate < today) effDate = today;
   const effDateStr = `${String(effDate.getMonth() + 1).padStart(2, "0")}/${String(effDate.getDate()).padStart(2, "0")}/${effDate.getFullYear()}`;
 
+  // ---- Garage / mailing / shipping addresses ----
+  const garageAddr = principalGarage
+    ? {
+        garageStreet: principalGarage.address || account.mailing_address || "",
+        garageCity: principalGarage.city || account.mailing_city || "",
+        garageState: principalGarage.state || account.mailing_state || "",
+        garageZip: principalGarage.zip || account.mailing_zip || "",
+        garageCounty: principalGarage.county || account.county || "Unknown",
+        garageCountry: "US",
+      }
+    : {
+        garageStreet: account.mailing_address || "",
+        garageCity: account.mailing_city || "",
+        garageState: account.mailing_state || "",
+        garageZip: account.mailing_zip || "",
+        garageCounty: account.county || "Unknown",
+        garageCountry: "US",
+      };
+
+  const mailingAddr = {
+    mailingStreet: account.mailing_address || "",
+    mailingCity: account.mailing_city || "",
+    mailingState: account.mailing_state || "",
+    mailingZip: account.mailing_zip || "",
+    mailingCounty: account.county || account.mailing_city || "Unknown",
+    mailingCountry: "US",
+  };
+
+  // Shipping defaults to mailing
+  const shippingAddr = {
+    shippingStreet: account.mailing_address || "",
+    shippingCity: account.mailing_city || "",
+    shippingState: account.mailing_state || "",
+    shippingZip: account.mailing_zip || "",
+    shippingCounty: account.county || account.mailing_city || "Unknown",
+    shippingCountry: "US",
+  };
+
+  // ---- Terminals ----
+  const terminals =
+    garages.length > 0
+      ? garages.map((g: any) => ({
+          terminalStreet: g.address || account.mailing_address || "",
+          terminalCity: g.city || account.mailing_city || "",
+          terminalState: g.state || account.mailing_state || "",
+          terminalZip: g.zip || account.mailing_zip || "",
+          terminalCounty: g.county || account.county || "Unknown",
+        }))
+      : [
+          {
+            terminalStreet: account.mailing_address || "",
+            terminalCity: account.mailing_city || "",
+            terminalState: account.mailing_state || "",
+            terminalZip: account.mailing_zip || "",
+            terminalCounty: account.county || "Unknown",
+          },
+        ];
+
+  // ---- Build payload ----
   const payload: any = {
     coverage: {
       ...mapCoverageSelections(cs),
@@ -438,7 +644,7 @@ async function buildQuotePayload(supabase: any, accountId: string) {
       email: account.contact_email || "noemail@placeholder.com",
       legalName: account.company_name,
       dbaName: account.dba_name || account.company_name,
-      ownerName: ownerName,
+      ownerName,
       yearsInBusiness: String(account.years_in_business || 1),
       monthsInBusiness: "0",
       insuranceContactFirstName: ownerFirst,
@@ -459,45 +665,13 @@ async function buildQuotePayload(supabase: any, accountId: string) {
       insuredWaiverSubrogation: "N",
     },
     operations: mapOperations(account, gq),
-    garageAddress: principalGarage ? {
-      garageStreet: principalGarage.address || account.mailing_address || "",
-      garageCity: principalGarage.city || account.mailing_city || "",
-      garageState: principalGarage.state || account.mailing_state || "",
-      garageZip: principalGarage.zip || account.mailing_zip || "",
-      garageCounty: principalGarage.county || account.county || "",
-      garageCountry: "US",
-    } : {
-      garageStreet: account.mailing_address || "",
-      garageCity: account.mailing_city || "",
-      garageState: account.mailing_state || "",
-      garageZip: account.mailing_zip || "",
-      garageCounty: account.county || "",
-      garageCountry: "US",
-    },
-    mailingAddress: {
-      mailingStreet: account.mailing_address || "",
-      mailingCity: account.mailing_city || "",
-      mailingState: account.mailing_state || "",
-      mailingZip: account.mailing_zip || "",
-      mailingCounty: account.county || account.mailing_city || "Unknown",
-      mailingCountry: "US",
-    },
+    garageAddress: garageAddr,
+    mailingAddress: mailingAddr,
+    shippingAddress: shippingAddr,
     radius: mapRadius(ro),
     commoditiesRefrigeration: refrigeration,
     commodities,
-    terminals: garages.length > 0 ? garages.map((g: any) => ({
-      terminalStreet: g.address || account.mailing_address || "",
-      terminalCity: g.city || account.mailing_city || "",
-      terminalState: g.state || account.mailing_state || "",
-      terminalZip: g.zip || account.mailing_zip || "",
-      terminalCounty: g.county || account.county || "Unknown",
-    })) : [{
-      terminalStreet: account.mailing_address || "",
-      terminalCity: account.mailing_city || "",
-      terminalState: account.mailing_state || "",
-      terminalZip: account.mailing_zip || "",
-      terminalCounty: account.county || "Unknown",
-    }],
+    terminals,
     vehicles: powerUnits.map((pu: any) => ({
       vin: pu.vin || "",
       year: pu.year || "2020",
@@ -508,23 +682,26 @@ async function buildQuotePayload(supabase: any, accountId: string) {
       bodyTypeKey: mapTruckTypeToBody(pu.truck_type, pu.gvw_class),
       includeAPDTowing: pu.has_physdam ? "Y" : "N",
     })),
-    trailers: trailers.filter((t: any) => !t.is_nonowned).map((t: any) => ({
-      vin: t.vin || "",
-      year: t.year || "2020",
-      make: t.make || "Unknown",
-      model: t.model || "Unknown",
-      value: String(t.physdam_amount || 0),
-      bodyTypeKey: mapTrailerType(t.trailer_type),
-    })),
+    trailers: trailers
+      .filter((t: any) => !t.is_nonowned)
+      .map((t: any) => ({
+        vin: t.vin || "",
+        year: t.year || "2020",
+        make: t.make || "Unknown",
+        model: t.model || "Unknown",
+        value: String(t.physdam_amount || 0),
+        bodyTypeKey: mapTrailerType(t.trailer_type),
+      })),
     drivers: drivers.map((d: any) => ({
       firstName: d.first_name || "Unknown",
       lastName: d.last_name || "Unknown",
       licenseState: d.license_state || "",
       licenseNumber: d.license_number || "",
-      dateOfBirth: formatDateMMDDYYYY(d.date_of_birth),
-      dateOfHire: d.date_hired_month && d.date_hired_year
-        ? `${String(d.date_hired_month).padStart(2, "0")}/01/${d.date_hired_year}`
-        : "",
+      dateOfBirth: fmtDate(d.date_of_birth),
+      dateOfHire:
+        d.date_hired_month && d.date_hired_year
+          ? `${String(d.date_hired_month).padStart(2, "0")}/01/${d.date_hired_year}`
+          : "",
       yearsExperience: String(d.experience_years || 1),
       monthsExperience: String(d.experience_months || 0),
       eligibility: "Covered",
@@ -545,28 +722,24 @@ async function buildQuotePayload(supabase: any, accountId: string) {
       State: "CA",
       Zip: "95825",
     },
+    additionalInsured: [],
   };
-  
-  // Ensure at least 1 vehicle
-  if (payload.vehicles.length === 0) {
-    throw new Error("No power units found. At least one vehicle is required for a Cover Whale quote.");
-  }
-  
-  // Ensure at least 1 driver
-  if (payload.drivers.length === 0) {
-    throw new Error("No drivers found. At least one driver is required for a Cover Whale quote.");
-  }
-  
+
+  console.log("[CW] Payload built:", JSON.stringify(payload, null, 2).slice(0, 2000));
   return { payload, account };
 }
+
+// ============================================================================
+// Main handler
+// ============================================================================
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-  
+
   try {
-    // Auth check
+    // ---- Auth check ----
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -574,11 +747,11 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    
+
     const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    
+
     const token = authHeader.replace("Bearer ", "");
     const { data: claims, error: claimsError } = await supabaseUser.auth.getClaims(token);
     if (claimsError || !claims?.claims) {
@@ -587,13 +760,13 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    
+
     const userId = claims.claims.sub as string;
-    
+
     // Service client for DB ops
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    
-    // Check user is staff
+
+    // Staff check
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isStaff = roles?.some((r: any) => r.role === "admin" || r.role === "producer");
     if (!isStaff) {
@@ -602,127 +775,144 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    
+
     const body = await req.json();
     const { action, accountId, submissionNumber, bindData } = body;
-    
+
+    if (!action) {
+      return new Response(
+        JSON.stringify({ error: "Missing 'action'. Use: quote, indication, submission-status, bind" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const creds = getCWCredentials();
-    const cwToken = await authenticate(creds);
-    
+    const cwToken = await getAccessToken(creds);
+
+    // ==== QUOTE / INDICATION ====
     if (action === "quote" || action === "indication") {
-      if (!accountId) throw new Error("accountId is required");
-      
+      if (!accountId) {
+        return new Response(JSON.stringify({ error: "accountId is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { payload, account } = await buildQuotePayload(supabase, accountId);
       const endpoint = action === "quote" ? "/quote" : "/indication";
-      
+
+      console.log(`[CW] Sending ${action} for account ${accountId}`);
       const result = await cwFetch(cwToken, creds.baseUrl, endpoint, "POST", payload);
-      
-      // Find Cover Whale carrier
+      console.log(`[CW] Response:`, JSON.stringify(result).slice(0, 1500));
+
+      // ---- Persist results ----
       const { data: cwCarrier } = await supabase
         .from("carriers")
         .select("id")
         .ilike("name", "%cover whale%")
         .single();
-      
-      if (result.submission_number) {
-        // Create or update quote record
-        let quoteId: string | null = null;
-        if (cwCarrier) {
-          // Check for existing quote
-          const { data: existing } = await supabase
+
+      const totalPremium = result.coverages
+        ? Object.values(result.coverages)
+            .filter((c: any) => c != null)
+            .reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
+        : null;
+
+      let quoteId: string | null = null;
+
+      if (result.submission_number && cwCarrier) {
+        const { data: existing } = await supabase
+          .from("quotes")
+          .select("id")
+          .eq("account_id", accountId)
+          .eq("carrier_id", cwCarrier.id)
+          .single();
+
+        const quoteFields = {
+          status: result.status?.toLowerCase() === "quoted" ? "quoted" : "submitted",
+          premium_estimate: totalPremium,
+          coverage_details: { cw_coverages: result.coverages, cw_quote_pdf: result.quote_pdf },
+          published_at: new Date().toISOString(),
+        };
+
+        if (existing) {
+          await supabase.from("quotes").update(quoteFields).eq("id", existing.id);
+          quoteId = existing.id;
+        } else {
+          const { data: newQuote } = await supabase
             .from("quotes")
-            .select("id")
-            .eq("account_id", accountId)
-            .eq("carrier_id", cwCarrier.id)
-            .single();
-          
-          const totalPremium = result.coverages
-            ? Object.values(result.coverages).reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
-            : null;
-          
-          if (existing) {
-            await supabase.from("quotes").update({
-              status: result.status?.toLowerCase() === "quoted" ? "quoted" : "submitted",
-              premium_estimate: totalPremium,
-              coverage_details: { cw_coverages: result.coverages, cw_quote_pdf: result.quote_pdf },
-              published_at: new Date().toISOString(),
-            }).eq("id", existing.id);
-            quoteId = existing.id;
-          } else {
-            const { data: newQuote } = await supabase.from("quotes").insert({
+            .insert({
               account_id: accountId,
               carrier_id: cwCarrier.id,
-              status: result.status?.toLowerCase() === "quoted" ? "quoted" : "submitted",
-              premium_estimate: totalPremium,
-              coverage_details: { cw_coverages: result.coverages, cw_quote_pdf: result.quote_pdf },
               created_by: userId,
               match_score: null,
-              published_at: new Date().toISOString(),
-            }).select("id").single();
-            quoteId = newQuote?.id || null;
-          }
+              ...quoteFields,
+            })
+            .select("id")
+            .single();
+          quoteId = newQuote?.id || null;
         }
-        
-        // Store CW submission
-        const totalPremium = result.coverages
-          ? Object.values(result.coverages).reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
-          : null;
-        
-        // Check existing submission
+      }
+
+      if (result.submission_number) {
         const { data: existingSub } = await supabase
           .from("coverwhale_submissions")
           .select("id")
           .eq("account_id", accountId)
           .eq("submission_number", result.submission_number)
           .single();
-        
+
+        const subFields = {
+          status: result.status || "quoted",
+          quote_pdf_url: result.quote_pdf || null,
+          coverages_data: result.coverages || {},
+          total_premium: totalPremium,
+          api_response: result,
+          quote_id: quoteId,
+        };
+
         if (existingSub) {
-          await supabase.from("coverwhale_submissions").update({
-            status: result.status || "quoted",
-            quote_pdf_url: result.quote_pdf || null,
-            coverages_data: result.coverages || {},
-            total_premium: totalPremium,
-            api_response: result,
-            quote_id: quoteId,
-          }).eq("id", existingSub.id);
+          await supabase.from("coverwhale_submissions").update(subFields).eq("id", existingSub.id);
         } else {
           await supabase.from("coverwhale_submissions").insert({
             account_id: accountId,
-            quote_id: quoteId,
             submission_number: result.submission_number,
-            status: result.status || "quoted",
-            quote_pdf_url: result.quote_pdf || null,
-            coverages_data: result.coverages || {},
-            total_premium: totalPremium,
-            api_response: result,
+            ...subFields,
           });
         }
-        
-        // Log activity
-        const actionLabel = action === "quote" ? "quote" : "indication";
+
+        // Activity log
         const premiumStr = totalPremium ? ` — Total premium: $${totalPremium.toLocaleString()}` : "";
         await supabase.from("activity_log").insert({
           account_id: accountId,
           user_id: userId,
           action_type: "coverwhale_api",
-          description: `Cover Whale ${actionLabel} received — Submission #${result.submission_number}${premiumStr}`,
+          description: `Cover Whale ${action} received — Submission #${result.submission_number}${premiumStr}`,
         });
       }
-      
-      return new Response(JSON.stringify({ success: true, ...result }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+      return new Response(
+        JSON.stringify({ success: true, ...result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
-    
+
+    // ==== SUBMISSION STATUS ====
     if (action === "submission-status") {
-      if (!submissionNumber) throw new Error("submissionNumber is required");
+      if (!submissionNumber) {
+        return new Response(JSON.stringify({ error: "submissionNumber is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const result = await cwFetch(cwToken, creds.baseUrl, `/submission/${submissionNumber}`, "GET");
-      
-      // Update local record
-      await supabase.from("coverwhale_submissions")
+
+      await supabase
+        .from("coverwhale_submissions")
         .update({ status: result.status || result.submission_status || "unknown", api_response: result })
         .eq("submission_number", submissionNumber);
-      
+
       if (accountId) {
         await supabase.from("activity_log").insert({
           account_id: accountId,
@@ -731,21 +921,35 @@ Deno.serve(async (req) => {
           description: `Cover Whale status check — Submission #${submissionNumber} — Status: ${result.status || result.submission_status || "unknown"}`,
         });
       }
-      
-      return new Response(JSON.stringify({ success: true, ...result }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+      return new Response(
+        JSON.stringify({ success: true, ...result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
-    
+
+    // ==== BIND ====
     if (action === "bind") {
-      if (!submissionNumber || !bindData) throw new Error("submissionNumber and bindData are required");
-      const result = await cwFetch(cwToken, creds.baseUrl, `/api/v1/bind/${submissionNumber}`, "PUT", bindData);
-      
-      // Update local records
-      await supabase.from("coverwhale_submissions")
+      if (!submissionNumber || !bindData) {
+        return new Response(
+          JSON.stringify({ error: "submissionNumber and bindData are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const result = await cwFetch(
+        cwToken,
+        creds.baseUrl,
+        `/api/v1/bind/${submissionNumber}`,
+        "PUT",
+        bindData,
+      );
+
+      await supabase
+        .from("coverwhale_submissions")
         .update({ status: result.status || "bind requested", api_response: result })
         .eq("submission_number", submissionNumber);
-      
+
       if (accountId) {
         await supabase.from("activity_log").insert({
           account_id: accountId,
@@ -754,24 +958,25 @@ Deno.serve(async (req) => {
           description: `Cover Whale bind requested — Submission #${submissionNumber}`,
         });
       }
-      
-      return new Response(JSON.stringify({ success: true, ...result }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+      return new Response(
+        JSON.stringify({ success: true, ...result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
-    
-    return new Response(JSON.stringify({ error: "Invalid action. Use: quote, indication, submission-status, bind" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-    
+
+    // ==== UNKNOWN ACTION ====
+    return new Response(
+      JSON.stringify({ error: "Invalid action. Use: quote, indication, submission-status, bind" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err: any) {
-    console.error("CoverWhale API error:", err);
+    console.error("[CW] Error:", err);
     const status = err.status || 500;
     const errorData = err.data || { error: err.message || "Internal server error" };
-    return new Response(JSON.stringify(errorData), {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: errorData.error || errorData.message || err.message, details: errorData }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
