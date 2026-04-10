@@ -269,7 +269,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                     <span>Total</span>
                     <span>
                       ${Object.values(resultDialog.coverages)
-                        .reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
+                        .reduce((sum: number, c: any) => sum + (c?.totalCost || c?.premium || 0), 0)
                         .toLocaleString()}
                     </span>
                   </div>
