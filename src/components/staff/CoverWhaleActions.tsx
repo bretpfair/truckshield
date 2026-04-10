@@ -216,12 +216,12 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
 
                   {sub.coverages_data && Object.keys(sub.coverages_data).length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {Object.entries(sub.coverages_data).map(([key, cov]: [string, any]) => (
+                      {Object.entries(sub.coverages_data).filter(([, cov]) => cov != null).map(([key, cov]: [string, any]) => (
                         <div key={key} className="text-xs space-y-0.5">
                           <p className="font-mono text-muted-foreground uppercase">{coverageLabels[key] || key}</p>
-                          <p className="font-semibold">${Number(cov.totalCost || cov.premium || 0).toLocaleString()}</p>
-                          {cov.limit > 0 && <p className="text-muted-foreground">Limit: ${Number(cov.limit).toLocaleString()}</p>}
-                          {cov.deductible > 0 && <p className="text-muted-foreground">Ded: ${Number(cov.deductible).toLocaleString()}</p>}
+                          <p className="font-semibold">${Number(cov?.totalCost || cov?.premium || 0).toLocaleString()}</p>
+                          {cov?.limit > 0 && <p className="text-muted-foreground">Limit: ${Number(cov.limit).toLocaleString()}</p>}
+                          {cov?.deductible > 0 && <p className="text-muted-foreground">Ded: ${Number(cov.deductible).toLocaleString()}</p>}
                         </div>
                       ))}
                     </div>
