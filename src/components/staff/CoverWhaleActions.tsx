@@ -211,8 +211,8 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                   {(() => {
                     const computed = sub.total_premium ||
                       (sub.coverages_data
-                        ? Object.values(sub.coverages_data).reduce((sum: number, c: any) => sum + (c?.totalCost || c?.premium || 0), 0)
-                        : 0);
+                        ? Object.values(sub.coverages_data as Record<string, any>).reduce((sum: number, c: any) => sum + (c?.totalCost || c?.premium || 0), 0)
+                        : 0) as number;
                     return computed > 0 ? (
                       <p className="text-sm font-semibold text-success">
                         Total: ${Number(computed).toLocaleString()}
