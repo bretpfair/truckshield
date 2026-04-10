@@ -62,14 +62,25 @@ async function cwFetch(token: string, baseUrl: string, path: string, method: str
 // ---- Data mapping helpers ----
 
 function mapCoverageSelections(cs: any) {
+  // Map from TruckShield field names to Cover Whale request flags
+  // primary_bipd being set implies Auto Liability is requested
+  const hasAL = !!(cs?.auto_liability || cs?.primary_bipd);
+  const hasAPD = !!(cs?.auto_physical_damage || cs?.physical_damage);
+  const hasMTC = !!(cs?.motor_truck_cargo || cs?.cargo_liability);
+  const hasTGL = !!(cs?.truckers_general_liability || cs?.general_liability?.enabled);
+  const hasNTL = !!(cs?.non_trucking_liability?.enabled || cs?.bobtail_liability?.enabled);
+
+  // If nothing mapped, default to requesting AL so the API doesn't reject
+  const anyRequested = hasAL || hasAPD || hasMTC || hasTGL || hasNTL;
+
   return {
-    requestAl: cs?.auto_liability ? "Y" : "N",
-    optAlPip: cs?.pip ? "Y" : "N",
-    optAlUm: cs?.um_uim ? "Y" : "N",
-    requestApd: cs?.auto_physical_damage ? "Y" : "N",
-    requestMtc: cs?.motor_truck_cargo ? "Y" : "N",
-    requestTgl: cs?.truckers_general_liability ? "Y" : "N",
-    requestNtl: cs?.non_trucking_liability ? "Y" : "N",
+    requestAl: (hasAL || !anyRequested) ? "Y" : "N",
+    optAlPip: cs?.pip?.enabled ? "Y" : "N",
+    optAlUm: cs?.um_uim?.enabled ? "Y" : "N",
+    requestApd: hasAPD ? "Y" : "N",
+    requestMtc: hasMTC ? "Y" : "N",
+    requestTgl: hasTGL ? "Y" : "N",
+    requestNtl: hasNTL ? "Y" : "N",
   };
 }
 
