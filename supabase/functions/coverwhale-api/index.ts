@@ -479,7 +479,7 @@ async function buildQuotePayload(supabase: any, accountId: string) {
       mailingCity: account.mailing_city || "",
       mailingState: account.mailing_state || "",
       mailingZip: account.mailing_zip || "",
-      mailingCounty: account.county || "",
+      mailingCounty: account.county || account.mailing_city || "Unknown",
       mailingCountry: "US",
     },
     radius: mapRadius(ro),
