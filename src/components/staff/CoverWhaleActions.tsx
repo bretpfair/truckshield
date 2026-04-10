@@ -369,6 +369,29 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!errorDialog} onOpenChange={(open) => !open && setErrorDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {errorDialog?.title || "Error"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Error details from Cover Whale API</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm">{errorDialog?.message}</p>
+            {errorDialog?.details && (
+              <pre className="text-xs bg-muted p-3 rounded-lg overflow-auto max-h-48 whitespace-pre-wrap font-mono">
+                {errorDialog.details}
+              </pre>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setErrorDialog(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
