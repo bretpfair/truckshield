@@ -208,11 +208,17 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                     </div>
                   </div>
 
-                  {sub.total_premium != null && (
-                    <p className="text-sm font-semibold text-success">
-                      Total: ${Number(sub.total_premium).toLocaleString()}
-                    </p>
-                  )}
+                  {(() => {
+                    const computed = sub.total_premium ||
+                      (sub.coverages_data
+                        ? Object.values(sub.coverages_data).reduce((sum: number, c: any) => sum + (c?.totalCost || c?.premium || 0), 0)
+                        : 0);
+                    return computed > 0 ? (
+                      <p className="text-sm font-semibold text-success">
+                        Total: ${Number(computed).toLocaleString()}
+                      </p>
+                    ) : null;
+                  })()}
 
                   {sub.coverages_data && Object.keys(sub.coverages_data).length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
