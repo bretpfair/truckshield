@@ -42,6 +42,7 @@ const coverageLabels: Record<string, string> = {
 const CoverWhaleActions = ({ accountId, companyName }: Props) => {
   const [loading, setLoading] = useState<string | null>(null);
   const [resultDialog, setResultDialog] = useState<any>(null);
+  const [errorDialog, setErrorDialog] = useState<{ title: string; message: string; details?: string } | null>(null);
   const [bindDialog, setBindDialog] = useState<CWSubmission | null>(null);
   const [bindEffectiveDate, setBindEffectiveDate] = useState("");
   const { toast } = useToast();
