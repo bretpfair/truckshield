@@ -626,7 +626,7 @@ Deno.serve(async (req) => {
             .single();
           
           const totalPremium = result.coverages
-            ? Object.values(result.coverages).reduce((sum: number, c: any) => sum + (c.totalCost || 0), 0)
+            ? Object.values(result.coverages).reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
             : null;
           
           if (existing) {
