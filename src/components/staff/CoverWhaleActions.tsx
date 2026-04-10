@@ -8,13 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Zap, RefreshCw, FileText, ExternalLink, DollarSign, Shield } from "lucide-react";
+import { Loader2, Zap, RefreshCw, FileText, ExternalLink, DollarSign, Shield, AlertTriangle } from "lucide-react";
 
 interface CWSubmission {
   id: string;
