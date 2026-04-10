@@ -67,8 +67,42 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       const { data, error } = await supabase.functions.invoke("coverwhale-api", {
         body: { action, accountId, ...extra },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(typeof data.error === "string" ? data.error : JSON.stringify(data.error));
+
+      // supabase-js wraps non-2xx as FunctionsHttpError — extract the JSON body
+      if (error) {
+        let parsed: any = null;
+        try {
+          // The context.json() or context.text() may hold the body
+          if (error.context && typeof error.context.json === "function") {
+            parsed = await error.context.json();
+          } else if (error.context && typeof error.context.text === "function") {
+            const txt = await error.context.text();
+            parsed = JSON.parse(txt);
+          }
+        } catch { /* ignore parse failures */ }
+
+        const errMsg = parsed?.error || parsed?.message || error.message || "Request failed";
+        const errDetails = parsed?.details
+          ? (typeof parsed.details === "string" ? parsed.details : JSON.stringify(parsed.details, null, 2))
+          : undefined;
+
+        setErrorDialog({
+          title: `Cover Whale ${action === "quote" ? "Quote" : action === "indication" ? "Indication" : "Request"} Failed`,
+          message: typeof errMsg === "string" ? errMsg : JSON.stringify(errMsg),
+          details: errDetails,
+        });
+        return;
+      }
+
+      if (data?.error) {
+        const errMsg = typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+        setErrorDialog({
+          title: `Cover Whale ${action === "quote" ? "Quote" : action === "indication" ? "Indication" : "Request"} Failed`,
+          message: errMsg,
+          details: data.details ? JSON.stringify(data.details, null, 2) : undefined,
+        });
+        return;
+      }
 
       queryClient.invalidateQueries({ queryKey: ["coverwhale_submissions", accountId] });
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
@@ -88,11 +122,10 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       }
     } catch (err: any) {
       console.error("CW error:", err);
-      let msg = err.message || "Request failed";
-      if (typeof err === "object" && err.errors) {
-        msg = Object.entries(err.errors).map(([k, v]) => `${k}: ${v}`).join("; ");
-      }
-      toast({ title: "Cover Whale Error", description: msg, variant: "destructive" });
+      setErrorDialog({
+        title: "Cover Whale Error",
+        message: err.message || "An unexpected error occurred",
+      });
     } finally {
       setLoading(null);
     }
