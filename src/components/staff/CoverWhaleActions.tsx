@@ -8,13 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Zap, RefreshCw, FileText, ExternalLink, DollarSign, Shield } from "lucide-react";
+import { Loader2, Zap, RefreshCw, FileText, ExternalLink, DollarSign, Shield, AlertTriangle } from "lucide-react";
 
 interface CWSubmission {
   id: string;
@@ -42,6 +43,7 @@ const coverageLabels: Record<string, string> = {
 const CoverWhaleActions = ({ accountId, companyName }: Props) => {
   const [loading, setLoading] = useState<string | null>(null);
   const [resultDialog, setResultDialog] = useState<any>(null);
+  const [errorDialog, setErrorDialog] = useState<{ title: string; message: string; details?: string } | null>(null);
   const [bindDialog, setBindDialog] = useState<CWSubmission | null>(null);
   const [bindEffectiveDate, setBindEffectiveDate] = useState("");
   const { toast } = useToast();
@@ -66,8 +68,42 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       const { data, error } = await supabase.functions.invoke("coverwhale-api", {
         body: { action, accountId, ...extra },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(typeof data.error === "string" ? data.error : JSON.stringify(data.error));
+
+      // supabase-js wraps non-2xx as FunctionsHttpError — extract the JSON body
+      if (error) {
+        let parsed: any = null;
+        try {
+          // The context.json() or context.text() may hold the body
+          if (error.context && typeof error.context.json === "function") {
+            parsed = await error.context.json();
+          } else if (error.context && typeof error.context.text === "function") {
+            const txt = await error.context.text();
+            parsed = JSON.parse(txt);
+          }
+        } catch { /* ignore parse failures */ }
+
+        const errMsg = parsed?.error || parsed?.message || error.message || "Request failed";
+        const errDetails = parsed?.details
+          ? (typeof parsed.details === "string" ? parsed.details : JSON.stringify(parsed.details, null, 2))
+          : undefined;
+
+        setErrorDialog({
+          title: `Cover Whale ${action === "quote" ? "Quote" : action === "indication" ? "Indication" : "Request"} Failed`,
+          message: typeof errMsg === "string" ? errMsg : JSON.stringify(errMsg),
+          details: errDetails,
+        });
+        return;
+      }
+
+      if (data?.error) {
+        const errMsg = typeof data.error === "string" ? data.error : JSON.stringify(data.error);
+        setErrorDialog({
+          title: `Cover Whale ${action === "quote" ? "Quote" : action === "indication" ? "Indication" : "Request"} Failed`,
+          message: errMsg,
+          details: data.details ? JSON.stringify(data.details, null, 2) : undefined,
+        });
+        return;
+      }
 
       queryClient.invalidateQueries({ queryKey: ["coverwhale_submissions", accountId] });
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
@@ -87,11 +123,10 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       }
     } catch (err: any) {
       console.error("CW error:", err);
-      let msg = err.message || "Request failed";
-      if (typeof err === "object" && err.errors) {
-        msg = Object.entries(err.errors).map(([k, v]) => `${k}: ${v}`).join("; ");
-      }
-      toast({ title: "Cover Whale Error", description: msg, variant: "destructive" });
+      setErrorDialog({
+        title: "Cover Whale Error",
+        message: err.message || "An unexpected error occurred",
+      });
     } finally {
       setLoading(null);
     }
@@ -331,6 +366,29 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
             <Button onClick={handleBind} disabled={!bindEffectiveDate || !!loading}>
               {loading === "bind" ? "Binding..." : "Initiate Bind"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!errorDialog} onOpenChange={(open) => !open && setErrorDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {errorDialog?.title || "Error"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Error details from Cover Whale API</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm">{errorDialog?.message}</p>
+            {errorDialog?.details && (
+              <pre className="text-xs bg-muted p-3 rounded-lg overflow-auto max-h-48 whitespace-pre-wrap font-mono">
+                {errorDialog.details}
+              </pre>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setErrorDialog(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
