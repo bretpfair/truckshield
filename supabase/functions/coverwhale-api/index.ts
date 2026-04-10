@@ -407,10 +407,19 @@ async function buildQuotePayload(supabase: any, accountId: string) {
   
   const { commodities, refrigeration } = mapCommodities(ci);
   
+  // Ensure effectiveDate is today or later
+  let effDate = account.requested_effective_date ? new Date(account.requested_effective_date + "T00:00:00") : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (!effDate || effDate < today) {
+    effDate = today;
+  }
+  const effDateStr = `${String(effDate.getMonth() + 1).padStart(2, "0")}/${String(effDate.getDate()).padStart(2, "0")}/${effDate.getFullYear()}`;
+
   const payload: any = {
     coverage: {
       ...mapCoverageSelections(cs),
-      effectiveDate: formatDateMMDDYYYY(account.requested_effective_date) || formatDateMMDDYYYY(new Date().toISOString()),
+      effectiveDate: effDateStr,
     },
     insuredInformation: {
       entityType: mapEntityType(account.business_type),
@@ -466,17 +475,17 @@ async function buildQuotePayload(supabase: any, accountId: string) {
     commoditiesRefrigeration: refrigeration,
     commodities,
     terminals: garages.length > 0 ? garages.map((g: any) => ({
-      terminalStreet: g.address || "",
-      terminalCity: g.city || "",
-      terminalState: g.state || "",
-      terminalZip: g.zip || "",
-      terminalCounty: g.county || "",
+      terminalStreet: g.address || account.mailing_address || "",
+      terminalCity: g.city || account.mailing_city || "",
+      terminalState: g.state || account.mailing_state || "",
+      terminalZip: g.zip || account.mailing_zip || "",
+      terminalCounty: g.county || account.county || "Unknown",
     })) : [{
       terminalStreet: account.mailing_address || "",
       terminalCity: account.mailing_city || "",
       terminalState: account.mailing_state || "",
       terminalZip: account.mailing_zip || "",
-      terminalCounty: account.county || "",
+      terminalCounty: account.county || "Unknown",
     }],
     vehicles: powerUnits.map((pu: any) => ({
       vin: pu.vin || "",
@@ -517,13 +526,13 @@ async function buildQuotePayload(supabase: any, accountId: string) {
     retailAgent: {
       FirstName: producer?.full_name?.split(" ")[0] || "360 Risk",
       LastName: producer?.full_name?.split(" ").slice(1).join(" ") || "Partners",
-      Phone: producer?.phone || "5555555555",
+      Phone: (producer?.phone || "5555555555").replace(/\D/g, ""),
       Email: producer?.email || "integrations@360riskpartners.com",
       AgencyName: "360 Risk Partners",
-      Street: "",
-      City: "",
-      State: "",
-      Zip: "",
+      Street: account.mailing_address || "1234 Main St",
+      City: account.mailing_city || "Dallas",
+      State: account.mailing_state || "TX",
+      Zip: account.mailing_zip || "75201",
     },
   };
   
