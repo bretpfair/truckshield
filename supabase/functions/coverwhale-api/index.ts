@@ -161,13 +161,14 @@ async function cwFetch(
 // Unavailable-state guard
 // ---------------------------------------------------------------------------
 
-const UNAVAILABLE_STATES = new Set(["AK", "CA", "HI", "MI", "MT", "UT", "WA", "NJ"]);
+// Updated April 2026 – only current "Pending" states
+const PENDING_STATES = new Set(["AK", "HI", "KS", "MA", "NY"]);
 
 function guardState(state: string | null): string | null {
   if (!state) return null;
   const upper = state.toUpperCase().trim();
-  if (UNAVAILABLE_STATES.has(upper)) {
-    return `Cover Whale does not currently write policies in ${upper}. Unavailable states: ${[...UNAVAILABLE_STATES].join(", ")}.`;
+  if (PENDING_STATES.has(upper)) {
+    return `Cover Whale coverage is not yet available in this state (Pending). Pending states: ${[...PENDING_STATES].join(", ")}.`;
   }
   return null;
 }
