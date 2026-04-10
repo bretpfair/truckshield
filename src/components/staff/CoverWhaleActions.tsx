@@ -260,7 +260,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                     <div key={key} className="flex items-center justify-between text-sm p-2 rounded border">
                       <span>{coverageLabels[key] || key}</span>
                       <div className="text-right">
-                        <p className="font-semibold">${Number(cov?.totalCost || 0).toLocaleString()}</p>
+                        <p className="font-semibold">${Number(cov?.totalCost || cov?.premium || 0).toLocaleString()}</p>
                         {cov?.limit > 0 && <p className="text-xs text-muted-foreground">Limit: ${Number(cov.limit).toLocaleString()}</p>}
                       </div>
                     </div>
@@ -269,7 +269,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                     <span>Total</span>
                     <span>
                       ${Object.values(resultDialog.coverages)
-                        .reduce((sum: number, c: any) => sum + (c?.totalCost || 0), 0)
+                        .reduce((sum: number, c: any) => sum + (c?.totalCost || c?.premium || 0), 0)
                         .toLocaleString()}
                     </span>
                   </div>
