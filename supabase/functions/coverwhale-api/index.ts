@@ -475,17 +475,17 @@ async function buildQuotePayload(supabase: any, accountId: string) {
     commoditiesRefrigeration: refrigeration,
     commodities,
     terminals: garages.length > 0 ? garages.map((g: any) => ({
-      terminalStreet: g.address || "",
-      terminalCity: g.city || "",
-      terminalState: g.state || "",
-      terminalZip: g.zip || "",
-      terminalCounty: g.county || "",
+      terminalStreet: g.address || account.mailing_address || "",
+      terminalCity: g.city || account.mailing_city || "",
+      terminalState: g.state || account.mailing_state || "",
+      terminalZip: g.zip || account.mailing_zip || "",
+      terminalCounty: g.county || account.county || "Unknown",
     })) : [{
       terminalStreet: account.mailing_address || "",
       terminalCity: account.mailing_city || "",
       terminalState: account.mailing_state || "",
       terminalZip: account.mailing_zip || "",
-      terminalCounty: account.county || "",
+      terminalCounty: account.county || "Unknown",
     }],
     vehicles: powerUnits.map((pu: any) => ({
       vin: pu.vin || "",
