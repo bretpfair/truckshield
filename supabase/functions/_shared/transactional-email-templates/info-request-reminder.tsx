@@ -52,7 +52,9 @@ const InfoRequestReminderEmail = ({ firstName, companyName, carrierName, request
         </Section>
 
         <Text style={text}>
-          If you have questions, reply to this email or call us at{' '}
+          If you have questions, email us at{' '}
+          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
+          {' '}or call us at{' '}
           <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
         </Text>
 
