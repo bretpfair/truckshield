@@ -50,7 +50,9 @@ const ClientPortalInviteEmail = ({ firstName, portalLink }: ClientPortalInvitePr
         </Section>
 
         <Text style={text}>
-          If you have questions or prefer to walk through it together, reply to this email or call me directly at{' '}
+          If you have questions or prefer to walk through it together, email us at{' '}
+          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
+          {' '}or call us directly at{' '}
           <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
         </Text>
 
