@@ -345,6 +345,19 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
         throw new Error(`${carrierName} has already been submitted for this account`);
       }
 
+      // Auto-assign producer if account is unassigned (required for RLS)
+      const { data: acctCheck } = await supabase
+        .from("accounts")
+        .select("assigned_producer_id")
+        .eq("id", accountId)
+        .single();
+      if (acctCheck && !acctCheck.assigned_producer_id) {
+        await supabase
+          .from("accounts")
+          .update({ assigned_producer_id: user!.id } as any)
+          .eq("id", accountId);
+      }
+
       const { error } = await supabase.from("quotes").insert({
         account_id: accountId,
         carrier_id: carrierId,
