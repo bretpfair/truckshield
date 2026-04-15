@@ -25,39 +25,37 @@ const ClientPortalInviteEmail = ({ firstName, portalLink }: ClientPortalInvitePr
         </Text>
 
         <Text style={text}>
-          Thanks for the opportunity to quote your trucking insurance.
+          Welcome to the <strong>TruckShield Client Portal</strong> by 360 Risk Partners!
         </Text>
 
         <Text style={text}>
-          To keep things moving, we've set up a secure client portal for you. Inside the portal, you can:
+          You now have a secure, one-stop place to:
         </Text>
 
         <Section style={listSection}>
-          <Text style={listItem}>✓ Complete any missing underwriting details</Text>
-          <Text style={listItem}>✓ Upload required documents</Text>
-          <Text style={listItem}>✓ Review submission progress in real time</Text>
-          <Text style={listItem}>✓ Track quote status as markets respond</Text>
+          <Text style={listItem}>• Complete or continue your insurance application</Text>
+          <Text style={listItem}>• Upload documents (loss runs, cab cards, etc.)</Text>
+          <Text style={listItem}>• Track quotes and policy status in real time</Text>
+          <Text style={listItem}>• Message our team directly</Text>
         </Section>
 
         <Text style={text}>
-          Getting this information completed quickly helps us approach more carriers and improve your pricing and options.
+          Click the button below to access your portal instantly — no password needed.
         </Text>
 
         <Section style={buttonSection}>
           <Button style={button} href={portalLink || '#'}>
-            Access Your Portal
+            Access Your Portal →
           </Button>
         </Section>
 
         <Text style={text}>
-          If you have questions or prefer to walk through it together, email us at{' '}
-          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-          {' '}or call us directly at{' '}
-          <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+          We're here to make your insurance process faster and easier. Let's get you protected.
         </Text>
 
         <Text style={text}>
-          We'll keep you updated as quotes come in or underwriters request additional info.
+          Best regards,<br />
+          The 360 Risk Partners Team
         </Text>
 
         <Hr style={divider} />

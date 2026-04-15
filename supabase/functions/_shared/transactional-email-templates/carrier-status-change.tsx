@@ -15,15 +15,6 @@ const statusLabels: Record<string, string> = {
   bound: 'Bound',
 }
 
-const statusMessages: Record<string, string> = {
-  submitted: 'Your application has been submitted to the carrier for review. We will keep you updated as things progress.',
-  reviewing: 'The carrier is currently reviewing your application. No action is needed from you at this time. We will notify you as soon as there is an update.',
-  quoted: 'Great news! A quote has been received for your trucking insurance. Log in to your portal to view the details and premium.',
-  quote_updated: 'Your quote has been updated with a revised premium. Log in to your portal to view the latest details.',
-  declined: 'Unfortunately, this carrier has declined to provide a quote at this time. Do not worry, we are continuing to work with other markets to find you the best coverage.',
-  bound: 'Congratulations! Your policy has been bound. Log in to your portal for the full details.',
-}
-
 interface CarrierStatusChangeProps {
   firstName?: string
   carrierName?: string
@@ -33,8 +24,6 @@ interface CarrierStatusChangeProps {
 
 const CarrierStatusChangeEmail = ({ firstName, carrierName, newStatus, portalLink }: CarrierStatusChangeProps) => {
   const label = (newStatus && statusLabels[newStatus]) || 'Updated'
-  const message = (newStatus && statusMessages[newStatus]) || 'There has been an update on your insurance application. Log in to your portal to view the latest status.'
-  const isPositive = newStatus === 'quoted' || newStatus === 'bound' || newStatus === 'quote_updated'
 
   return (
     <Html lang="en" dir="ltr">
@@ -49,26 +38,27 @@ const CarrierStatusChangeEmail = ({ firstName, carrierName, newStatus, portalLin
             Hi {firstName || 'there'},
           </Text>
 
-          <Section style={isPositive ? highlightSectionGreen : highlightSection}>
-            <Text style={highlightLabel}>{carrierName || 'Carrier'}</Text>
-            <Text style={highlightStatus}>Status: {label}</Text>
-          </Section>
-
-          <Text style={text}>{message}</Text>
-
-          {(newStatus === 'quoted' || newStatus === 'quote_updated' || newStatus === 'bound' || newStatus === 'submitted') && (
-            <Section style={buttonSection}>
-              <Button style={isPositive ? buttonGreen : button} href={portalLink || '#'}>
-                View in Your Portal
-              </Button>
-            </Section>
-          )}
+          <Text style={text}>
+            <strong>{carrierName || 'Carrier'}</strong> has updated the status of your quote to <strong>{label}</strong>.
+          </Text>
 
           <Text style={text}>
-            If you have any questions, email us at{' '}
-            <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-            {' '}or call us at{' '}
-            <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+            Log in to your portal to see the full details and any next steps.
+          </Text>
+
+          <Section style={buttonSection}>
+            <Button style={button} href={portalLink || '#'}>
+              View Full Details in Portal →
+            </Button>
+          </Section>
+
+          <Text style={text}>
+            We'll keep you posted on any next steps.
+          </Text>
+
+          <Text style={text}>
+            Best regards,<br />
+            The 360 Risk Partners Team
           </Text>
 
           <Hr style={divider} />
@@ -110,10 +100,6 @@ const container = { padding: '32px 28px', maxWidth: '560px', margin: '0 auto' }
 const h1 = { fontSize: '24px', fontWeight: '700' as const, color: '#0a1628', margin: '0 0 8px', letterSpacing: '-0.5px' }
 const divider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px' }
-const highlightSection = { backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
-const highlightSectionGreen = { backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
-const highlightLabel = { fontSize: '16px', fontWeight: '600' as const, color: '#0a1628', margin: '0 0 4px' }
-const highlightStatus = { fontSize: '14px', color: '#0099cc', margin: '0', fontWeight: '500' as const }
 const buttonSection = { textAlign: 'center' as const, margin: '28px 0' }
 const button = {
   backgroundColor: '#0099cc',
@@ -124,10 +110,6 @@ const button = {
   fontWeight: '600' as const,
   textDecoration: 'none',
   display: 'inline-block',
-}
-const buttonGreen = {
-  ...button,
-  backgroundColor: '#16a34a',
 }
 const link = { color: '#0099cc', textDecoration: 'underline' }
 const footer = { fontSize: '13px', color: '#6b7280', margin: '0 0 4px', fontWeight: '600' as const }

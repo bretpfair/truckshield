@@ -27,36 +27,26 @@ const InviteReminderEmail = ({ firstName, portalLink, companyName, daysSinceInvi
         </Text>
 
         <Text style={text}>
-          We sent you an invite {daysSinceInvite ? `${daysSinceInvite} days ago` : 'recently'} to access your secure client portal
-          {companyName ? ` for ${companyName}` : ''}, but it looks like you haven't had a chance to sign up yet.
+          We noticed you haven't had a chance to set up your TruckShield Client Portal yet.
         </Text>
 
         <Text style={text}>
-          Your portal gives you a central place to:
-        </Text>
-
-        <Section style={listSection}>
-          <Text style={listItem}>✓ Complete your insurance application</Text>
-          <Text style={listItem}>✓ Upload required documents</Text>
-          <Text style={listItem}>✓ Track quote status in real time</Text>
-          <Text style={listItem}>✓ Message your agent directly</Text>
-        </Section>
-
-        <Text style={text}>
-          The sooner we have your information, the faster we can get you the best coverage options and pricing.
+          Your portal is ready and waiting — it only takes one click to get started.
         </Text>
 
         <Section style={buttonSection}>
           <Button style={button} href={portalLink || '#'}>
-            Sign Up & Access Your Portal
+            Access Your Portal Now →
           </Button>
         </Section>
 
         <Text style={text}>
-          If you have questions or need help getting started, email us at{' '}
-          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-          {' '}or call us at{' '}
-          <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+          We look forward to working with you.
+        </Text>
+
+        <Text style={text}>
+          Best regards,<br />
+          The 360 Risk Partners Team
         </Text>
 
         <Hr style={divider} />
@@ -94,8 +84,6 @@ const container = { padding: '32px 28px', maxWidth: '560px', margin: '0 auto' }
 const h1 = { fontSize: '24px', fontWeight: '700' as const, color: '#0a1628', margin: '0 0 8px', letterSpacing: '-0.5px' }
 const divider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px' }
-const listSection = { margin: '0 0 16px', paddingLeft: '8px' }
-const listItem = { fontSize: '14px', color: '#374151', lineHeight: '1.5', margin: '0 0 6px', paddingLeft: '4px' }
 const buttonSection = { textAlign: 'center' as const, margin: '28px 0' }
 const button = {
   backgroundColor: '#0099cc',

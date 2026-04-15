@@ -15,7 +15,7 @@ const statusLabels: Record<string, string> = {
   bound: 'Policy Bound',
 }
 
-const statusMessages: Record<string, string> = {
+const statusExplanations: Record<string, string> = {
   lead: 'Your account has been created. Our team will be reaching out shortly to get started on your insurance placement.',
   pending_info: 'We need a bit more information to proceed with your insurance placement. Please log in to your portal to complete any outstanding items.',
   info_complete: 'Thank you! We have all the information we need. Our team is now preparing to submit your application to carriers.',
@@ -33,8 +33,7 @@ interface PipelineStatusChangeProps {
 
 const PipelineStatusChangeEmail = ({ firstName, companyName, newStatus, portalLink }: PipelineStatusChangeProps) => {
   const label = (newStatus && statusLabels[newStatus]) || 'Updated'
-  const message = (newStatus && statusMessages[newStatus]) || 'There has been an update on your insurance account. Log in to your portal to view the latest status.'
-  const isPositive = newStatus === 'quoted' || newStatus === 'bound'
+  const statusExplanation = (newStatus && statusExplanations[newStatus]) || 'There has been an update on your insurance account. Log in to your portal to view the latest status.'
 
   return (
     <Html lang="en" dir="ltr">
@@ -49,24 +48,31 @@ const PipelineStatusChangeEmail = ({ firstName, companyName, newStatus, portalLi
             Hi {firstName || 'there'},
           </Text>
 
-          <Section style={isPositive ? highlightSectionGreen : highlightSection}>
-            {companyName && <Text style={highlightLabel}>{companyName}</Text>}
-            <Text style={highlightStatus}>Account Status: {label}</Text>
-          </Section>
+          <Text style={text}>
+            Great news — your account for <strong>{companyName || 'your company'}</strong> has moved to the <strong>{label}</strong> stage.
+          </Text>
 
-          <Text style={text}>{message}</Text>
+          <Text style={text}>
+            {statusExplanation}
+          </Text>
+
+          <Text style={text}>
+            You can track everything in real time from your client portal.
+          </Text>
 
           <Section style={buttonSection}>
-            <Button style={isPositive ? buttonGreen : button} href={portalLink || '#'}>
-              View Your Portal
+            <Button style={button} href={portalLink || '#'}>
+              View Current Status →
             </Button>
           </Section>
 
           <Text style={text}>
-            If you have any questions, email us at{' '}
-            <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-            {' '}or call us at{' '}
-            <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+            We're working hard to get you the best coverage possible.
+          </Text>
+
+          <Text style={text}>
+            Best regards,<br />
+            The 360 Risk Partners Team
           </Text>
 
           <Hr style={divider} />
@@ -108,10 +114,6 @@ const container = { padding: '32px 28px', maxWidth: '560px', margin: '0 auto' }
 const h1 = { fontSize: '24px', fontWeight: '700' as const, color: '#0a1628', margin: '0 0 8px', letterSpacing: '-0.5px' }
 const divider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px' }
-const highlightSection = { backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
-const highlightSectionGreen = { backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
-const highlightLabel = { fontSize: '16px', fontWeight: '600' as const, color: '#0a1628', margin: '0 0 4px' }
-const highlightStatus = { fontSize: '14px', color: '#0099cc', margin: '0', fontWeight: '500' as const }
 const buttonSection = { textAlign: 'center' as const, margin: '28px 0' }
 const button = {
   backgroundColor: '#0099cc',
@@ -122,10 +124,6 @@ const button = {
   fontWeight: '600' as const,
   textDecoration: 'none',
   display: 'inline-block',
-}
-const buttonGreen = {
-  ...button,
-  backgroundColor: '#16a34a',
 }
 const link = { color: '#0099cc', textDecoration: 'underline' }
 const footer = { fontSize: '13px', color: '#6b7280', margin: '0 0 4px', fontWeight: '600' as const }

@@ -33,10 +33,11 @@ const NewMessageReceivedEmail = ({ firstName, companyName, senderName, messagePr
           </Text>
 
           <Text style={text}>
-            {senderName
-              ? `${senderName} sent you a new message`
-              : 'You have a new message'}
-            {companyName ? ` regarding ${companyName}.` : '.'}
+            You have a <strong>new message</strong> regarding <strong>{companyName || 'your account'}</strong> from your 360 Risk Partners team.
+          </Text>
+
+          <Text style={text}>
+            <strong>Message preview:</strong>
           </Text>
 
           {preview && (
@@ -47,15 +48,17 @@ const NewMessageReceivedEmail = ({ firstName, companyName, senderName, messagePr
 
           <Section style={buttonSection}>
             <Button style={button} href={portalLink || '#'}>
-              View & Reply
+              View & Reply →
             </Button>
           </Section>
 
           <Text style={text}>
-            If you have any questions, email us at{' '}
-            <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-            {' '}or call us at{' '}
-            <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+            We're here to help — reply anytime.
+          </Text>
+
+          <Text style={text}>
+            Best regards,<br />
+            The 360 Risk Partners Team
           </Text>
 
           <Hr style={divider} />
@@ -96,7 +99,7 @@ const container = { padding: '32px 28px', maxWidth: '560px', margin: '0 auto' }
 const h1 = { fontSize: '24px', fontWeight: '700' as const, color: '#0a1628', margin: '0 0 8px', letterSpacing: '-0.5px' }
 const divider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px' }
-const quoteSection = { backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
+const quoteSection = { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
 const quoteText = { fontSize: '14px', color: '#374151', lineHeight: '1.5', margin: '0', fontStyle: 'italic' as const }
 const buttonSection = { textAlign: 'center' as const, margin: '28px 0' }
 const button = {

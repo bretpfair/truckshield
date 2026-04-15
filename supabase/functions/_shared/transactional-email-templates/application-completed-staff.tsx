@@ -27,43 +27,31 @@ const ApplicationCompletedStaffEmail = ({
         <Heading style={h1}>{SITE_NAME}</Heading>
         <Hr style={divider} />
 
-        <Heading as="h2" style={h2}>Application Completed</Heading>
+        <Heading as="h2" style={h2}>Application Completed — {companyName || 'Unknown'}</Heading>
 
         <Text style={text}>
-          A client has submitted their completed application and it's ready for review.
+          A new application has been submitted for <strong>{companyName || 'Unknown'}</strong> (DOT #{dotNumber || 'N/A'}).
         </Text>
 
-        <Section style={detailsSection}>
-          <Text style={detailRow}>
-            <span style={detailLabel}>Company:</span>{' '}
-            <span style={detailValue}>{companyName || 'N/A'}</span>
-          </Text>
-          {dotNumber && (
-            <Text style={detailRow}>
-              <span style={detailLabel}>DOT #:</span>{' '}
-              <span style={detailValue}>{dotNumber}</span>
-            </Text>
-          )}
-          {submittedBy && (
-            <Text style={detailRow}>
-              <span style={detailLabel}>Submitted by:</span>{' '}
-              <span style={detailValue}>{submittedBy}</span>
-            </Text>
-          )}
-        </Section>
-
         <Text style={text}>
-          The account status has been updated to <strong>Info Complete</strong>. 
-          You can now begin the quoting process.
+          Submitted by: {submittedBy || 'Unknown'}
         </Text>
 
         {portalLink && (
           <Section style={{ textAlign: 'center' as const, margin: '24px 0' }}>
             <Button style={button} href={portalLink}>
-              View Account
+              View Full Application →
             </Button>
           </Section>
         )}
+
+        <Text style={text}>
+          Please review and begin carrier outreach.
+        </Text>
+
+        <Text style={text}>
+          360 Risk Partners Team
+        </Text>
 
         <Hr style={divider} />
 
@@ -99,10 +87,6 @@ const h1 = { fontSize: '24px', fontWeight: '700' as const, color: '#0a1628', mar
 const h2 = { fontSize: '20px', fontWeight: '600' as const, color: '#0a1628', margin: '0 0 16px' }
 const divider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px' }
-const detailsSection = { backgroundColor: '#f8fafc', borderRadius: '8px', padding: '16px 20px', margin: '0 0 20px' }
-const detailRow = { fontSize: '14px', color: '#374151', lineHeight: '1.5', margin: '0 0 6px' }
-const detailLabel = { fontWeight: '600' as const, color: '#6b7280' }
-const detailValue = { color: '#111827' }
 const button = {
   backgroundColor: '#0099cc',
   color: '#ffffff',

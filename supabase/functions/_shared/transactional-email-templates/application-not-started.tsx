@@ -26,24 +26,26 @@ const ApplicationNotStartedEmail = ({ firstName, companyName, portalLink }: Appl
         </Text>
 
         <Text style={text}>
-          We set up your account{companyName ? ` for ${companyName}` : ''}, but it looks like you haven't started your trucking insurance application yet.
+          Your TruckShield insurance application for <strong>{companyName || 'your company'}</strong> is ready and waiting.
         </Text>
 
-        <Text style={textBold}>
-          Getting started only takes a few minutes. The sooner we have your information, the faster we can shop carriers and find you the best coverage at the best price.
+        <Text style={text}>
+          Getting started only takes a few minutes and will help us shop the best carriers for your fleet.
         </Text>
 
         <Section style={buttonSection}>
           <Button style={button} href={portalLink || '#'}>
-            Start Your Application
+            Start Your Application Now →
           </Button>
         </Section>
 
         <Text style={text}>
-          If you have any questions or need help, email us at{' '}
-          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-          {' '}or call us at{' '}
-          <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+          We're here to make this process simple.
+        </Text>
+
+        <Text style={text}>
+          Best regards,<br />
+          The 360 Risk Partners Team
         </Text>
 
         <Hr style={divider} />
@@ -80,7 +82,6 @@ const container = { padding: '32px 28px', maxWidth: '560px', margin: '0 auto' }
 const h1 = { fontSize: '24px', fontWeight: '700' as const, color: '#0a1628', margin: '0 0 8px', letterSpacing: '-0.5px' }
 const divider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px' }
-const textBold = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px', fontWeight: '600' as const }
 const buttonSection = { textAlign: 'center' as const, margin: '28px 0' }
 const button = {
   backgroundColor: '#0099cc',

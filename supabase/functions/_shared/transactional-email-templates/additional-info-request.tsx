@@ -27,31 +27,36 @@ const AdditionalInfoRequestEmail = ({ firstName, carrierName, requestDetails, po
         </Text>
 
         <Text style={text}>
-          A carrier {carrierName ? `(${carrierName}) ` : ''}reviewing your trucking insurance application has requested additional information before they can provide a quote.
+          <strong>Action Required:</strong> {carrierName || 'A carrier'} needs additional information to move forward with your quote.
+        </Text>
+
+        <Text style={text}>
+          <strong>Details requested:</strong>
         </Text>
 
         {requestDetails && (
           <Section style={detailsSection}>
-            <Text style={detailsLabel}>What's needed:</Text>
             <Text style={detailsText}>{requestDetails}</Text>
           </Section>
         )}
 
         <Text style={text}>
-          Please log into your portal to review the request and provide the missing information so we can continue working on getting you the best quote.
+          Please log in and provide the information as soon as possible so we can keep your quote on track.
         </Text>
 
         <Section style={buttonSection}>
           <Button style={button} href={portalLink || '#'}>
-            Log In to Your Portal
+            Respond Now →
           </Button>
         </Section>
 
         <Text style={text}>
-          The sooner we receive this information, the faster we can get your quote finalized. If you have questions, email us at{' '}
-          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-          {' '}or call us at{' '}
-          <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+          Thank you — this helps us get you the best possible rate.
+        </Text>
+
+        <Text style={text}>
+          Best regards,<br />
+          The 360 Risk Partners Team
         </Text>
 
         <Hr style={divider} />
@@ -92,12 +97,11 @@ const container = { padding: '32px 28px', maxWidth: '560px', margin: '0 auto' }
 const h1 = { fontSize: '24px', fontWeight: '700' as const, color: '#0a1628', margin: '0 0 8px', letterSpacing: '-0.5px' }
 const divider = { borderColor: '#e2e8f0', margin: '20px 0' }
 const text = { fontSize: '15px', color: '#374151', lineHeight: '1.6', margin: '0 0 16px' }
-const detailsSection = { backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
-const detailsLabel = { fontSize: '13px', fontWeight: '600' as const, color: '#92400e', margin: '0 0 8px', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }
-const detailsText = { fontSize: '14px', color: '#78350f', lineHeight: '1.6', margin: '0' }
+const detailsSection = { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '16px', margin: '0 0 16px' }
+const detailsText = { fontSize: '14px', color: '#374151', lineHeight: '1.6', margin: '0' }
 const buttonSection = { textAlign: 'center' as const, margin: '28px 0' }
 const button = {
-  backgroundColor: '#d97706',
+  backgroundColor: '#0099cc',
   color: '#ffffff',
   padding: '14px 32px',
   borderRadius: '6px',
