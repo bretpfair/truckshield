@@ -68,10 +68,7 @@ const ApplicationReminderEmail = ({ firstName, companyName, completionPercent, p
 
 export const template = {
   component: ApplicationReminderEmail,
-  subject: (data: Record<string, any>) =>
-    data?.companyName
-      ? `Reminder: Complete your application for ${data.companyName}`
-      : 'Reminder: Your trucking insurance application is incomplete',
+  subject: 'Complete Your Application — 360 Risk Partners',
   displayName: 'Application reminder',
   previewData: {
     firstName: 'John',

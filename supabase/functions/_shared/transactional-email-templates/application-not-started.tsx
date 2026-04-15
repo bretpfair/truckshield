@@ -66,10 +66,7 @@ const ApplicationNotStartedEmail = ({ firstName, companyName, portalLink }: Appl
 
 export const template = {
   component: ApplicationNotStartedEmail,
-  subject: (data: Record<string, any>) =>
-    data?.companyName
-      ? `Get started: Complete your application for ${data.companyName}`
-      : 'Get started: Your trucking insurance application is waiting',
+  subject: 'Your Insurance Application is Waiting — 360 Risk Partners',
   displayName: 'Application not started',
   previewData: {
     firstName: 'John',

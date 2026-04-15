@@ -83,7 +83,7 @@ const ApplicationCompletedStaffEmail = ({
 export const template = {
   component: ApplicationCompletedStaffEmail,
   subject: (data: Record<string, any>) =>
-    `Application Completed: ${data?.companyName || 'New Account'}`,
+    `Application completed — ${data?.companyName || 'New Account'}`,
   displayName: 'Application completed (staff notification)',
   previewData: {
     companyName: 'Acme Trucking LLC',

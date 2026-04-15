@@ -211,26 +211,57 @@ const AccountMessages = ({ accountId, isStaff, embedded }: Props) => {
               .single();
             firstName = clientProfile?.full_name?.split(" ")[0];
           } else if (!isStaff) {
-            // Client sent message → notify staff (get first admin email)
+            // Client sent message → notify ALL admins + assigned producer
             const { data: adminRoles } = await supabase
               .from("user_roles")
               .select("user_id")
-              .eq("role", "admin")
-              .limit(1);
+              .eq("role", "admin");
 
-            if (adminRoles && adminRoles.length > 0) {
-              const { data: adminProfile } = await supabase
+            const staffUserIds = new Set<string>();
+            if (adminRoles) {
+              for (const r of adminRoles) staffUserIds.add(r.user_id);
+            }
+
+            // Also include assigned producer
+            const { data: fullAccount } = await supabase
+              .from("accounts")
+              .select("assigned_producer_id")
+              .eq("id", accountId)
+              .single();
+            if (fullAccount?.assigned_producer_id) {
+              staffUserIds.add(fullAccount.assigned_producer_id);
+            }
+
+            if (staffUserIds.size > 0) {
+              const { data: staffProfiles } = await supabase
                 .from("profiles")
-                .select("email, full_name")
-                .eq("user_id", adminRoles[0].user_id)
-                .single();
+                .select("user_id, email, full_name")
+                .in("user_id", [...staffUserIds]);
 
-              if (adminProfile?.email) {
-                recipientEmail = adminProfile.email;
-                firstName = adminProfile.full_name?.split(" ")[0];
-                senderName = account.company_name || "A client";
-                portalLink = "https://truckshield.360riskpartners.com/staff";
+              senderName = account.company_name || "A client";
+              portalLink = "https://truckshield.360riskpartners.com/staff";
+
+              // Send to each staff member
+              for (const sp of staffProfiles || []) {
+                if (!sp.email) continue;
+                supabase.functions.invoke("send-transactional-email", {
+                  body: {
+                    templateName: "new-message-received",
+                    recipientEmail: sp.email,
+                    accountId,
+                    idempotencyKey: `msg-notify-${msgId}-${sp.user_id}`,
+                    templateData: {
+                      firstName: sp.full_name?.split(" ")[0],
+                      companyName: account.company_name,
+                      senderName,
+                      messagePreview: message.trim().slice(0, 200),
+                      portalLink,
+                    },
+                  },
+                });
               }
+              // Set recipientEmail to null so the shared send below is skipped
+              recipientEmail = null;
             }
           }
 
