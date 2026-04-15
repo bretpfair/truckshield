@@ -27,25 +27,26 @@ const ApplicationReminderEmail = ({ firstName, companyName, completionPercent, p
         </Text>
 
         <Text style={text}>
-          We noticed your trucking insurance application{companyName ? ` for ${companyName}` : ''} hasn't been completed yet.
-          {completionPercent ? ` You're ${completionPercent}% of the way there!` : ''} Finishing the application allows us to shop the best carriers and get you competitive quotes.
+          Your application for <strong>{companyName || 'your company'}</strong> is <strong>{completionPercent || '0'}% complete</strong>.
         </Text>
 
         <Text style={text}>
-          The sooner you complete your application, the faster we can start working on getting you covered.
+          You're making excellent progress! Finishing the remaining sections will allow us to get competitive quotes from top carriers.
         </Text>
 
         <Section style={buttonSection}>
           <Button style={button} href={portalLink || '#'}>
-            Complete Your Application
+            Continue Your Application →
           </Button>
         </Section>
 
         <Text style={text}>
-          If you have any questions or need help, email us at{' '}
-          <Link href="mailto:Info@360riskpartners.com" style={link}>Info@360riskpartners.com</Link>
-          {' '}or call us at{' '}
-          <Link href="tel:9166722440" style={link}>916-672-2440</Link>.
+          We're here if you have any questions.
+        </Text>
+
+        <Text style={text}>
+          Best regards,<br />
+          The 360 Risk Partners Team
         </Text>
 
         <Hr style={divider} />
