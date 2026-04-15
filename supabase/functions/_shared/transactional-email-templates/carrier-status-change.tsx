@@ -93,8 +93,8 @@ export const template = {
   subject: (data: Record<string, any>) => {
     const label = (data?.newStatus && statusLabels[data.newStatus]) || 'Updated'
     return data?.carrierName
-      ? `${data.carrierName} — ${label}`
-      : `Carrier Status Update — ${label}`
+      ? `${data.carrierName} Quote Update — ${label}`
+      : `Carrier Quote Update — ${label}`
   },
   displayName: 'Carrier status change',
   previewData: {

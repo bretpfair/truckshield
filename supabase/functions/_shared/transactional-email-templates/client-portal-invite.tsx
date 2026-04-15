@@ -80,7 +80,7 @@ const ClientPortalInviteEmail = ({ firstName, portalLink }: ClientPortalInvitePr
 
 export const template = {
   component: ClientPortalInviteEmail,
-  subject: 'Your Client Portal is Ready — 360 Risk Partners',
+  subject: 'Access Your TruckShield Client Portal — 360 Risk Partners',
   displayName: 'Client portal invite',
   previewData: {
     firstName: 'John',

@@ -66,7 +66,7 @@ const ApplicationReceivedEmail = ({ companyName, firstName }: ApplicationReceive
 
 export const template = {
   component: ApplicationReceivedEmail,
-  subject: 'Application Received — 360 Risk Partners',
+  subject: 'Application received — our team is on it',
   displayName: 'Application received confirmation',
   previewData: {
     companyName: 'Acme Trucking LLC',
