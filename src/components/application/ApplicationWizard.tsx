@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sendClientInvite } from "@/lib/sendClientInvite";
+import { calculateAccountProgress } from "@/lib/calculateAccountProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WIZARD_STEPS } from "./constants";
@@ -47,6 +48,7 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialized = useRef(false);
+  const lastMilestoneSent = useRef<number>(0); // tracks highest milestone sent (25, 50, 75)
 
   // Queries for section completion awareness
   const { data: puData } = useQuery({
@@ -206,6 +208,44 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
           }
         } catch {
           // Non-fatal: don't block the save
+        }
+      }
+
+      // Milestone celebration emails (25%, 50%, 75%)
+      if (!isPreview && account.contact_email) {
+        try {
+          const progressResult = calculateAccountProgress(
+            { ...account, ...variables },
+            puData || [],
+            trData || [],
+            drData || [],
+            lhData || []
+          );
+          const progress = progressResult.progress;
+          const milestones = [25, 50, 75];
+          for (const milestone of milestones) {
+            if (progress >= milestone && lastMilestoneSent.current < milestone) {
+              lastMilestoneSent.current = milestone;
+              const ownerName = variables.business_owner_name || account.business_owner_name || "";
+              await supabase.functions.invoke("send-transactional-email", {
+                body: {
+                  templateName: "application-milestone",
+                  recipientEmail: account.contact_email,
+                  accountId: account.id,
+                  idempotencyKey: `app-milestone-${account.id}-${milestone}`,
+                  templateData: {
+                    firstName: ownerName.split(" ")[0] || undefined,
+                    companyName: variables.company_name || account.company_name,
+                    completionPercentage: milestone.toString(),
+                    portalLink: "https://truckshield.360riskpartners.com/client",
+                  },
+                },
+              });
+              break; // Only send one milestone per save
+            }
+          }
+        } catch {
+          // Non-fatal
         }
       }
     },

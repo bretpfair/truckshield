@@ -20,6 +20,10 @@ import { template as newMessageReceived } from './new-message-received.tsx'
 import { template as applicationCompletedStaff } from './application-completed-staff.tsx'
 import { template as inviteReminder } from './invite-reminder.tsx'
 import { template as applicationNotStarted } from './application-not-started.tsx'
+import { template as firstLoginWelcome } from './first-login-welcome.tsx'
+import { template as applicationMilestone } from './application-milestone.tsx'
+import { template as quotesReadyUrgency } from './quotes-ready-urgency.tsx'
+import { template as postBindWelcome } from './post-bind-welcome.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'client-portal-invite': clientPortalInvite,
@@ -33,4 +37,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'application-completed-staff': applicationCompletedStaff,
   'invite-reminder': inviteReminder,
   'application-not-started': applicationNotStarted,
+  'first-login-welcome': firstLoginWelcome,
+  'application-milestone': applicationMilestone,
+  'quotes-ready-urgency': quotesReadyUrgency,
+  'post-bind-welcome': postBindWelcome,
 }

@@ -293,6 +293,88 @@ Deno.serve(async (req) => {
     }
   }
 
+  // --- Send "Quotes Ready" email when status moves to "quoted" ---
+  if (newStatus === 'quoted' && account.contact_email) {
+    let firstName: string | undefined
+    if (account.client_user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', account.client_user_id)
+        .single()
+      firstName = profile?.full_name?.split(' ')[0]
+    }
+
+    const quotesData = {
+      firstName,
+      companyName: account.company_name,
+      portalLink: 'https://truckshield.360riskpartners.com/client',
+    }
+
+    await enqueueEmailForRecipient(
+      supabase, accountId, account.contact_email,
+      'quotes-ready-urgency', quotesData,
+      `quotes-ready-${accountId}`
+    )
+
+    // CC producer
+    if (account.assigned_producer_id) {
+      const { data: prodProf } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('user_id', account.assigned_producer_id)
+        .single()
+      if (prodProf?.email && prodProf.email.toLowerCase() !== account.contact_email.toLowerCase()) {
+        await enqueueEmailForRecipient(
+          supabase, accountId, prodProf.email,
+          'quotes-ready-urgency', quotesData,
+          `quotes-ready-${accountId}-producer-cc`
+        )
+      }
+    }
+  }
+
+  // --- Send "Post-Bind Welcome" email when status moves to "bound" ---
+  if (newStatus === 'bound' && account.contact_email) {
+    let firstName: string | undefined
+    if (account.client_user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', account.client_user_id)
+        .single()
+      firstName = profile?.full_name?.split(' ')[0]
+    }
+
+    const bindData = {
+      firstName,
+      companyName: account.company_name,
+      portalLink: 'https://truckshield.360riskpartners.com/client',
+    }
+
+    await enqueueEmailForRecipient(
+      supabase, accountId, account.contact_email,
+      'post-bind-welcome', bindData,
+      `post-bind-${accountId}`
+    )
+
+    // CC producer
+    if (account.assigned_producer_id) {
+      const { data: prodProf } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('user_id', account.assigned_producer_id)
+        .single()
+      if (prodProf?.email && prodProf.email.toLowerCase() !== account.contact_email.toLowerCase()) {
+        await enqueueEmailForRecipient(
+          supabase, accountId, prodProf.email,
+          'post-bind-welcome', bindData,
+          `post-bind-${accountId}-producer-cc`
+        )
+      }
+    }
+  }
+
   console.log('Status change notifications processed', { accountId, newStatus })
   return new Response(JSON.stringify({ success: true }), {
     status: 200,

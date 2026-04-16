@@ -73,6 +73,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           ? "Client signed into the portal for the first time"
           : "Client signed into the portal",
       });
+
+      // Send first-login-welcome email + in-app notification on first login
+      if (isFirstLogin) {
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          const { data: acctDetails } = await supabase
+            .from("accounts")
+            .select("contact_email, company_name")
+            .eq("id", account.id)
+            .single();
+
+          const recipientEmail = profile?.email || acctDetails?.contact_email;
+          if (recipientEmail) {
+            await supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "first-login-welcome",
+                recipientEmail,
+                accountId: account.id,
+                idempotencyKey: `first-login-welcome-${account.id}`,
+                templateData: {
+                  firstName: profile?.full_name?.split(" ")[0] || undefined,
+                  portalLink: "https://truckshield.360riskpartners.com/client",
+                },
+              },
+            });
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
     }
   };
 
