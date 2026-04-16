@@ -233,6 +233,7 @@ Deno.serve(async (req: Request) => {
   let notStartedReminders = 0
   let infoReminders = 0
   let inviteReminders = 0
+  let firstLoginFollowups = 0
 
   try {
     // 1. Incomplete application reminders
