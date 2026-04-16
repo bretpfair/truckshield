@@ -210,6 +210,43 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
           // Non-fatal: don't block the save
         }
       }
+
+      // Milestone celebration emails (25%, 50%, 75%)
+      if (!isPreview && account.contact_email) {
+        try {
+          const progress = calculateAccountProgress(
+            { ...account, ...variables },
+            puData || [],
+            trData || [],
+            drData || [],
+            lhData || []
+          );
+          const milestones = [25, 50, 75];
+          for (const milestone of milestones) {
+            if (progress >= milestone && lastMilestoneSent.current < milestone) {
+              lastMilestoneSent.current = milestone;
+              const ownerName = variables.business_owner_name || account.business_owner_name || "";
+              await supabase.functions.invoke("send-transactional-email", {
+                body: {
+                  templateName: "application-milestone",
+                  recipientEmail: account.contact_email,
+                  accountId: account.id,
+                  idempotencyKey: `app-milestone-${account.id}-${milestone}`,
+                  templateData: {
+                    firstName: ownerName.split(" ")[0] || undefined,
+                    companyName: variables.company_name || account.company_name,
+                    completionPercentage: milestone.toString(),
+                    portalLink: "https://truckshield.360riskpartners.com/client",
+                  },
+                },
+              });
+              break; // Only send one milestone per save
+            }
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
     },
     onError: (e: Error) => toast({ title: "Error saving", description: e.message, variant: "destructive" }),
   });
