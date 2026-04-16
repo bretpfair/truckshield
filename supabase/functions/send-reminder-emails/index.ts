@@ -437,6 +437,70 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // 4. First-login Day-3 follow-up reminders
+    // Find accounts where client logged in for the first time ~3 days ago but application hasn't progressed
+    const threeDaysAgo = new Date()
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+    const fourDaysAgo = new Date()
+    fourDaysAgo.setDate(fourDaysAgo.getDate() - 4)
+
+    const { data: firstLoginAccounts } = await supabase
+      .from('activity_log')
+      .select('account_id, created_at')
+      .eq('action_type', 'client_login')
+      .eq('description', 'Client signed into the portal for the first time')
+      .gte('created_at', fourDaysAgo.toISOString())
+      .lte('created_at', threeDaysAgo.toISOString())
+
+    if (firstLoginAccounts && firstLoginAccounts.length > 0) {
+      const flAccountIds = [...new Set(firstLoginAccounts.map((a: any) => a.account_id))]
+      const { data: flAccounts } = await supabase
+        .from('accounts')
+        .select('id, company_name, client_user_id, contact_email, assigned_producer_id, application_step')
+        .in('id', flAccountIds)
+        .not('client_user_id', 'is', null)
+
+      if (flAccounts) {
+        // Only send follow-up if application hasn't progressed past step 2
+        const stagnantAccounts = flAccounts.filter((a: any) => (a.application_step || 1) <= 2)
+
+        const flClientIds = stagnantAccounts.map((a: any) => a.client_user_id).filter(Boolean)
+        const flProducerIds = [...new Set(stagnantAccounts.map((a: any) => a.assigned_producer_id).filter(Boolean))]
+        const flAllIds = [...new Set([...flClientIds, ...flProducerIds])]
+
+        let flProfileMap = new Map<string, any>()
+        if (flAllIds.length > 0) {
+          const { data: flProfiles } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, email')
+            .in('user_id', flAllIds)
+          flProfileMap = new Map((flProfiles || []).map((p: any) => [p.user_id, p]))
+        }
+
+        const today = new Date().toISOString().split('T')[0]
+        for (const acct of stagnantAccounts) {
+          const profile = flProfileMap.get(acct.client_user_id)
+          const email = profile?.email || acct.contact_email
+          if (!email) continue
+
+          const templateData = {
+            firstName: profile?.full_name?.split(' ')[0] || undefined,
+            companyName: acct.company_name,
+            portalLink: PORTAL_LINK,
+          }
+          await enqueueEmail(supabase, 'application-not-started', email, templateData, `first-login-followup-${acct.id}-${today}`)
+          firstLoginFollowups++
+
+          // CC producer
+          const producerProfile = acct.assigned_producer_id ? flProfileMap.get(acct.assigned_producer_id) : undefined
+          const producerEmail = producerProfile?.email
+          if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
+            await enqueueEmail(supabase, 'application-not-started', producerEmail, templateData, `first-login-followup-${acct.id}-${today}-producer-cc`)
+          }
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -444,6 +508,7 @@ Deno.serve(async (req: Request) => {
         notStartedReminders,
         infoRequestReminders: infoReminders,
         inviteReminders,
+        firstLoginFollowups,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
