@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sendClientInvite } from "@/lib/sendClientInvite";
+import { calculateAccountProgress } from "@/lib/calculateAccountProgress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WIZARD_STEPS } from "./constants";
