@@ -214,13 +214,14 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
       // Milestone celebration emails (25%, 50%, 75%)
       if (!isPreview && account.contact_email) {
         try {
-          const progress = calculateAccountProgress(
+          const progressResult = calculateAccountProgress(
             { ...account, ...variables },
             puData || [],
             trData || [],
             drData || [],
             lhData || []
           );
+          const progress = progressResult.progress;
           const milestones = [25, 50, 75];
           for (const milestone of milestones) {
             if (progress >= milestone && lastMilestoneSent.current < milestone) {
