@@ -48,6 +48,7 @@ const ApplicationWizard = ({ account, onSubmitComplete }: ApplicationWizardProps
   const queryClient = useQueryClient();
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialized = useRef(false);
+  const lastMilestoneSent = useRef<number>(0); // tracks highest milestone sent (25, 50, 75)
 
   // Queries for section completion awareness
   const { data: puData } = useQuery({
