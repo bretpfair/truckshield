@@ -41,7 +41,8 @@ async function enqueueEmailForRecipient(
   recipientEmail: string,
   templateName: string,
   templateData: Record<string, any>,
-  idempotencySuffix: string
+  idempotencySuffix: string,
+  options?: { cc?: string | null; replyTo?: string | null }
 ) {
   const template = TEMPLATES[templateName]
   if (!template) {
@@ -124,6 +125,8 @@ async function enqueueEmailForRecipient(
       unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
       account_id: accountId,
+      ...(options?.cc ? { cc: [options.cc] } : {}),
+      ...(options?.replyTo ? { reply_to: [options.replyTo] } : {}),
     },
   })
 
