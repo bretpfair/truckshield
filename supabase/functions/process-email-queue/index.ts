@@ -1,5 +1,73 @@
-import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+
+// ---------------------------------------------------------------------------
+// Resend dispatcher
+// ---------------------------------------------------------------------------
+// We send all queued emails (auth + transactional) via Resend through the
+// Lovable connector gateway. The queue, retry/DLQ, suppression, unsubscribe
+// token, and Producer-CC logic are all preserved — only the underlying send
+// transport has changed from Lovable Email to Resend.
+const RESEND_GATEWAY_URL = 'https://connector-gateway.lovable.dev/resend'
+
+interface ResendError {
+  status: number
+  message: string
+  retryAfterSeconds: number | null
+}
+
+async function sendViaResend(
+  payload: Record<string, any>,
+  apiKeys: { lovable: string; resend: string },
+  unsubscribeBaseUrl: string
+): Promise<void> {
+  const headers: Record<string, string> = {}
+  if (payload.unsubscribe_token) {
+    const url = `${unsubscribeBaseUrl}?token=${encodeURIComponent(payload.unsubscribe_token)}`
+    headers['List-Unsubscribe'] = `<${url}>`
+    headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+  }
+
+  const body: Record<string, unknown> = {
+    from: payload.from,
+    to: [payload.to],
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+    headers,
+    tags: [
+      { name: 'purpose', value: String(payload.purpose ?? 'transactional') },
+      { name: 'label', value: String(payload.label ?? 'email').slice(0, 50) },
+    ],
+  }
+
+  const response = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKeys.lovable}`,
+      'X-Connection-Api-Key': apiKeys.resend,
+      // Resend supports Idempotency-Key on /emails to prevent duplicate sends.
+      ...(payload.idempotency_key
+        ? { 'Idempotency-Key': String(payload.idempotency_key).slice(0, 256) }
+        : {}),
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errText = await response.text()
+    const retryAfterHeader = response.headers.get('retry-after')
+    const retryAfterSeconds = retryAfterHeader
+      ? Number.parseInt(retryAfterHeader, 10) || null
+      : null
+    const err: ResendError = {
+      status: response.status,
+      message: `Resend send failed [${response.status}]: ${errText.slice(0, 500)}`,
+      retryAfterSeconds,
+    }
+    throw Object.assign(new Error(err.message), err)
+  }
+}
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
@@ -110,16 +178,20 @@ async function moveToDlq(
 
 Deno.serve(async (req) => {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const resendApiKey = Deno.env.get('RESEND_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-  if (!apiKey || !supabaseUrl || !supabaseServiceKey) {
+  if (!apiKey || !resendApiKey || !supabaseUrl || !supabaseServiceKey) {
     console.error('Missing required environment variables')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
+
+  // Public unsubscribe URL (used in List-Unsubscribe header for one-click).
+  const unsubscribeBaseUrl = `${supabaseUrl}/functions/v1/handle-email-unsubscribe`
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) {
@@ -276,25 +348,10 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
-            message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+        await sendViaResend(
+          payload,
+          { lovable: apiKey, resend: resendApiKey },
+          unsubscribeBaseUrl
         )
 
         // Log success

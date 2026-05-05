@@ -3,9 +3,9 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
-const SITE_NAME = "truckshield"
-const SENDER_DOMAIN = "notify.360riskpartners.com"
-const FROM_DOMAIN = "360riskpartners.com"
+const SITE_NAME = "TruckShield"
+const SENDER_DOMAIN = "mail.360riskpartners.com"
+const FROM_DOMAIN = "mail.360riskpartners.com"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
