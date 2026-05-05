@@ -338,11 +338,27 @@ Deno.serve(async (req) => {
     } catch { /* non-fatal */ }
   }
 
-  // Inject visible CC line into client email if producer is assigned
+  // Determine if producer should be CC'd / used as reply-to.
+  // Suppress CC if producer is suppressed or has unsubscribed.
+  let ccProducerEmail: string | null = null
   if (producerEmail) {
-    const ccLine = `<div style="font-family:Arial,sans-serif;font-size:12px;color:#6b7280;margin-bottom:16px;">CC: ${producerEmail}</div>`
-    html = html.replace(/(<body[^>]*>)/i, `$1${ccLine}`)
-    plainText = `CC: ${producerEmail}\n\n${plainText}`
+    try {
+      const { data: producerSuppressed } = await supabase
+        .from('suppressed_emails')
+        .select('id')
+        .eq('email', producerEmail)
+        .maybeSingle()
+      if (!producerSuppressed) {
+        const { data: existingProdToken } = await supabase
+          .from('email_unsubscribe_tokens')
+          .select('used_at')
+          .eq('email', producerEmail)
+          .maybeSingle()
+        if (!existingProdToken?.used_at) {
+          ccProducerEmail = producerEmail
+        }
+      }
+    } catch { /* non-fatal */ }
   }
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
