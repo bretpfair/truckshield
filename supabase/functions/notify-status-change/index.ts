@@ -35,6 +35,43 @@ async function logEmailActivity(
   }
 }
 
+// Resolve the assigned producer's email if usable for CC + reply-to.
+// Returns null when not assigned, suppressed, unsubscribed, or matches the recipient.
+async function resolveProducerEmail(
+  supabase: ReturnType<typeof createClient>,
+  producerUserId: string | null | undefined,
+  recipientEmail: string,
+): Promise<string | null> {
+  if (!producerUserId) return null
+  try {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('user_id', producerUserId)
+      .single()
+    const email = prof?.email?.toLowerCase()
+    if (!email || email === recipientEmail.toLowerCase()) return null
+
+    const { data: suppressed } = await supabase
+      .from('suppressed_emails')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+    if (suppressed) return null
+
+    const { data: token } = await supabase
+      .from('email_unsubscribe_tokens')
+      .select('used_at')
+      .eq('email', email)
+      .maybeSingle()
+    if (token?.used_at) return null
+
+    return email
+  } catch {
+    return null
+  }
+}
+
 async function enqueueEmailForRecipient(
   supabase: ReturnType<typeof createClient>,
   accountId: string,
