@@ -36,10 +36,10 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "truckshield"
-const SENDER_DOMAIN = "notify.360riskpartners.com"
+const SITE_NAME = "TruckShield"
+const SENDER_DOMAIN = "mail.360riskpartners.com"
 const ROOT_DOMAIN = "360riskpartners.com"
-const FROM_DOMAIN = "360riskpartners.com" // Domain shown in From address (may be root or sender subdomain)
+const FROM_DOMAIN = "mail.360riskpartners.com"
 
 // Sample data for preview mode ONLY (not used in actual email sending).
 // URLs are baked in at scaffold time from the project's real data.
