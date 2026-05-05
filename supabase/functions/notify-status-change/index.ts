@@ -4,8 +4,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 const SITE_NAME = "TruckShield"
-const SENDER_DOMAIN = "mail.360riskpartners.com"
-const FROM_DOMAIN = "mail.360riskpartners.com"
+const SENDER_DOMAIN = "send.truckshield.360riskpartners.com"
+const FROM_DOMAIN = "send.truckshield.360riskpartners.com"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

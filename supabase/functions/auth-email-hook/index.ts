@@ -37,9 +37,9 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 
 // Configuration
 const SITE_NAME = "TruckShield"
-const SENDER_DOMAIN = "mail.360riskpartners.com"
+const SENDER_DOMAIN = "send.truckshield.360riskpartners.com"
 const ROOT_DOMAIN = "360riskpartners.com"
-const FROM_DOMAIN = "mail.360riskpartners.com"
+const FROM_DOMAIN = "send.truckshield.360riskpartners.com"
 
 // Sample data for preview mode ONLY (not used in actual email sending).
 // URLs are baked in at scaffold time from the project's real data.
