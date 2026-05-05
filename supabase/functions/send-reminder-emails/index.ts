@@ -358,15 +358,11 @@ Deno.serve(async (req: Request) => {
           daysPending,
           portalLink: PORTAL_LINK,
         }
-        await enqueueEmail(supabase, 'info-request-reminder', email, templateData, `info-reminder-${request.id}-${today}`)
-        infoReminders++
-
-        // CC producer
         const producerProfile = account.assigned_producer_id ? profileMap.get(account.assigned_producer_id) : undefined
         const producerEmail = producerProfile?.email
-        if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
-          await enqueueEmail(supabase, 'info-request-reminder', producerEmail, templateData, `info-reminder-${request.id}-${today}-producer-cc`)
-        }
+        const cc = producerEmail && producerEmail.toLowerCase() !== email.toLowerCase() ? producerEmail : null
+        await enqueueEmail(supabase, 'info-request-reminder', email, templateData, `info-reminder-${request.id}-${today}`, { cc, replyTo: cc })
+        infoReminders++
       }
     }
 
