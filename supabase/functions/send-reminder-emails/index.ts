@@ -419,14 +419,10 @@ Deno.serve(async (req: Request) => {
           companyName: account.company_name,
           daysSinceInvite: daysSinceInvite.toString(),
         }
-        await enqueueEmail(supabase, 'invite-reminder', invite.email, templateData, `invite-reminder-${invite.id}-${today}`)
-        inviteReminders++
-
-        // CC producer
         const producerEmail = account.assigned_producer_id ? invProducerEmailMap.get(account.assigned_producer_id) : undefined
-        if (producerEmail && producerEmail.toLowerCase() !== invite.email.toLowerCase()) {
-          await enqueueEmail(supabase, 'invite-reminder', producerEmail, templateData, `invite-reminder-${invite.id}-${today}-producer-cc`)
-        }
+        const cc = producerEmail && producerEmail.toLowerCase() !== invite.email.toLowerCase() ? producerEmail : null
+        await enqueueEmail(supabase, 'invite-reminder', invite.email, templateData, `invite-reminder-${invite.id}-${today}`, { cc, replyTo: cc })
+        inviteReminders++
       }
     }
 
