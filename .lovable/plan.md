@@ -1,70 +1,96 @@
+## Diagnosis
 
+Email deliverability is broken because of a **sender domain mismatch**, not because Lovable Emails is inadequate:
 
-# Plan: Implement Automated Alerts v2 + Polished Email Body Copies
+- **Verified Lovable domain:** `notify.shearshield.io` (left over from a different brand)
+- **Domain hardcoded in `send-transactional-email`:** `notify.360riskpartners.com` (never verified)
+- **Result:** Every send is rejected or junked because the `From:` domain has no verified DNS records.
 
-## Summary
-1. Align all email templates with the revised TruckShield Automated Alerts v2 specification (subjects, triggers, recipients)
-2. **NEW: Update all 11 email templates with polished body copy** — exact text provided by user for all transactional and reminder emails
-3. Remove Task Digest entirely
-4. Fix bidirectional new-message behavior
-5. Regenerate the reference document with updated body summaries
+This means there are **two viable paths**, and Resend is the heavier one. I recommend deciding between them before doing the work.
 
-## Part 1: Polished Email Body Copies (NEW)
+---
 
-Update the body content (JSX/HTML) for all 11 templates with exact polished text. Keep subjects, placeholders, and logic unchanged.
+## Option A — Fix Lovable Emails (Recommended, ~15 min)
 
-| Template | Key Body Changes |
-|----------|-----------------|
-| client-portal-invite.tsx | Welcome to TruckShield, bullet list (complete app, upload docs, track quotes, message team), "Access Your Portal →" CTA |
-| application-received.tsx | Thank you confirmation, team reviewing, "View Your Portal" link, best regards |
-| application-completed-staff.tsx | Simplified: "Application Completed — {companyName}", DOT #, submitter, "View Full Application →" CTA |
-| pipeline-status-change.tsx | "moved to the {newStatus} stage", {statusExplanation}, "View Current Status →" CTA |
-| carrier-status-change.tsx | "{carrierName} has updated the status...to {status}", {statusDetails}, "View Full Details in Portal →" CTA |
-| additional-info-request.tsx | "Action Required:" header, "Details requested:" highlighted box, "Respond Now →" CTA |
-| new-message-received.tsx | "You have a new message regarding {companyName}", Message preview in quotes, "View & Reply →" CTA |
-| application-not-started.tsx | "Your TruckShield insurance application...is ready and waiting", "Start Your Application Now →" CTA |
-| application-reminder.tsx | "{completionPercentage}% complete", encouraging progress message, "Continue Your Application →" CTA |
-| info-request-reminder.tsx | "Friendly Reminder:" carrier waiting {daysPending} days, "Respond Now →" CTA |
-| invite-reminder.tsx | "Your portal is ready and waiting — it only takes one click", "Access Your Portal Now →" CTA |
+Lowest risk, no new vendor, no DNS changes at the registrar.
 
-## Part 2: Previously Approved v2 Changes
+**Steps:**
+1. Update `SENDER_DOMAIN` and `FROM_DOMAIN` constants in `supabase/functions/send-transactional-email/index.ts` from `notify.360riskpartners.com` → `notify.shearshield.io`.
+2. Audit the same constants in `auth-email-hook`, `send-reminder-emails`, `notify-status-change`, and any other function that hardcodes a sender.
+3. Redeploy affected functions.
+4. Send a test email via the preview function and confirm delivery to inbox (not spam).
+5. Update branding memory to reflect the actual sending domain.
 
-### Remove Task Digest
-- Delete `task-digest.tsx`
-- Remove from `registry.ts`
-- Remove Section 4 from `send-reminder-emails/index.ts`
+**Trade-off:** The visible `From:` address would be `noreply@notify.shearshield.io` — wrong brand. To fix that properly we'd need to set up a new Lovable email domain on `360riskpartners.com` (e.g. `notify.360riskpartners.com`), which requires the user to add NS records at the registrar.
 
-### Update Subjects
-| Template | New Subject |
-|----------|-------------|
-| client-portal-invite | "Access Your TruckShield Client Portal — 360 Risk Partners" |
-| carrier-status-change | "{Carrier Name} Quote Update — {Status}" |
-| application-received | "Application received — our team is on it" |
-| application-completed-staff | "Application completed — {Company Name}" |
-| application-not-started | "Your Insurance Application is Waiting — 360 Risk Partners" |
-| application-reminder | "Complete Your Application — 360 Risk Partners" |
+---
 
-### Bidirectional New Message
-- Update `AccountMessages.tsx` so client messages notify **all admins + assigned producer**
+## Option B — Migrate to Resend (4–6 hrs of work)
 
-## Files Modified
-- supabase/functions/_shared/transactional-email-templates/client-portal-invite.tsx
-- supabase/functions/_shared/transactional-email-templates/application-received.tsx
-- supabase/functions/_shared/transactional-email-templates/application-completed-staff.tsx
-- supabase/functions/_shared/transactional-email-templates/pipeline-status-change.tsx
-- supabase/functions/_shared/transactional-email-templates/carrier-status-change.tsx
-- supabase/functions/_shared/transactional-email-templates/additional-info-request.tsx
-- supabase/functions/_shared/transactional-email-templates/new-message-received.tsx
-- supabase/functions/_shared/transactional-email-templates/application-not-started.tsx
-- supabase/functions/_shared/transactional-email-templates/application-reminder.tsx
-- supabase/functions/_shared/transactional-email-templates/info-request-reminder.tsx
-- supabase/functions/_shared/transactional-email-templates/invite-reminder.tsx
-- supabase/functions/_shared/transactional-email-templates/registry.ts
-- supabase/functions/_shared/transactional-email-templates/task-digest.tsx — DELETE
-- supabase/functions/send-reminder-emails/index.ts
-- src/components/messaging/AccountMessages.tsx
-- /mnt/documents/TruckShield_Automated_Alerts_v2.md — REGENERATE
+Worth it only if:
+- The user wants to send from `360riskpartners.com` AND
+- The user prefers Resend's dashboard / analytics / deliverability tooling, OR
+- They've already had bad experience getting Lovable's domain verified.
 
-## Deployment
-- Deploy: `send-transactional-email`, `send-reminder-emails`, `notify-status-change`, `preview-transactional-email`
+### Migration steps
 
+**1. Domain & DNS**
+- Pick a sending subdomain that does NOT collide with the existing Lovable NS delegation on `notify.shearshield.io`. Recommended: `mail.360riskpartners.com` or `send.360riskpartners.com` on the 360riskpartners.com root domain.
+- Connect the Resend connector via `standard_connectors--connect("resend")`.
+- User adds Resend's SPF/DKIM/DMARC records at their `360riskpartners.com` registrar.
+- User verifies the domain in Resend dashboard.
+
+**2. Code changes (preserve all existing infrastructure)**
+
+Keep everything that currently works:
+- The 15 React Email templates in `_shared/transactional-email-templates/` — unchanged.
+- `registry.ts` — unchanged.
+- The `transactional_emails` and `auth_emails` pgmq queues — unchanged.
+- `email_send_log`, `suppressed_emails`, `email_unsubscribe_tokens` tables — unchanged.
+- `send-transactional-email` rendering / enqueue logic — unchanged.
+- `send-reminder-emails`, `notify-status-change`, Producer CC logic, idempotency keys — unchanged.
+
+Replace **only the dispatcher**:
+- `supabase/functions/process-email-queue/index.ts`: swap the `sendLovableEmail()` call for a `fetch` to the Resend gateway (`https://connector-gateway.lovable.dev/resend/emails`) using `LOVABLE_API_KEY` + `RESEND_API_KEY`.
+- Map fields: `from`, `to`, `subject`, `html`, `text`, `headers` (List-Unsubscribe headers preserved from current payload).
+- Preserve 429 rate-limit handling using Resend's response headers.
+- Preserve DLQ logic, retry counters, suppression checks, and activity logging.
+
+**3. Auth emails decision point**
+Auth emails (`auth-email-hook`) currently route through Lovable Emails via the same queue. Two sub-options:
+- **B1:** Keep auth emails on Lovable Emails (`notify.shearshield.io`) — simpler, works today, but auth emails come from a different brand than app emails.
+- **B2:** Route auth emails through Resend too — requires the dispatcher to handle both queues identically (it already does), which is fine. Recommended if migrating.
+
+**4. Disable / remove Lovable Emails (only after Resend works)**
+- Confirm Resend is sending successfully for at least 24 hrs.
+- Capture NS records via `check_email_domain_status` for `notify.shearshield.io`.
+- Call `email_domain--toggle_project_emails(enabled: false)`.
+- User manually removes the NS records (`notify.shearshield.io NS ns3.lovable.cloud` / `ns4.lovable.cloud`) at the shearshield.io registrar.
+
+**5. QA checklist**
+- Send each of the 15 templates as a test through the queue.
+- Verify retry/DLQ behavior with a forced failure.
+- Verify suppression list still blocks sends.
+- Verify Producer CC still fires.
+- Verify auth flows (signup, magic link, password reset) if Option B2.
+
+---
+
+## Recommendation
+
+**Start with Option A.** It's a 15-minute fix that almost certainly resolves the deliverability problem. If after Option A the user still wants `From: 360riskpartners.com` branding, we then choose between:
+- Setting up a new Lovable email domain on `360riskpartners.com` (free, requires registrar NS record), or
+- Full Resend migration (Option B).
+
+## Files that would change
+
+**Option A:**
+- `supabase/functions/send-transactional-email/index.ts` (sender domain constants)
+- Any other function with hardcoded `notify.360riskpartners.com`
+- `mem://style/branding` (correct the recorded sending domain)
+
+**Option B (additional):**
+- `supabase/functions/process-email-queue/index.ts` (dispatcher swap)
+- `.env` / Resend API key via connector
+- `supabase/config.toml` if needed
+- New Resend connection linked via `standard_connectors--connect`
