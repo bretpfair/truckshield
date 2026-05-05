@@ -477,15 +477,11 @@ Deno.serve(async (req: Request) => {
             companyName: acct.company_name,
             portalLink: PORTAL_LINK,
           }
-          await enqueueEmail(supabase, 'application-not-started', email, templateData, `first-login-followup-${acct.id}-${today}`)
-          firstLoginFollowups++
-
-          // CC producer
           const producerProfile = acct.assigned_producer_id ? flProfileMap.get(acct.assigned_producer_id) : undefined
           const producerEmail = producerProfile?.email
-          if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
-            await enqueueEmail(supabase, 'application-not-started', producerEmail, templateData, `first-login-followup-${acct.id}-${today}-producer-cc`)
-          }
+          const cc = producerEmail && producerEmail.toLowerCase() !== email.toLowerCase() ? producerEmail : null
+          await enqueueEmail(supabase, 'application-not-started', email, templateData, `first-login-followup-${acct.id}-${today}`, { cc, replyTo: cc })
+          firstLoginFollowups++
         }
       }
     }
