@@ -287,12 +287,9 @@ Deno.serve(async (req: Request) => {
             companyName: account.company_name,
             portalLink: PORTAL_LINK,
           }
-          await enqueueEmail(supabase, 'application-not-started', email, templateData, `app-not-started-${account.id}-${today}`)
+          const cc = producerEmail && producerEmail.toLowerCase() !== email.toLowerCase() ? producerEmail : null
+          await enqueueEmail(supabase, 'application-not-started', email, templateData, `app-not-started-${account.id}-${today}`, { cc, replyTo: cc })
           notStartedReminders++
-          // CC producer
-          if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
-            await enqueueEmail(supabase, 'application-not-started', producerEmail, templateData, `app-not-started-${account.id}-${today}-producer-cc`)
-          }
         } else {
           const pu = powerUnitsAll.filter((u: any) => u.account_id === account.id)
           const tr = trailersAll.filter((t: any) => t.account_id === account.id)
@@ -306,12 +303,9 @@ Deno.serve(async (req: Request) => {
             completionPercent,
             portalLink: PORTAL_LINK,
           }
-          await enqueueEmail(supabase, 'application-reminder', email, templateData, `app-reminder-${account.id}-${today}`)
+          const cc = producerEmail && producerEmail.toLowerCase() !== email.toLowerCase() ? producerEmail : null
+          await enqueueEmail(supabase, 'application-reminder', email, templateData, `app-reminder-${account.id}-${today}`, { cc, replyTo: cc })
           appReminders++
-          // CC producer
-          if (producerEmail && producerEmail.toLowerCase() !== email.toLowerCase()) {
-            await enqueueEmail(supabase, 'application-reminder', producerEmail, templateData, `app-reminder-${account.id}-${today}-producer-cc`)
-          }
         }
       }
     }
