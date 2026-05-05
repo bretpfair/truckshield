@@ -1,96 +1,125 @@
-## Diagnosis
+# Move Welcome Email to Producer Assignment
 
-Email deliverability is broken because of a **sender domain mismatch**, not because Lovable Emails is inadequate:
+## Goal
 
-- **Verified Lovable domain:** `notify.shearshield.io` (left over from a different brand)
-- **Domain hardcoded in `send-transactional-email`:** `notify.360riskpartners.com` (never verified)
-- **Result:** Every send is rejected or junked because the `From:` domain has no verified DNS records.
+Today the `client-portal-invite` welcome email fires when CTQ pushes a new lead, *before* a producer is assigned. So the assigned producer is never CC'd on the intro. Move the trigger so the email fires the moment an account first gets a producer assigned — that way the producer is in CC and on Reply-To from the very first touchpoint.
 
-This means there are **two viable paths**, and Resend is the heavier one. I recommend deciding between them before doing the work.
+## Behavior changes
 
----
+**Before:** CTQ webhook → account created → invite + welcome email sent immediately (no producer = no CC).
 
-## Option A — Fix Lovable Emails (Recommended, ~15 min)
+**After:** CTQ webhook → account created (no email). Later, when an admin assigns a producer (or a producer self-claims) → invite + welcome email sent with producer CC'd and as Reply-To.
 
-Lowest risk, no new vendor, no DNS changes at the registrar.
+If an account is reassigned later, the email does **not** re-fire — only the *first* assignment triggers it. This prevents duplicate welcomes.
 
-**Steps:**
-1. Update `SENDER_DOMAIN` and `FROM_DOMAIN` constants in `supabase/functions/send-transactional-email/index.ts` from `notify.360riskpartners.com` → `notify.shearshield.io`.
-2. Audit the same constants in `auth-email-hook`, `send-reminder-emails`, `notify-status-change`, and any other function that hardcodes a sender.
-3. Redeploy affected functions.
-4. Send a test email via the preview function and confirm delivery to inbox (not spam).
-5. Update branding memory to reflect the actual sending domain.
+If a staff member uses the existing manual "Invite Client" dialog before any producer is assigned, that still works as today (sends without CC). Manual invites always honor the user's explicit action.
 
-**Trade-off:** The visible `From:` address would be `noreply@notify.shearshield.io` — wrong brand. To fix that properly we'd need to set up a new Lovable email domain on `360riskpartners.com` (e.g. `notify.360riskpartners.com`), which requires the user to add NS records at the registrar.
+## Where it triggers
 
----
+The email will fire from any code path that sets `assigned_producer_id` from `null` to a real user id:
 
-## Option B — Migrate to Resend (4–6 hrs of work)
+1. `PipelineView.tsx` — admin assigns producer via dropdown (line ~323)
+2. `AccountDetail.tsx` — `ProducerAssignment` dropdown change (line ~69)
+3. `AccountDetail.tsx` — producer self-claim path (line ~357)
 
-Worth it only if:
-- The user wants to send from `360riskpartners.com` AND
-- The user prefers Resend's dashboard / analytics / deliverability tooling, OR
-- They've already had bad experience getting Lovable's domain verified.
+To keep this DRY and bulletproof (and to also cover any future code paths or direct DB updates), the trigger logic will live in a **database trigger** on `accounts`, not in the UI. The trigger fires only when:
+- `OLD.assigned_producer_id IS NULL`
+- `NEW.assigned_producer_id IS NOT NULL`
+- The account has a `contact_email`
+- No `client_user_id` is already linked (client hasn't already accepted)
+- No prior `client_invitations` row for this account (avoid duplicate if CTQ-era invite already exists for legacy accounts mid-migration)
 
-### Migration steps
+The trigger calls a new edge function `send-portal-invite-on-assignment` via `pg_net.http_post`, which:
+1. Creates the `client_invitations` row (token, email)
+2. Resolves the assigned producer's email (with suppression/unsubscribe checks — same helper pattern already used in `notify-status-change`)
+3. Calls `send-transactional-email` with `templateName: 'client-portal-invite'`, `cc` and `reply_to` set to the producer
+4. Logs to `activity_log`
 
-**1. Domain & DNS**
-- Pick a sending subdomain that does NOT collide with the existing Lovable NS delegation on `notify.shearshield.io`. Recommended: `mail.360riskpartners.com` or `send.360riskpartners.com` on the 360riskpartners.com root domain.
-- Connect the Resend connector via `standard_connectors--connect("resend")`.
-- User adds Resend's SPF/DKIM/DMARC records at their `360riskpartners.com` registrar.
-- User verifies the domain in Resend dashboard.
+## CTQ webhook change
 
-**2. Code changes (preserve all existing infrastructure)**
+Remove the auto-invite block in `ctq-webhook/index.ts` (lines 515-563). New CTQ leads will sit in the pipeline with no email sent until assigned. Update the response to drop the `auto_invited` flag (or always return false).
 
-Keep everything that currently works:
-- The 15 React Email templates in `_shared/transactional-email-templates/` — unchanged.
-- `registry.ts` — unchanged.
-- The `transactional_emails` and `auth_emails` pgmq queues — unchanged.
-- `email_send_log`, `suppressed_emails`, `email_unsubscribe_tokens` tables — unchanged.
-- `send-transactional-email` rendering / enqueue logic — unchanged.
-- `send-reminder-emails`, `notify-status-change`, Producer CC logic, idempotency keys — unchanged.
+## Edge cases handled
 
-Replace **only the dispatcher**:
-- `supabase/functions/process-email-queue/index.ts`: swap the `sendLovableEmail()` call for a `fetch` to the Resend gateway (`https://connector-gateway.lovable.dev/resend/emails`) using `LOVABLE_API_KEY` + `RESEND_API_KEY`.
-- Map fields: `from`, `to`, `subject`, `html`, `text`, `headers` (List-Unsubscribe headers preserved from current payload).
-- Preserve 429 rate-limit handling using Resend's response headers.
-- Preserve DLQ logic, retry counters, suppression checks, and activity logging.
+- **Reassignment**: trigger checks `OLD.assigned_producer_id IS NULL` so only the first assignment fires.
+- **Manual invite already sent**: trigger checks for existing `client_invitations` row — won't duplicate.
+- **Client already linked**: `client_user_id IS NOT NULL` skip.
+- **No contact email**: skip silently with activity log entry.
+- **Producer suppressed/unsubscribed**: send without CC (don't block the client email).
+- **Legacy accounts** already in DB without producer: when an admin finally assigns one, they'll get the welcome — desirable behavior, the client never got it before.
 
-**3. Auth emails decision point**
-Auth emails (`auth-email-hook`) currently route through Lovable Emails via the same queue. Two sub-options:
-- **B1:** Keep auth emails on Lovable Emails (`notify.shearshield.io`) — simpler, works today, but auth emails come from a different brand than app emails.
-- **B2:** Route auth emails through Resend too — requires the dispatcher to handle both queues identically (it already does), which is fine. Recommended if migrating.
+## Technical Details
 
-**4. Disable / remove Lovable Emails (only after Resend works)**
-- Confirm Resend is sending successfully for at least 24 hrs.
-- Capture NS records via `check_email_domain_status` for `notify.shearshield.io`.
-- Call `email_domain--toggle_project_emails(enabled: false)`.
-- User manually removes the NS records (`notify.shearshield.io NS ns3.lovable.cloud` / `ns4.lovable.cloud`) at the shearshield.io registrar.
+### New migration
 
-**5. QA checklist**
-- Send each of the 15 templates as a test through the queue.
-- Verify retry/DLQ behavior with a forced failure.
-- Verify suppression list still blocks sends.
-- Verify Producer CC still fires.
-- Verify auth flows (signup, magic link, password reset) if Option B2.
+```sql
+create or replace function public.send_invite_on_producer_assignment()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_url text; v_key text;
+begin
+  if old.assigned_producer_id is not null
+     or new.assigned_producer_id is null
+     or new.contact_email is null
+     or new.client_user_id is not null then
+    return new;
+  end if;
 
----
+  -- Skip if an invitation already exists
+  if exists (select 1 from client_invitations where account_id = new.id) then
+    return new;
+  end if;
 
-## Recommendation
+  select decrypted_secret into v_url from vault.decrypted_secrets where name = 'SUPABASE_URL' limit 1;
+  select decrypted_secret into v_key from vault.decrypted_secrets where name = 'SUPABASE_SERVICE_ROLE_KEY' limit 1;
 
-**Start with Option A.** It's a 15-minute fix that almost certainly resolves the deliverability problem. If after Option A the user still wants `From: 360riskpartners.com` branding, we then choose between:
-- Setting up a new Lovable email domain on `360riskpartners.com` (free, requires registrar NS record), or
-- Full Resend migration (Option B).
+  if v_url is not null and v_key is not null then
+    perform net.http_post(
+      url := v_url || '/functions/v1/send-portal-invite-on-assignment',
+      body := jsonb_build_object('account_id', new.id::text),
+      headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer ' || v_key)
+    );
+  end if;
+  return new;
+end $$;
 
-## Files that would change
+create trigger trg_send_invite_on_producer_assignment
+after update of assigned_producer_id on accounts
+for each row execute function send_invite_on_producer_assignment();
+```
 
-**Option A:**
-- `supabase/functions/send-transactional-email/index.ts` (sender domain constants)
-- Any other function with hardcoded `notify.360riskpartners.com`
-- `mem://style/branding` (correct the recorded sending domain)
+### New edge function: `send-portal-invite-on-assignment`
 
-**Option B (additional):**
-- `supabase/functions/process-email-queue/index.ts` (dispatcher swap)
-- `.env` / Resend API key via connector
-- `supabase/config.toml` if needed
-- New Resend connection linked via `standard_connectors--connect`
+- Auth: requires service-role bearer token.
+- Loads account (`contact_email`, `business_owner_name`, `assigned_producer_id`, `company_name`, `client_user_id`).
+- Re-checks all guard conditions (defense in depth).
+- Inserts `client_invitations` row.
+- Resolves producer email via the same helper pattern as `notify-status-change` (suppression + unsubscribe checks).
+- Invokes `send-transactional-email` with `cc: producerEmail`, `replyTo: producerEmail`, `templateData: { firstName, portalLink }`.
+- Logs `activity_log` entry: `client_linked` action, "Auto-invitation sent to {email} (triggered by producer assignment to {producerName})".
+
+### `send-transactional-email` already supports `cc` / `replyTo`
+
+Confirmed from the prior CC/Reply-To rollout — no changes needed there.
+
+### CTQ webhook edit
+
+Delete lines 515-563 of `supabase/functions/ctq-webhook/index.ts` (the auto-invite block). Drop the `auto_invited` field from the response.
+
+### Files changed
+
+- **New**: `supabase/migrations/<timestamp>_invite_on_producer_assignment.sql`
+- **New**: `supabase/functions/send-portal-invite-on-assignment/index.ts`
+- **Edit**: `supabase/functions/ctq-webhook/index.ts` (remove auto-invite block)
+- **Deploy**: `ctq-webhook`, `send-portal-invite-on-assignment`
+
+### Memory updates
+
+- Update `mem://logic/communication-logic/producer-cc-notifications` to note that the welcome invite is now triggered on first producer assignment (with CC) instead of CTQ ingestion.
+- Update `mem://features/client-onboarding` to reflect the new trigger point.
+
+## Out of scope
+
+- No change to manual invite flows (`InviteClientDialog`, `sendClientInvite` calls from `ApplicationWizard`, `StaffDashboard`, `AccountDetail`). Those remain manual, on-demand, and behave as today.
+- No change to `application-received`, status-change, or reminder emails — they already use the producer CC pattern.
+- No backfill for legacy unassigned accounts — they'll get the welcome naturally when someone is finally assigned.
