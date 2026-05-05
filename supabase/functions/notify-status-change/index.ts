@@ -241,34 +241,16 @@ Deno.serve(async (req) => {
       portalLink: 'https://truckshield.360riskpartners.com/client',
     }
 
+    const producerEmail = await resolveProducerEmail(supabase, account.assigned_producer_id, account.contact_email)
     await enqueueEmailForRecipient(
       supabase,
       accountId,
       account.contact_email,
       'pipeline-status-change',
       templateData,
-      `auto-pipeline-${accountId}-${newStatus}`
+      `auto-pipeline-${accountId}-${newStatus}`,
+      { cc: producerEmail, replyTo: producerEmail }
     )
-
-    // CC the assigned producer on the client email
-    if (account.assigned_producer_id) {
-      const { data: producerProfile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('user_id', account.assigned_producer_id)
-        .single()
-
-      if (producerProfile?.email && producerProfile.email.toLowerCase() !== account.contact_email.toLowerCase()) {
-        await enqueueEmailForRecipient(
-          supabase,
-          accountId,
-          producerProfile.email,
-          'pipeline-status-change',
-          templateData,
-          `auto-pipeline-${accountId}-${newStatus}-producer-cc`
-        )
-      }
-    }
   } else {
     await logEmailActivity(supabase, accountId, `Email "pipeline-status-change" could not be sent because no client email is on file.`)
   }
@@ -351,27 +333,13 @@ Deno.serve(async (req) => {
       portalLink: 'https://truckshield.360riskpartners.com/client',
     }
 
+    const quotesProducer = await resolveProducerEmail(supabase, account.assigned_producer_id, account.contact_email)
     await enqueueEmailForRecipient(
       supabase, accountId, account.contact_email,
       'quotes-ready-urgency', quotesData,
-      `quotes-ready-${accountId}`
+      `quotes-ready-${accountId}`,
+      { cc: quotesProducer, replyTo: quotesProducer }
     )
-
-    // CC producer
-    if (account.assigned_producer_id) {
-      const { data: prodProf } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('user_id', account.assigned_producer_id)
-        .single()
-      if (prodProf?.email && prodProf.email.toLowerCase() !== account.contact_email.toLowerCase()) {
-        await enqueueEmailForRecipient(
-          supabase, accountId, prodProf.email,
-          'quotes-ready-urgency', quotesData,
-          `quotes-ready-${accountId}-producer-cc`
-        )
-      }
-    }
   }
 
   // --- Send "Post-Bind Welcome" email when status moves to "bound" ---
@@ -392,27 +360,13 @@ Deno.serve(async (req) => {
       portalLink: 'https://truckshield.360riskpartners.com/client',
     }
 
+    const bindProducer = await resolveProducerEmail(supabase, account.assigned_producer_id, account.contact_email)
     await enqueueEmailForRecipient(
       supabase, accountId, account.contact_email,
       'post-bind-welcome', bindData,
-      `post-bind-${accountId}`
+      `post-bind-${accountId}`,
+      { cc: bindProducer, replyTo: bindProducer }
     )
-
-    // CC producer
-    if (account.assigned_producer_id) {
-      const { data: prodProf } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('user_id', account.assigned_producer_id)
-        .single()
-      if (prodProf?.email && prodProf.email.toLowerCase() !== account.contact_email.toLowerCase()) {
-        await enqueueEmailForRecipient(
-          supabase, accountId, prodProf.email,
-          'post-bind-welcome', bindData,
-          `post-bind-${accountId}-producer-cc`
-        )
-      }
-    }
   }
 
   console.log('Status change notifications processed', { accountId, newStatus })
