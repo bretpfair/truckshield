@@ -338,11 +338,27 @@ Deno.serve(async (req) => {
     } catch { /* non-fatal */ }
   }
 
-  // Inject visible CC line into client email if producer is assigned
+  // Determine if producer should be CC'd / used as reply-to.
+  // Suppress CC if producer is suppressed or has unsubscribed.
+  let ccProducerEmail: string | null = null
   if (producerEmail) {
-    const ccLine = `<div style="font-family:Arial,sans-serif;font-size:12px;color:#6b7280;margin-bottom:16px;">CC: ${producerEmail}</div>`
-    html = html.replace(/(<body[^>]*>)/i, `$1${ccLine}`)
-    plainText = `CC: ${producerEmail}\n\n${plainText}`
+    try {
+      const { data: producerSuppressed } = await supabase
+        .from('suppressed_emails')
+        .select('id')
+        .eq('email', producerEmail)
+        .maybeSingle()
+      if (!producerSuppressed) {
+        const { data: existingProdToken } = await supabase
+          .from('email_unsubscribe_tokens')
+          .select('used_at')
+          .eq('email', producerEmail)
+          .maybeSingle()
+        if (!existingProdToken?.used_at) {
+          ccProducerEmail = producerEmail
+        }
+      }
+    } catch { /* non-fatal */ }
   }
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
@@ -372,6 +388,7 @@ Deno.serve(async (req) => {
       idempotency_key: idempotencyKey,
       unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
+      ...(ccProducerEmail ? { cc: [ccProducerEmail], reply_to: [ccProducerEmail] } : {}),
       ...(accountId ? { account_id: accountId } : {}),
     },
   })
@@ -399,82 +416,8 @@ Deno.serve(async (req) => {
 
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
 
-  // CC the assigned producer if we found one earlier
-  if (producerEmail) {
-    try {
-      // Check producer suppression
-      const { data: producerSuppressed } = await supabase
-        .from('suppressed_emails')
-        .select('id')
-        .eq('email', producerEmail)
-        .maybeSingle()
-
-      if (!producerSuppressed) {
-        // Get or create unsubscribe token for producer
-        let producerUnsubToken: string
-        const { data: existingProdToken } = await supabase
-          .from('email_unsubscribe_tokens')
-          .select('token, used_at')
-          .eq('email', producerEmail)
-          .maybeSingle()
-
-        if (existingProdToken?.used_at) {
-          console.log(`Skipping producer CC — ${producerEmail} unsubscribed`)
-        } else {
-          if (existingProdToken && !existingProdToken.used_at) {
-            producerUnsubToken = existingProdToken.token
-          } else {
-            producerUnsubToken = generateToken()
-            await supabase
-              .from('email_unsubscribe_tokens')
-              .upsert({ token: producerUnsubToken, email: producerEmail }, { onConflict: 'email', ignoreDuplicates: true })
-            const { data: storedProdToken } = await supabase
-              .from('email_unsubscribe_tokens')
-              .select('token')
-              .eq('email', producerEmail)
-              .maybeSingle()
-            if (storedProdToken) producerUnsubToken = storedProdToken.token
-          }
-
-          const producerMessageId = crypto.randomUUID()
-          await supabase.from('email_send_log').insert({
-            message_id: producerMessageId,
-            template_name: templateName,
-            recipient_email: producerEmail,
-            status: 'pending',
-            metadata: { cc_for: effectiveRecipient, account_id: accountId },
-          })
-
-          // Build CC-specific content with a notice banner (strip visible CC line for producer copy)
-          const ccBanner = `<div style="background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:12px 16px;margin-bottom:20px;font-family:Arial,sans-serif;font-size:13px;color:#0c4a6e;">📋 <strong>FYI copy</strong> — This email was sent to <strong>${effectiveRecipient}</strong>. You're receiving this as the assigned producer on this account.</div>`
-          // Re-render clean HTML without CC line for producer
-          const cleanHtml = await renderAsync(React.createElement(template.component, templateData))
-          const ccHtml = cleanHtml.replace(/(<body[^>]*>)/i, `$1${ccBanner}`)
-          const cleanText = await renderAsync(React.createElement(template.component, templateData), { plainText: true })
-
-          await supabase.rpc('enqueue_email', {
-            queue_name: 'transactional_emails',
-            payload: {
-              message_id: producerMessageId,
-              to: producerEmail,
-              from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-              sender_domain: SENDER_DOMAIN,
-              subject: `[CC] ${resolvedSubject}`,
-              html: ccHtml,
-              text: `[FYI copy — sent to ${effectiveRecipient}]\n\n${cleanText}`,
-              purpose: 'transactional',
-              label: templateName,
-              idempotency_key: `${idempotencyKey}-producer-cc`,
-              unsubscribe_token: producerUnsubToken!,
-              queued_at: new Date().toISOString(),
-            },
-          })
-          console.log(`Producer CC enqueued for ${producerEmail}`)
-        }
-      }
-    } catch (ccErr) {
-      console.error('Failed to CC producer (non-fatal):', ccErr)
-    }
+  if (ccProducerEmail) {
+    console.log(`Producer ${ccProducerEmail} CC'd and set as reply-to for ${effectiveRecipient}`)
   }
 
   return new Response(
