@@ -1,5 +1,73 @@
-import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+
+// ---------------------------------------------------------------------------
+// Resend dispatcher
+// ---------------------------------------------------------------------------
+// We send all queued emails (auth + transactional) via Resend through the
+// Lovable connector gateway. The queue, retry/DLQ, suppression, unsubscribe
+// token, and Producer-CC logic are all preserved — only the underlying send
+// transport has changed from Lovable Email to Resend.
+const RESEND_GATEWAY_URL = 'https://connector-gateway.lovable.dev/resend'
+
+interface ResendError {
+  status: number
+  message: string
+  retryAfterSeconds: number | null
+}
+
+async function sendViaResend(
+  payload: Record<string, any>,
+  apiKeys: { lovable: string; resend: string },
+  unsubscribeBaseUrl: string
+): Promise<void> {
+  const headers: Record<string, string> = {}
+  if (payload.unsubscribe_token) {
+    const url = `${unsubscribeBaseUrl}?token=${encodeURIComponent(payload.unsubscribe_token)}`
+    headers['List-Unsubscribe'] = `<${url}>`
+    headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+  }
+
+  const body: Record<string, unknown> = {
+    from: payload.from,
+    to: [payload.to],
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+    headers,
+    tags: [
+      { name: 'purpose', value: String(payload.purpose ?? 'transactional') },
+      { name: 'label', value: String(payload.label ?? 'email').slice(0, 50) },
+    ],
+  }
+
+  const response = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKeys.lovable}`,
+      'X-Connection-Api-Key': apiKeys.resend,
+      // Resend supports Idempotency-Key on /emails to prevent duplicate sends.
+      ...(payload.idempotency_key
+        ? { 'Idempotency-Key': String(payload.idempotency_key).slice(0, 256) }
+        : {}),
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errText = await response.text()
+    const retryAfterHeader = response.headers.get('retry-after')
+    const retryAfterSeconds = retryAfterHeader
+      ? Number.parseInt(retryAfterHeader, 10) || null
+      : null
+    const err: ResendError = {
+      status: response.status,
+      message: `Resend send failed [${response.status}]: ${errText.slice(0, 500)}`,
+      retryAfterSeconds,
+    }
+    throw Object.assign(new Error(err.message), err)
+  }
+}
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
