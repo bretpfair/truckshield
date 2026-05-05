@@ -133,7 +133,9 @@ Deno.serve(async (req) => {
     (account.business_owner_name as string | null)?.split(/\s+/)[0] ||
     contactEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
 
-  const { email: producerEmail, name: producerName } = await resolveProducerEmail(
+  // Lookup producer name for activity log only — send-transactional-email
+  // auto-resolves cc/reply_to from accountId
+  const { name: producerName } = await resolveProducerEmail(
     supabase,
     account.assigned_producer_id as string,
     contactEmail,
@@ -145,7 +147,7 @@ Deno.serve(async (req) => {
       recipientEmail: contactEmail,
       idempotencyKey: `portal-invite-${invitation.id}`,
       templateData: { firstName, portalLink },
-      ...(producerEmail ? { cc: producerEmail, replyTo: producerEmail } : {}),
+      accountId,
     },
   })
 
