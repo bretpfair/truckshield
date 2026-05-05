@@ -29,6 +29,7 @@ async function enqueueEmail(
   recipientEmail: string,
   templateData: Record<string, any>,
   idempotencyKey: string,
+  options?: { cc?: string | null; replyTo?: string | null },
 ) {
   const template = TEMPLATES[templateName]
   if (!template) {
@@ -126,6 +127,8 @@ async function enqueueEmail(
       idempotency_key: idempotencyKey,
       unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
+      ...(options?.cc ? { cc: [options.cc.toLowerCase()] } : {}),
+      ...(options?.replyTo ? { reply_to: [options.replyTo.toLowerCase()] } : {}),
     },
   })
 
