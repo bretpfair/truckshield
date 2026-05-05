@@ -8,10 +8,10 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 const SITE_NAME = "TruckShield"
 // SENDER_DOMAIN is the subdomain verified in Resend with SPF/DKIM/DMARC.
 // Sending is performed by process-email-queue via the Resend connector gateway.
-const SENDER_DOMAIN = "send.truckshield.360riskpartners.com"
+const SENDER_DOMAIN = "truckshield.360riskpartners.com"
 // FROM_DOMAIN is the domain shown in the From: header. Must be a domain
 // (or subdomain of one) that is verified in Resend.
-const FROM_DOMAIN = "send.truckshield.360riskpartners.com"
+const FROM_DOMAIN = "truckshield.360riskpartners.com"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

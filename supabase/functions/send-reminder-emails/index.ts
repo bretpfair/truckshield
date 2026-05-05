@@ -4,8 +4,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 const SITE_NAME = '360 Risk Partners'
-const SENDER_DOMAIN = 'send.truckshield.360riskpartners.com'
-const FROM_DOMAIN = 'send.truckshield.360riskpartners.com'
+const SENDER_DOMAIN = 'truckshield.360riskpartners.com'
+const FROM_DOMAIN = 'truckshield.360riskpartners.com'
 const PORTAL_LINK = 'https://truckshield.360riskpartners.com/client'
 
 // Send reminders every 3 days (don't spam daily)
