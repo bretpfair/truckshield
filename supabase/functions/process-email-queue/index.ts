@@ -40,6 +40,18 @@ async function sendViaResend(
     ],
   }
 
+  // Optional: reply_to (string or array) — lets recipients reply to a specific person (e.g. assigned producer)
+  if (payload.reply_to) {
+    body.reply_to = Array.isArray(payload.reply_to) ? payload.reply_to : [String(payload.reply_to)]
+  }
+
+  // Optional: cc (array of email addresses) — visible CC line in the email header
+  if (payload.cc) {
+    const ccList = Array.isArray(payload.cc) ? payload.cc : [payload.cc]
+    const cleaned = ccList.map((v) => String(v)).filter(Boolean)
+    if (cleaned.length) body.cc = cleaned
+  }
+
   const response = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
     method: 'POST',
     headers: {
