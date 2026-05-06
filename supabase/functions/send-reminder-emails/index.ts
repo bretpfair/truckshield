@@ -230,6 +230,16 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+  // Service-role auth: only callable from cron / internal triggers using the service role key.
+  const authHeader = req.headers.get('Authorization')
+  if (authHeader?.replace('Bearer ', '') !== serviceRoleKey) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
   let appReminders = 0
