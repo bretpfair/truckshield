@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
+  const callerUserId = claimsData.claims.sub as string
 
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error('Missing required environment variables')
@@ -141,6 +142,35 @@ Deno.serve(async (req) => {
 
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+  // Authorization: staff (admin/producer) can send any template.
+  // Clients can only trigger sends for their own account.
+  const { data: callerRoles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', callerUserId)
+  const isStaff = (callerRoles ?? []).some(
+    (r: { role: string }) => r.role === 'admin' || r.role === 'producer',
+  )
+  if (!isStaff) {
+    // Client must own the account this email is being sent for
+    if (!accountId) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const { data: ownedAccount } = await supabase
+      .from('accounts')
+      .select('id')
+      .eq('id', accountId)
+      .eq('client_user_id', callerUserId)
+      .maybeSingle()
+    if (!ownedAccount) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+  }
 
   // 2. Check suppression list (fail-closed: if we can't verify, don't send)
   const { data: suppressed, error: suppressionError } = await supabase
