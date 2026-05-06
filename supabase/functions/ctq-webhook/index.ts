@@ -77,6 +77,33 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Webhook auth: require shared secret in URL path or query (?key=)
+  // CTQ should be configured to POST to: /functions/v1/ctq-webhook?key=<CTQ_WEBHOOK_SECRET>
+  const expectedSecret = Deno.env.get("CTQ_WEBHOOK_SECRET");
+  if (!expectedSecret) {
+    console.error("CTQ_WEBHOOK_SECRET is not configured");
+    return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const url = new URL(req.url);
+  const providedSecret =
+    url.searchParams.get("key") ||
+    req.headers.get("x-ctq-secret") ||
+    "";
+  // Constant-time-ish comparison
+  if (
+    providedSecret.length !== expectedSecret.length ||
+    providedSecret !== expectedSecret
+  ) {
+    console.warn("CTQ webhook called with invalid secret");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const payload = await req.json();
     console.log("CTQ raw payload:", JSON.stringify(payload));

@@ -38,6 +38,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    const callerUserId = claimsData.claims.sub as string;
+
     const { email, inviteToken, redirectTo } = await req.json();
     if (!email || !inviteToken || !redirectTo) {
       return new Response(
@@ -50,6 +52,51 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+
+    // Verify caller is staff (admin or producer)
+    const { data: roles, error: rolesError } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerUserId);
+    if (rolesError) {
+      console.error("role lookup failed:", rolesError);
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const isStaff = (roles ?? []).some(
+      (r: { role: string }) => r.role === "admin" || r.role === "producer",
+    );
+    if (!isStaff) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify the inviteToken matches a real, unexpired invitation for this email
+    const { data: invitation, error: invErr } = await adminClient
+      .from("client_invitations")
+      .select("id, email, expires_at, status")
+      .eq("token", inviteToken)
+      .maybeSingle();
+    if (invErr || !invitation) {
+      return new Response(JSON.stringify({ error: "Invalid invitation token" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (
+      invitation.email.toLowerCase() !== String(email).toLowerCase() ||
+      new Date(invitation.expires_at).getTime() < Date.now() ||
+      invitation.status !== "pending"
+    ) {
+      return new Response(JSON.stringify({ error: "Invitation not valid for this email" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: linkData, error: linkError } =
       await adminClient.auth.admin.generateLink({
