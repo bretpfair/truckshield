@@ -767,9 +767,45 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
               This will remove <strong>{account.company_name}</strong> from the active pipeline. The record will be preserved but no longer appear in your pipeline view.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="close-lost-reason">Reason <span className="text-destructive">*</span></Label>
+              <Select value={closeLostReason} onValueChange={setCloseLostReason}>
+                <SelectTrigger id="close-lost-reason">
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="went_with_competitor">Went with competitor</SelectItem>
+                  <SelectItem value="price">Price / premium too high</SelectItem>
+                  <SelectItem value="no_response">No response from prospect</SelectItem>
+                  <SelectItem value="not_qualified">Not qualified / outside appetite</SelectItem>
+                  <SelectItem value="no_carrier_match">No carrier match</SelectItem>
+                  <SelectItem value="duplicate">Duplicate lead</SelectItem>
+                  <SelectItem value="decided_not_to_buy">Decided not to buy / shut down</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="close-lost-detail">Notes (optional)</Label>
+              <Textarea
+                id="close-lost-detail"
+                value={closeLostDetail}
+                onChange={(e) => setCloseLostDetail(e.target.value)}
+                placeholder="Any additional context..."
+                rows={3}
+              />
+            </div>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => closeLostAccount.mutate()}>
+            <AlertDialogAction
+              disabled={!closeLostReason || closeLostAccount.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                closeLostAccount.mutate();
+              }}
+            >
               Confirm Close / Lost
             </AlertDialogAction>
           </AlertDialogFooter>
