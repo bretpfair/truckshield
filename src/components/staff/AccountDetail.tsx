@@ -10,6 +10,8 @@ import { toast as sonnerToast } from "sonner";
 import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown, UserCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { sendClientInvite } from "@/lib/sendClientInvite";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
