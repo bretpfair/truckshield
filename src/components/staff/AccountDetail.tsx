@@ -111,6 +111,8 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
+  const [closeLostReason, setCloseLostReason] = useState<string>("");
+  const [closeLostDetail, setCloseLostDetail] = useState<string>("");
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [isSaferUpdating, setIsSaferUpdating] = useState(false);
   const { user, role } = useAuth();
@@ -231,18 +233,30 @@ const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
 
   const closeLostAccount = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("accounts").update({ status: "closed_lost" }).eq("id", accountId);
+      if (!closeLostReason) throw new Error("Please select a reason");
+      const { error } = await supabase
+        .from("accounts")
+        .update({
+          status: "closed_lost",
+          close_lost_reason: closeLostReason,
+          close_lost_reason_detail: closeLostDetail.trim() || null,
+          closed_lost_at: new Date().toISOString(),
+        } as any)
+        .eq("id", accountId);
       if (error) throw error;
       await supabase.from("activity_log").insert({
         account_id: accountId,
         action_type: "status_change",
-        description: "Account marked as Closed/Lost",
+        description: `Account marked as Closed/Lost — ${closeLostReason}${closeLostDetail.trim() ? `: ${closeLostDetail.trim()}` : ""}`,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["account", accountId] });
       toast({ title: "Account marked as Closed/Lost" });
+      setShowCloseLostDialog(false);
+      setCloseLostReason("");
+      setCloseLostDetail("");
       onBack();
     },
     onError: (err: any) => {
