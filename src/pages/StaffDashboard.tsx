@@ -29,6 +29,7 @@ const statusColors: Record<string, string> = {
   quoted: "bg-success/10 text-success border-success/20",
   bound: "bg-success/20 text-success border-success/30",
   declined: "bg-destructive/10 text-destructive border-destructive/20",
+  closed_lost: "bg-muted text-muted-foreground border-border",
 };
 
 interface StaffDashboardProps {

@@ -53,6 +53,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   bound: { label: "Policy Bound", color: "bg-success/20 text-success border-success/40", icon: Shield },
   
   declined: { label: "Declined", color: "bg-destructive/10 text-destructive border-destructive/30", icon: AlertCircle },
+  closed_lost: { label: "Closed", color: "bg-muted text-muted-foreground border-border", icon: AlertCircle },
 };
 
 const quoteStatusConfig: Record<string, { label: string; color: string }> = {
