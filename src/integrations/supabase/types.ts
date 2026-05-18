@@ -71,6 +71,9 @@ export type Database = {
           carrier_authority_number: string | null
           carrier_authority_prefix: string | null
           client_user_id: string | null
+          close_lost_reason: string | null
+          close_lost_reason_detail: string | null
+          closed_lost_at: string | null
           commodity_info: Json | null
           company_name: string
           contact_email: string | null
@@ -124,6 +127,9 @@ export type Database = {
           carrier_authority_number?: string | null
           carrier_authority_prefix?: string | null
           client_user_id?: string | null
+          close_lost_reason?: string | null
+          close_lost_reason_detail?: string | null
+          closed_lost_at?: string | null
           commodity_info?: Json | null
           company_name: string
           contact_email?: string | null
@@ -177,6 +183,9 @@ export type Database = {
           carrier_authority_number?: string | null
           carrier_authority_prefix?: string | null
           client_user_id?: string | null
+          close_lost_reason?: string | null
+          close_lost_reason_detail?: string | null
+          closed_lost_at?: string | null
           commodity_info?: Json | null
           company_name?: string
           contact_email?: string | null
