@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Outlet, useLocation, useNavigate, matchPath } from "react-router-dom";
-import { Truck, LogOut, User, Eye } from "lucide-react";
+import { Truck, LogOut, User } from "lucide-react";
 import sitelogo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
@@ -64,16 +64,6 @@ const AppLayout = () => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  const handleTogglePreview = () => {
-    if (inStaffPreview) {
-      navigate("/staff");
-    } else {
-      // Preview from current account if we're on one, otherwise generic /client
-      if (routeAccountId) navigate(`/staff/preview/${routeAccountId}`);
-      else navigate("/client");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -89,17 +79,6 @@ const AppLayout = () => {
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {isStaffRole && (
-              <Button
-                variant={inStaffPreview ? "default" : "outline"}
-                size="sm"
-                onClick={handleTogglePreview}
-                className="gap-1 text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
-              >
-                <Eye className="h-3 w-3" />
-                <span className="hidden xs:inline">{inStaffPreview ? "Back to Staff" : "Preview Client"}</span>
-              </Button>
-            )}
             <NotificationBell
               onNavigateToAccount={(accountId) => {
                 if (isStaffRole) navigate(`/staff/accounts/${accountId}`);
