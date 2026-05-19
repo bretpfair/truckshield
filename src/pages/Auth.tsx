@@ -42,31 +42,29 @@ const Auth = () => {
     const fetchInviteDetails = async () => {
       setInviteStatus("loading");
       try {
-        const { data, error } = await supabase
-          .from("client_invitations")
-          .select("email, status, expires_at")
-          .eq("token", inviteToken)
-          .maybeSingle();
+        const { data, error } = await supabase.rpc(
+          "get_client_invitation_status" as any,
+          { p_token: inviteToken },
+        );
 
-        if (error || !data) {
+        if (error || !data || typeof data !== "object") {
           setInviteStatus("invalid");
           return;
         }
 
-        if (data.status === "accepted") {
-          setInviteStatus("invalid");
-          return;
+        const result = data as { status: string; email?: string };
+        if (result.email) {
+          setInviteEmail(result.email);
+          setEmail(result.email);
         }
 
-        if (data.status !== "pending") {
+        if (result.status === "valid") {
+          setInviteStatus("valid");
+        } else if (result.status === "expired") {
+          setInviteStatus("expired");
+        } else {
           setInviteStatus("invalid");
-          return;
         }
-
-        const isExpired = new Date(data.expires_at) < new Date();
-        setInviteEmail(data.email);
-        setEmail(data.email);
-        setInviteStatus(isExpired ? "expired" : "valid");
       } catch {
         setInviteStatus("invalid");
       }
