@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -67,13 +68,12 @@ const quoteStatusConfig: Record<string, { label: string; color: string }> = {
 
 /* ── component ───────────────────────────────────────── */
 
-interface ClientPortalProps {
-  onSetMessagingAccount?: (accountId: string) => void;
-}
-
-const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
+const ClientPortal = () => {
   const { user } = useAuth();
-  const [showWizard, setShowWizard] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const showWizard = location.pathname === "/client/application";
+  const setShowWizard = (open: boolean) => navigate(open ? "/client/application" : "/client");
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ["client-accounts"],
@@ -89,11 +89,12 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
 
   const account = accounts?.[0];
 
+  // Publish account id to the layout so the messaging sidebar can target it.
   useEffect(() => {
-    if (account?.id && onSetMessagingAccount) {
-      onSetMessagingAccount(account.id);
+    if (account?.id) {
+      window.dispatchEvent(new CustomEvent("client-account-ready", { detail: account.id }));
     }
-  }, [account?.id, onSetMessagingAccount]);
+  }, [account?.id]);
 
   const { data: allQuotes } = useQuery({
     queryKey: ["client-all-quotes", account?.id],
@@ -458,7 +459,11 @@ const ClientPortal = ({ onSetMessagingAccount }: ClientPortalProps = {}) => {
       {/* ── AI FAQ Chat Widget ── */}
       <AiFaqChat
         accountId={account.id}
-        onEscalate={() => onSetMessagingAccount?.(account.id)}
+        onEscalate={() => {
+          if (account?.id) {
+            window.dispatchEvent(new CustomEvent("client-account-ready", { detail: account.id }));
+          }
+        }}
       />
     </div>
   );
