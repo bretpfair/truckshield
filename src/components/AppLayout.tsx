@@ -37,7 +37,6 @@ const AppLayout = () => {
     location.pathname.startsWith("/staff/preview");
   const inStaffPreview = location.pathname.startsWith("/staff/preview");
   const routeAccountId = useRouteAccountId();
-  void navigate;
 
   // Messaging sidebar account: staff = current account in URL, client = their own account (set by ClientPortal via custom event)
   const messagingAccountId = isStaffRole ? routeAccountId : clientMessagingAccountId;
