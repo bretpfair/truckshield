@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
-import { ArrowLeft, ClipboardList, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown, UserCheck } from "lucide-react";
+import { ArrowLeft, ClipboardList, Eye, Download, Trash2, XCircle, RefreshCw, Loader2, Mail, Zap, ChevronDown, UserCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { sendClientInvite } from "@/lib/sendClientInvite";
 import { Label } from "@/components/ui/label";
@@ -647,6 +647,11 @@ const AccountDetail = (props: Props = {}) => {
             >
               {isSendingInvite ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">Send Invite</span>
+            </Button>
+          )}
+          {onPreviewClient && (
+            <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5 shrink-0">
+              <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Preview Client</span>
             </Button>
           )}
           <Button
