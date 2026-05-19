@@ -1,9 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
-import StaffDashboard from "@/pages/StaffDashboard";
-import ClientPortal from "@/pages/ClientPortal";
-import ClientPortalForAccount from "@/pages/ClientPortalForAccount";
+import { Navigate, Outlet, useLocation, useNavigate, matchPath } from "react-router-dom";
 import { Truck, LogOut, User, Eye } from "lucide-react";
 import sitelogo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
@@ -12,14 +9,47 @@ import ThemeToggle from "@/components/ThemeToggle";
 import MessagingSidebar from "@/components/messaging/MessagingSidebar";
 import useRealtimeUpdates from "@/hooks/useRealtimeUpdates";
 
+/** Pull :accountId out of the current path regardless of which nested route matched. */
+const useRouteAccountId = (): string | null => {
+  const { pathname } = useLocation();
+  for (const pattern of [
+    "/staff/accounts/:accountId/application",
+    "/staff/accounts/:accountId",
+    "/staff/preview/:accountId",
+  ]) {
+    const m = matchPath({ path: pattern, end: true }, pathname);
+    if (m?.params?.accountId) return m.params.accountId;
+  }
+  return null;
+};
+
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
-  const [viewAsClient, setViewAsClient] = useState(false);
-  const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
-  const [staffNavigateAccountId, setStaffNavigateAccountId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [messagingExpanded, setMessagingExpanded] = useState(false);
-  const [messagingAccountId, setMessagingAccountId] = useState<string | null>(null);
+  const [clientMessagingAccountId, setClientMessagingAccountId] = useState<string | null>(null);
   useRealtimeUpdates(user?.id);
+
+  const isStaffRole = role === "admin" || role === "producer";
+  const onClientArea =
+    location.pathname.startsWith("/client") ||
+    location.pathname.startsWith("/staff/preview");
+  const inStaffPreview = location.pathname.startsWith("/staff/preview");
+  const routeAccountId = useRouteAccountId();
+
+  // Messaging sidebar account: staff = current account in URL, client = their own account (set by ClientPortal via custom event)
+  const messagingAccountId = isStaffRole ? routeAccountId : clientMessagingAccountId;
+
+  // Listen for the client portal to publish its account id
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) setClientMessagingAccountId(id);
+    };
+    window.addEventListener("client-account-ready", handler as EventListener);
+    return () => window.removeEventListener("client-account-ready", handler as EventListener);
+  }, []);
 
   if (loading) {
     return (
@@ -34,22 +64,14 @@ const AppLayout = () => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  const isStaffRole = role === "admin" || role === "producer";
-  const showClient = !isStaffRole || viewAsClient;
-
-  const handlePreviewClient = (accountId?: string) => {
-    setPreviewAccountId(accountId || null);
-    setViewAsClient(true);
-  };
-
-  const handleBackToStaff = () => {
-    setViewAsClient(false);
-    setPreviewAccountId(null);
-  };
-
-  const handleOpenMessages = (accountId: string) => {
-    setMessagingAccountId(accountId);
-    setMessagingExpanded(true);
+  const handleTogglePreview = () => {
+    if (inStaffPreview) {
+      navigate("/staff");
+    } else {
+      // Preview from current account if we're on one, otherwise generic /client
+      if (routeAccountId) navigate(`/staff/preview/${routeAccountId}`);
+      else navigate("/client");
+    }
   };
 
   return (
@@ -63,28 +85,24 @@ const AppLayout = () => {
               <span className="hidden sm:inline">TruckShield, powered by 360 Risk Partners</span>
             </span>
             <span className="status-badge bg-primary/10 text-primary rounded text-[10px] sm:text-xs shrink-0">
-              {showClient ? "Client" : "Staff"}
+              {onClientArea ? "Client" : "Staff"}
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {isStaffRole && (
               <Button
-                variant={viewAsClient ? "default" : "outline"}
+                variant={inStaffPreview ? "default" : "outline"}
                 size="sm"
-                onClick={() => viewAsClient ? handleBackToStaff() : handlePreviewClient()}
+                onClick={handleTogglePreview}
                 className="gap-1 text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
               >
                 <Eye className="h-3 w-3" />
-                <span className="hidden xs:inline">{viewAsClient ? "Back to Staff" : "Preview Client"}</span>
+                <span className="hidden xs:inline">{inStaffPreview ? "Back to Staff" : "Preview Client"}</span>
               </Button>
             )}
             <NotificationBell
               onNavigateToAccount={(accountId) => {
-                if (isStaffRole) {
-                  setViewAsClient(false);
-                  setPreviewAccountId(null);
-                  setStaffNavigateAccountId(accountId);
-                }
+                if (isStaffRole) navigate(`/staff/accounts/${accountId}`);
               }}
             />
             <ThemeToggle />
@@ -100,40 +118,16 @@ const AppLayout = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className={`flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 transition-all duration-300 ${messagingExpanded ? "md:mr-[380px]" : (isStaffRole && !showClient) || (!isStaffRole) ? "md:mr-12" : ""}`}>
-          {showClient ? (
-            previewAccountId ? (
-              <ClientPortalForAccount accountId={previewAccountId} />
-            ) : (
-              <ClientPortal onSetMessagingAccount={(id) => setMessagingAccountId(id)} />
-            )
-          ) : (
-            <StaffDashboard
-              onPreviewClient={handlePreviewClient}
-              onOpenMessages={handleOpenMessages}
-              navigateToAccountId={staffNavigateAccountId}
-              onNavigateHandled={() => setStaffNavigateAccountId(null)}
-            />
-          )}
+        <main className={`flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6 transition-all duration-300 ${messagingExpanded ? "md:mr-[380px]" : "md:mr-12"}`}>
+          <Outlet />
         </main>
 
-        {(isStaffRole && !showClient) && (
-          <MessagingSidebar
-            expanded={messagingExpanded}
-            onToggle={() => setMessagingExpanded((prev) => !prev)}
-            accountId={messagingAccountId}
-            isStaff
-          />
-        )}
-
-        {!isStaffRole && (
-          <MessagingSidebar
-            expanded={messagingExpanded}
-            onToggle={() => setMessagingExpanded((prev) => !prev)}
-            accountId={messagingAccountId}
-            isStaff={false}
-          />
-        )}
+        <MessagingSidebar
+          expanded={messagingExpanded}
+          onToggle={() => setMessagingExpanded((prev) => !prev)}
+          accountId={messagingAccountId}
+          isStaff={isStaffRole && !inStaffPreview}
+        />
       </div>
     </div>
   );

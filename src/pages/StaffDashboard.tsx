@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import AccountDetail from "@/components/staff/AccountDetail";
 import CarrierManager from "@/components/staff/CarrierManager";
 import InviteClientDialog from "@/components/staff/InviteClientDialog";
 import InviteStaffDialog from "@/components/staff/InviteStaffDialog";
@@ -32,15 +32,33 @@ const statusColors: Record<string, string> = {
   closed_lost: "bg-muted text-muted-foreground border-border",
 };
 
-interface StaffDashboardProps {
-  onPreviewClient?: (accountId: string) => void;
-  onOpenMessages?: (accountId: string) => void;
-  navigateToAccountId?: string | null;
-  onNavigateHandled?: () => void;
-}
+const VALID_TABS = [
+  "accounts",
+  "pdf-upload",
+  "carriers",
+  "analytics",
+  "invite",
+  "invite-staff",
+  "staff-manage",
+] as const;
+type TabValue = (typeof VALID_TABS)[number];
 
-const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, onNavigateHandled }: StaffDashboardProps = {}) => {
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+const StaffDashboard = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Tab is derived from the URL: /staff or /staff/accounts → "accounts"; /staff/<tab> → that tab.
+  const segment = location.pathname.split("/")[2] || "accounts";
+  const currentTab: TabValue = (VALID_TABS as readonly string[]).includes(segment)
+    ? (segment as TabValue)
+    : "accounts";
+
+  const handleTabChange = (value: string) => {
+    navigate(value === "accounts" ? "/staff" : `/staff/${value}`);
+  };
+
+  const goToAccount = (id: string) => navigate(`/staff/accounts/${id}`);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [newAccountMode, setNewAccountMode] = useState<"dot" | "manual">("dot");
@@ -53,24 +71,6 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
   const isAdmin = role === "admin";
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Handle external navigation from notification clicks
-  useEffect(() => {
-    if (navigateToAccountId) {
-      setSelectedAccountId(navigateToAccountId);
-      onNavigateHandled?.();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigateToAccountId]);
-
-  // Sync selected account to messaging sidebar
-  useEffect(() => {
-    if (selectedAccountId) {
-      onOpenMessages?.(selectedAccountId);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccountId]);
-  
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ["accounts"],
@@ -214,7 +214,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
         description: `An account for "${existing.company_name}" already exists with this DOT number.`,
         action: {
           label: "View Account",
-          onClick: () => { resetNewAccountForm(); setSelectedAccountId(existing.id); },
+            onClick: () => { resetNewAccountForm(); goToAccount(existing.id); },
         },
         duration: 8000,
       });
@@ -236,16 +236,6 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
     quoting: accounts?.filter((a) => ["quoting", "quoted"].includes(a.status)).length ?? 0,
     bound: accounts?.filter((a) => a.status === "bound").length ?? 0,
   };
-
-  if (selectedAccountId) {
-    return (
-      <AccountDetail
-        accountId={selectedAccountId}
-        onBack={() => setSelectedAccountId(null)}
-        onPreviewClient={onPreviewClient}
-      />
-    );
-  }
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
@@ -269,7 +259,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
         ))}
       </div>
 
-      <Tabs defaultValue="accounts" className="space-y-4">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-4">
         <div className="overflow-x-auto -mx-1 px-1 scrollbar-none">
           <TabsList className="bg-secondary w-max">
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
@@ -386,7 +376,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                                     const fieldCount = Object.keys(updateFields).length;
                                     sonnerToast.success(`Updated ${fieldCount} fields on "${existingAccount.company_name}" from SAFER`);
                                     resetNewAccountForm();
-                                    setSelectedAccountId(existingAccount.id);
+                                    goToAccount(existingAccount.id);
                                   } catch (err: any) {
                                     sonnerToast.error("Update failed", { description: err.message });
                                   }
@@ -398,7 +388,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                                 variant="outline"
                                 size="sm"
                                 className="text-xs border-warning/30 text-warning hover:bg-warning/10"
-                                onClick={() => { resetNewAccountForm(); setSelectedAccountId(existingAccount.id); }}
+                                onClick={() => { resetNewAccountForm(); goToAccount(existingAccount.id); }}
                               >
                                 View Account
                               </Button>
@@ -473,7 +463,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
           ) : viewMode === "pipeline" ? (
             <PipelineView
               accounts={filtered ?? []}
-              onSelectAccount={setSelectedAccountId}
+              onSelectAccount={goToAccount}
             />
           ) : (
             <div className="space-y-2">
@@ -481,7 +471,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
                 <Card
                   key={account.id}
                   className="glass-panel cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => setSelectedAccountId(account.id)}
+                  onClick={() => goToAccount(account.id)}
                 >
                   <CardContent className="p-3 sm:p-4 flex items-center justify-between gap-2">
                      <div className="flex items-center gap-3 min-w-0">

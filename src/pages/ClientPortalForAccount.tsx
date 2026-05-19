@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -65,10 +66,12 @@ const quoteStatusConfig: Record<string, { label: string; color: string }> = {
 };
 
 interface Props {
-  accountId: string;
+  accountId?: string;
 }
 
-const ClientPortalForAccount = ({ accountId }: Props) => {
+const ClientPortalForAccount = (props: Props = {}) => {
+  const params = useParams<{ accountId: string }>();
+  const accountId = props.accountId ?? params.accountId!;
   const [showWizard, setShowWizard] = useState(false);
   const [showInfoRequestDialog, setShowInfoRequestDialog] = useState(false);
 
