@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -102,13 +103,25 @@ const ProducerAssignment = ({ accountId, currentProducerId }: { accountId: strin
 };
 
 interface Props {
-  accountId: string;
-  onBack: () => void;
+  /** Optional override (when rendered outside a route). Falls back to the URL param. */
+  accountId?: string;
+  onBack?: () => void;
   onPreviewClient?: (accountId: string) => void;
 }
 
-const AccountDetail = ({ accountId, onBack, onPreviewClient }: Props) => {
-  const [showWizard, setShowWizard] = useState(false);
+const AccountDetail = (props: Props = {}) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = useParams<{ accountId: string }>();
+  const accountId = props.accountId ?? params.accountId!;
+  const showWizard = location.pathname.endsWith("/application");
+  const setShowWizard = (open: boolean) => {
+    if (open) navigate(`/staff/accounts/${accountId}/application`);
+    else navigate(`/staff/accounts/${accountId}`);
+  };
+  const onBack = props.onBack ?? (() => navigate("/staff"));
+  const onPreviewClient =
+    props.onPreviewClient ?? ((id: string) => navigate(`/staff/preview/${id}`));
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseLostDialog, setShowCloseLostDialog] = useState(false);
   const [closeLostReason, setCloseLostReason] = useState<string>("");
