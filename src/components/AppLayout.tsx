@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, Outlet, useLocation, useNavigate, useParams, matchPath } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useNavigate, matchPath } from "react-router-dom";
 import { Truck, LogOut, User, Eye } from "lucide-react";
 import sitelogo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
