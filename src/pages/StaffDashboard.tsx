@@ -259,7 +259,7 @@ const StaffDashboard = () => {
         ))}
       </div>
 
-      <Tabs defaultValue="accounts" className="space-y-4">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-4">
         <div className="overflow-x-auto -mx-1 px-1 scrollbar-none">
           <TabsList className="bg-secondary w-max">
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
@@ -463,7 +463,7 @@ const StaffDashboard = () => {
           ) : viewMode === "pipeline" ? (
             <PipelineView
               accounts={filtered ?? []}
-              onSelectAccount={setSelectedAccountId}
+              onSelectAccount={goToAccount}
             />
           ) : (
             <div className="space-y-2">
