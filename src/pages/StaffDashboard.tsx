@@ -376,7 +376,7 @@ const StaffDashboard = () => {
                                     const fieldCount = Object.keys(updateFields).length;
                                     sonnerToast.success(`Updated ${fieldCount} fields on "${existingAccount.company_name}" from SAFER`);
                                     resetNewAccountForm();
-                                    setSelectedAccountId(existingAccount.id);
+                                    goToAccount(existingAccount.id);
                                   } catch (err: any) {
                                     sonnerToast.error("Update failed", { description: err.message });
                                   }
@@ -388,7 +388,7 @@ const StaffDashboard = () => {
                                 variant="outline"
                                 size="sm"
                                 className="text-xs border-warning/30 text-warning hover:bg-warning/10"
-                                onClick={() => { resetNewAccountForm(); setSelectedAccountId(existingAccount.id); }}
+                                onClick={() => { resetNewAccountForm(); goToAccount(existingAccount.id); }}
                               >
                                 View Account
                               </Button>
@@ -471,7 +471,7 @@ const StaffDashboard = () => {
                 <Card
                   key={account.id}
                   className="glass-panel cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => setSelectedAccountId(account.id)}
+                  onClick={() => goToAccount(account.id)}
                 >
                   <CardContent className="p-3 sm:p-4 flex items-center justify-between gap-2">
                      <div className="flex items-center gap-3 min-w-0">
