@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import AccountDetail from "@/components/staff/AccountDetail";
 import CarrierManager from "@/components/staff/CarrierManager";
 import InviteClientDialog from "@/components/staff/InviteClientDialog";
 import InviteStaffDialog from "@/components/staff/InviteStaffDialog";
@@ -32,15 +32,33 @@ const statusColors: Record<string, string> = {
   closed_lost: "bg-muted text-muted-foreground border-border",
 };
 
-interface StaffDashboardProps {
-  onPreviewClient?: (accountId: string) => void;
-  onOpenMessages?: (accountId: string) => void;
-  navigateToAccountId?: string | null;
-  onNavigateHandled?: () => void;
-}
+const VALID_TABS = [
+  "accounts",
+  "pdf-upload",
+  "carriers",
+  "analytics",
+  "invite",
+  "invite-staff",
+  "staff-manage",
+] as const;
+type TabValue = (typeof VALID_TABS)[number];
 
-const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, onNavigateHandled }: StaffDashboardProps = {}) => {
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+const StaffDashboard = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Tab is derived from the URL: /staff or /staff/accounts → "accounts"; /staff/<tab> → that tab.
+  const segment = location.pathname.split("/")[2] || "accounts";
+  const currentTab: TabValue = (VALID_TABS as readonly string[]).includes(segment)
+    ? (segment as TabValue)
+    : "accounts";
+
+  const handleTabChange = (value: string) => {
+    navigate(value === "accounts" ? "/staff" : `/staff/${value}`);
+  };
+
+  const goToAccount = (id: string) => navigate(`/staff/accounts/${id}`);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [newAccountMode, setNewAccountMode] = useState<"dot" | "manual">("dot");
@@ -53,24 +71,6 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
   const isAdmin = role === "admin";
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Handle external navigation from notification clicks
-  useEffect(() => {
-    if (navigateToAccountId) {
-      setSelectedAccountId(navigateToAccountId);
-      onNavigateHandled?.();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigateToAccountId]);
-
-  // Sync selected account to messaging sidebar
-  useEffect(() => {
-    if (selectedAccountId) {
-      onOpenMessages?.(selectedAccountId);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccountId]);
-  
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ["accounts"],
@@ -214,7 +214,7 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
         description: `An account for "${existing.company_name}" already exists with this DOT number.`,
         action: {
           label: "View Account",
-          onClick: () => { resetNewAccountForm(); setSelectedAccountId(existing.id); },
+            onClick: () => { resetNewAccountForm(); goToAccount(existing.id); },
         },
         duration: 8000,
       });
@@ -236,16 +236,6 @@ const StaffDashboard = ({ onPreviewClient, onOpenMessages, navigateToAccountId, 
     quoting: accounts?.filter((a) => ["quoting", "quoted"].includes(a.status)).length ?? 0,
     bound: accounts?.filter((a) => a.status === "bound").length ?? 0,
   };
-
-  if (selectedAccountId) {
-    return (
-      <AccountDetail
-        accountId={selectedAccountId}
-        onBack={() => setSelectedAccountId(null)}
-        onPreviewClient={onPreviewClient}
-      />
-    );
-  }
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
