@@ -129,3 +129,15 @@ function deriveFirstName(email: string): string {
     .replace(/[._-]/g, " ")
     .replace(/\b\w/g, (c: string) => c.toUpperCase());
 }
+
+async function backfillContactEmail(accountId: string, normalizedEmail: string): Promise<void> {
+  const { error } = await supabase
+    .from("accounts")
+    .update({ contact_email: normalizedEmail })
+    .eq("id", accountId)
+    .or("contact_email.is.null,contact_email.eq.");
+  if (error) {
+    console.error("Failed to backfill accounts.contact_email", { accountId, error });
+    throw new Error(`Could not store invite email on account: ${error.message}`);
+  }
+}
