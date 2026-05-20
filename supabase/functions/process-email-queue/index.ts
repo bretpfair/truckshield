@@ -141,11 +141,37 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
   }
 }
 
+function buildEmailMetadata(
+  payload: Record<string, unknown>,
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> | null {
+  const metadata: Record<string, unknown> = {}
+
+  if (typeof payload.account_id === 'string') metadata.account_id = payload.account_id
+  if (typeof payload.message_id === 'string') metadata.message_id = payload.message_id
+  if (typeof payload.label === 'string') metadata.template_name = payload.label
+  if (typeof payload.to === 'string') {
+    metadata.recipient = payload.to
+    metadata.recipient_email = payload.to
+  }
+  if (payload.templateData && typeof payload.templateData === 'object') {
+    metadata.templateData = payload.templateData
+  }
+  if (payload.cc) metadata.cc = payload.cc
+
+  for (const [key, value] of Object.entries(extra)) {
+    if (value !== undefined && value !== null) metadata[key] = value
+  }
+
+  return Object.keys(metadata).length ? metadata : null
+}
+
 async function logAccountEmailActivity(
   supabase: ReturnType<typeof createClient>,
   payload: Record<string, unknown>,
   status: 'sent' | 'failed',
-  errorMessage?: string
+  errorMessage?: string,
+  extraMetadata: Record<string, unknown> = {}
 ): Promise<void> {
   const accountId = typeof payload.account_id === 'string' ? payload.account_id : null
   if (!accountId) return
@@ -160,6 +186,10 @@ async function logAccountEmailActivity(
     account_id: accountId,
     action_type: status === 'sent' ? 'email_sent' : 'email_failed',
     description,
+    metadata: buildEmailMetadata(payload, {
+      ...extraMetadata,
+      ...(errorMessage ? { error: errorMessage.slice(0, 1000) } : {}),
+    }),
   })
 
   if (error) {
@@ -181,11 +211,16 @@ async function moveToDlq(
     recipient_email: payload.to,
     status: 'dlq',
     error_message: reason,
-    metadata: typeof payload.account_id === 'string'
-      ? { account_id: payload.account_id }
-      : null,
+    metadata: buildEmailMetadata(payload, {
+      queue,
+      queue_msg_id: msg.msg_id,
+      error: reason,
+    }),
   })
-  await logAccountEmailActivity(supabase, payload, 'failed', reason)
+  await logAccountEmailActivity(supabase, payload, 'failed', reason, {
+    queue,
+    queue_msg_id: msg.msg_id,
+  })
   const { error } = await supabase.rpc('move_to_dlq', {
     source_queue: queue,
     dlq_name: `${queue}_dlq`,
@@ -374,6 +409,11 @@ Deno.serve(async (req) => {
           { lovable: apiKey, resend: resendApiKey },
           unsubscribeBaseUrl
         )
+        const sentMetadata = buildEmailMetadata(payload, {
+          queue,
+          queue_msg_id: msg.msg_id,
+          ...(providerMessageId ? { provider_message_id: providerMessageId } : {}),
+        })
 
         // Log success
         await supabase.from('email_send_log').insert({
@@ -381,12 +421,13 @@ Deno.serve(async (req) => {
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
-          metadata: {
-            ...(typeof payload.account_id === 'string' ? { account_id: payload.account_id } : {}),
-            ...(providerMessageId ? { provider_message_id: providerMessageId } : {}),
-          },
+          metadata: sentMetadata,
         })
-        await logAccountEmailActivity(supabase, payload, 'sent')
+        await logAccountEmailActivity(supabase, payload, 'sent', undefined, {
+          queue,
+          queue_msg_id: msg.msg_id,
+          ...(providerMessageId ? { provider_message_id: providerMessageId } : {}),
+        })
 
         // Delete from queue
         const { error: delError } = await supabase.rpc('delete_email', {
@@ -414,9 +455,11 @@ Deno.serve(async (req) => {
             recipient_email: payload.to,
             status: 'rate_limited',
             error_message: errorMsg.slice(0, 1000),
-            metadata: typeof payload.account_id === 'string'
-              ? { account_id: payload.account_id }
-              : null,
+            metadata: buildEmailMetadata(payload, {
+              queue,
+              queue_msg_id: msg.msg_id,
+              error: errorMsg.slice(0, 1000),
+            }),
           })
 
           const retryAfterSecs = getRetryAfterSeconds(error)
@@ -454,11 +497,16 @@ Deno.serve(async (req) => {
           recipient_email: payload.to,
           status: 'failed',
           error_message: errorMsg.slice(0, 1000),
-          metadata: typeof payload.account_id === 'string'
-            ? { account_id: payload.account_id }
-            : null,
+          metadata: buildEmailMetadata(payload, {
+            queue,
+            queue_msg_id: msg.msg_id,
+            error: errorMsg.slice(0, 1000),
+          }),
         })
-        await logAccountEmailActivity(supabase, payload, 'failed', errorMsg)
+        await logAccountEmailActivity(supabase, payload, 'failed', errorMsg, {
+          queue,
+          queue_msg_id: msg.msg_id,
+        })
         if (payload?.message_id && typeof payload.message_id === 'string') {
           failedAttemptsByMessageId.set(payload.message_id, failedAttempts + 1)
         }
