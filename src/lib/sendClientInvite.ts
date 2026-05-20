@@ -35,7 +35,7 @@ export async function sendClientInvite({
     // Backfill account.contact_email if empty so downstream client emails work
     await backfillContactEmail(accountId, normalizedEmail);
 
-    await supabase.functions.invoke("send-transactional-email", {
+    const { error: sendError } = await supabase.functions.invoke("send-transactional-email", {
       body: {
         templateName: "client-portal-invite",
         recipientEmail: normalizedEmail,
@@ -44,6 +44,7 @@ export async function sendClientInvite({
         templateData: { firstName, portalLink, inviteToken: existingInvite.token, companyName },
       },
     });
+    if (sendError) throw sendError;
 
     // Log activity
     await supabase.from("activity_log").insert({
@@ -79,7 +80,7 @@ export async function sendClientInvite({
   const firstName = deriveFirstName(normalizedEmail);
 
   // Send invite email
-  await supabase.functions.invoke("send-transactional-email", {
+  const { error: sendError } = await supabase.functions.invoke("send-transactional-email", {
     body: {
       templateName: "client-portal-invite",
       recipientEmail: normalizedEmail,
@@ -88,6 +89,7 @@ export async function sendClientInvite({
       templateData: { firstName, portalLink, inviteToken: invitation.token, companyName },
     },
   });
+  if (sendError) throw sendError;
 
   // Log activity
   await supabase.from("activity_log").insert({
