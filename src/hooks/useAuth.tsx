@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<AppRole>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = async (userId: string): Promise<AppRole> => {
+  const fetchRole = useCallback(async (userId: string): Promise<AppRole> => {
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
@@ -42,9 +42,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const nextRole = (data?.role as AppRole) ?? null;
     setRole(nextRole);
     return nextRole;
-  };
+  }, []);
 
-  const refreshRole = async (userId?: string): Promise<AppRole> => {
+  const refreshRole = useCallback(async (userId?: string): Promise<AppRole> => {
     const targetUserId = userId || user?.id;
     if (!targetUserId) return null;
 
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchRole, user?.id]);
 
   const trackLogin = async (userId: string) => {
     // Insert into login_history
@@ -165,7 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchRole]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
