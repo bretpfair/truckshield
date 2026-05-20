@@ -76,20 +76,17 @@ const InviteClientDialog = ({ accountId, defaultEmail }: Props) => {
       return data;
     },
     onSuccess: async (data) => {
-      queryClient.invalidateQueries({ queryKey: ["invitations"] });
-      queryClient.invalidateQueries({ queryKey: ["activity_log"] });
-      queryClient.invalidateQueries({ queryKey: ["account", data.account_id] });
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       const normalizedEmail = email.trim().toLowerCase();
       // Backfill the account's contact email so downstream notifications can
       // reach the client. Never overwrite an existing value.
-      await supabase
+      const { error: contactEmailError } = await supabase
         .from("accounts")
         .update({ contact_email: normalizedEmail })
         .eq("id", data.account_id)
         .or("contact_email.is.null,contact_email.eq.");
+      if (contactEmailError) throw contactEmailError;
       // Log activity
-      supabase.from("activity_log").insert({
+      await supabase.from("activity_log").insert({
         account_id: data.account_id,
         user_id: user!.id,
         action_type: "client_linked",
@@ -98,32 +95,29 @@ const InviteClientDialog = ({ accountId, defaultEmail }: Props) => {
 
       // Send invite email automatically
       const firstName = normalizedEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-      // Try a true single-click magic link; fall back to plain invite URL.
-      let portalLink = getInviteUrl(data.token);
+      const portalLink = getInviteUrl(data.token);
       try {
-        const { data: linkData } = await supabase.functions.invoke("create-client-magic-link", {
-          body: {
-            email: normalizedEmail,
-            inviteToken: data.token,
-            redirectTo: `${window.location.origin}/auth?invite=${data.token}`,
-          },
-        });
-        if (linkData?.magicLink) portalLink = linkData.magicLink;
-      } catch (err) {
-        console.warn("Magic link generation failed, using plain invite URL:", err);
-      }
-      try {
-        await supabase.functions.invoke("send-transactional-email", {
+        const { error: sendError } = await supabase.functions.invoke("send-transactional-email", {
           body: {
             templateName: "client-portal-invite",
             recipientEmail: normalizedEmail,
             accountId: data.account_id,
             idempotencyKey: `portal-invite-${data.id}`,
-            templateData: { firstName, portalLink },
+            templateData: { firstName, portalLink, inviteToken: data.token },
           },
         });
-        queryClient.invalidateQueries({ queryKey: ["email-send-log", data.account_id] });
-        queryClient.invalidateQueries({ queryKey: ["admin-email-send-log"] });
+        if (sendError) throw sendError;
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["invitations"] }),
+          queryClient.invalidateQueries({ queryKey: ["activity_log", data.account_id] }),
+          queryClient.invalidateQueries({ queryKey: ["account", data.account_id] }),
+          queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+          queryClient.invalidateQueries({ queryKey: ["email-send-log", data.account_id] }),
+          queryClient.invalidateQueries({ queryKey: ["admin-email-send-log"] }),
+          queryClient.refetchQueries({ queryKey: ["account", data.account_id] }),
+          queryClient.refetchQueries({ queryKey: ["activity_log", data.account_id] }),
+          queryClient.refetchQueries({ queryKey: ["email-send-log", data.account_id] }),
+        ]);
         toast({ title: "Invitation sent", description: "Portal invite email sent to the client." });
       } catch {
         toast({ title: "Invitation created", description: "Email delivery may be delayed while your domain verifies." });
