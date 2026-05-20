@@ -32,6 +32,9 @@ export async function sendClientInvite({
     const portalLink = await generateMagicLink(normalizedEmail, existingInvite.token);
     const firstName = deriveFirstName(normalizedEmail);
 
+    // Backfill account.contact_email if empty so downstream client emails work
+    await backfillContactEmail(accountId, normalizedEmail);
+
     await supabase.functions.invoke("send-transactional-email", {
       body: {
         templateName: "client-portal-invite",
@@ -67,13 +70,8 @@ export async function sendClientInvite({
 
   if (error) throw error;
 
-  // Backfill the account's contact email so downstream notifications can
-  // reach the client. Never overwrite an existing value.
-  await supabase
-    .from("accounts")
-    .update({ contact_email: normalizedEmail })
-    .eq("id", accountId)
-    .or("contact_email.is.null,contact_email.eq.");
+  // Backfill account.contact_email if empty — source for later client emails
+  await backfillContactEmail(accountId, normalizedEmail);
 
   // Generate a single-click magic link
   const portalLink = await generateMagicLink(normalizedEmail, invitation.token);
