@@ -43,32 +43,9 @@ Deno.serve(async (req) => {
     }
 
     const email = (invitation.email as string).trim().toLowerCase();
-    const inviteRedirect = `${new URL(req.url).origin.replace(
-      /functions\..*$/,
-      "",
-    )}`; // not used
     // Use the configured public site URL for the redirect target.
     const siteUrl = "https://truckshield.360riskpartners.com";
     const redirectTo = `${siteUrl}/auth?invite=${invite_token}`;
-
-    // Generate a brand-new magic link (this invalidates any previous one)
-    let portalLink = redirectTo;
-    try {
-      const { data: linkData, error: linkError } =
-        await admin.auth.admin.generateLink({
-          type: "magiclink",
-          email,
-          options: { redirectTo },
-        } as any);
-      const hashedToken = (linkData as any)?.properties?.hashed_token;
-      if (!linkError && hashedToken) {
-        portalLink = `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(redirectTo)}`;
-      } else {
-        console.warn("generateLink failed, falling back", linkError);
-      }
-    } catch (e) {
-      console.warn("generateLink threw, falling back", e);
-    }
 
     // Lookup company name + first name for the template
     const { data: account } = await admin
@@ -91,7 +68,8 @@ Deno.serve(async (req) => {
           idempotencyKey: `portal-invite-resend-${invitation.id}-${Date.now()}`,
           templateData: {
             firstName,
-            portalLink,
+            portalLink: redirectTo,
+            inviteToken: invite_token,
             companyName: account?.company_name ?? undefined,
           },
         },
