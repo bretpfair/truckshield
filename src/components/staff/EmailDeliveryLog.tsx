@@ -41,6 +41,27 @@ const statusClasses: Record<string, string> = {
 
 const getMetadata = (row: EmailLogRow) => (row.metadata || {}) as Record<string, any>;
 
+const getInviteToken = (row: EmailLogRow): string | null => {
+  const meta = getMetadata(row);
+  const templateData = meta.templateData || meta.template_data || {};
+  if (templateData.inviteToken || templateData.invite_token) {
+    return templateData.inviteToken || templateData.invite_token;
+  }
+  const portalLink = templateData.portalLink || templateData.portal_link;
+  if (typeof portalLink !== "string") return null;
+  try {
+    const url = new URL(portalLink);
+    const direct = url.searchParams.get("invite");
+    if (direct) return direct;
+    const redirect = url.searchParams.get("redirect_to") || url.searchParams.get("redirectTo");
+    if (redirect) return getInviteToken({ ...row, metadata: { templateData: { portalLink: decodeURIComponent(redirect) } } });
+  } catch {
+    const direct = portalLink.match(/[?&]invite=([^&#]+)/i)?.[1];
+    if (direct) return decodeURIComponent(direct);
+  }
+  return null;
+};
+
 export const canResendEmailRow = (row: EmailLogRow) => {
   const meta = getMetadata(row);
   const hasTemplateData = !!(meta.templateData || meta.template_data);
@@ -168,13 +189,17 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
 
       const meta = getMetadata(row);
       const templateData = meta.templateData || meta.template_data || fallbackTemplateData(row);
+      const inviteToken = row.template_name === "client-portal-invite" ? getInviteToken(row) : null;
+      const resendTemplateData = inviteToken
+        ? { ...templateData, inviteToken, portalLink: `${window.location.origin}/auth?invite=${inviteToken}` }
+        : templateData;
       const { error } = await supabase.functions.invoke("send-transactional-email", {
         body: {
           templateName: row.template_name,
           recipientEmail: row.recipient_email,
           accountId,
           idempotencyKey: `resend-${row.message_id || row.id}-${Date.now()}`,
-          templateData,
+          templateData: resendTemplateData,
         },
       });
       if (error) throw error;
