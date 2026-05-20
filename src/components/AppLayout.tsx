@@ -36,6 +36,8 @@ const AppLayout = () => {
     location.pathname.startsWith("/client") ||
     location.pathname.startsWith("/staff/preview");
   const inStaffPreview = location.pathname.startsWith("/staff/preview");
+  const onDirectClientPortal = location.pathname.startsWith("/client");
+  const onStaffPortal = location.pathname.startsWith("/staff") && !inStaffPreview;
   const routeAccountId = useRouteAccountId();
 
   // Messaging sidebar account: staff = current account in URL, client = their own account (set by ClientPortal via custom event)
@@ -64,13 +66,20 @@ const AppLayout = () => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
+  if (isStaffRole && onDirectClientPortal) {
+    return <Navigate to="/staff" replace />;
+  }
+
+  if (role === "client" && onStaffPortal) {
+    return <Navigate to="/client" replace />;
+  }
+
   const handleTogglePreview = () => {
     if (inStaffPreview) {
       navigate("/staff");
     } else {
-      // Preview from current account if we're on one, otherwise generic /client
       if (routeAccountId) navigate(`/staff/preview/${routeAccountId}`);
-      else navigate("/client");
+      else navigate("/staff/accounts");
     }
   };
 
@@ -89,7 +98,7 @@ const AppLayout = () => {
             </span>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {isStaffRole && (
+            {isStaffRole && (inStaffPreview || routeAccountId) && (
               <Button
                 variant={inStaffPreview ? "default" : "outline"}
                 size="sm"
