@@ -560,7 +560,7 @@ const Auth = () => {
                     Use a different email
                   </button>
                 </div>
-              ) : inviteStatus === "expired" || inviteStatus === "invalid" ? null : (
+              ) : inviteStatus === "invite_expired" || inviteStatus === "invalid" ? null : (
                 <form onSubmit={handleMagicLink} className="space-y-4">
                   <p className="text-sm text-muted-foreground">
                     {inviteEmail
