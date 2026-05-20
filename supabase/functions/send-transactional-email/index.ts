@@ -142,6 +142,7 @@ Deno.serve(async (req) => {
 
   const emailMetadata = (extra: Record<string, unknown> = {}) => ({
     ...(accountId ? { account_id: accountId } : {}),
+    message_id: messageId,
     template_name: templateName,
     recipient: effectiveRecipient,
     templateData,
