@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Outlet, useLocation, useNavigate, matchPath } from "react-router-dom";
-import { Truck, LogOut, User, Eye } from "lucide-react";
+import { Truck, LogOut, User, Eye, Mail } from "lucide-react";
 import sitelogo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
@@ -122,6 +122,18 @@ const AppLayout = () => {
               >
                 <Eye className="h-3 w-3" />
                 <span className="hidden xs:inline">{inStaffPreview ? "Back to Staff" : "Preview Client"}</span>
+              </Button>
+            )}
+            {role === "admin" && onStaffPortal && (
+              <Button
+                variant={location.pathname === "/staff/emails" ? "default" : "outline"}
+                size="sm"
+                onClick={() => navigate("/staff/emails")}
+                className="gap-1 text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
+                aria-label="Open email delivery log"
+              >
+                <Mail className="h-3 w-3" />
+                <span className="hidden sm:inline">Email Log</span>
               </Button>
             )}
             <NotificationBell
