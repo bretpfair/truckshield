@@ -69,7 +69,7 @@ export const canResendEmailRow = (row: EmailLogRow) => {
   // Old activity fallback rows do not contain the generated invite portalLink.
   // Do not resend those with a generic /client link because it will not sign in
   // a pending invitee. Fresh rows include templateData and remain resendable.
-  if (row.template_name === "client-portal-invite" && !hasTemplateData) return false;
+  if (row.template_name === "client-portal-invite" && (!hasTemplateData || !getInviteToken(row))) return false;
 
   return true;
 };
