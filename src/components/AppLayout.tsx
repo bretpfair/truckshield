@@ -23,12 +23,22 @@ const useRouteAccountId = (): string | null => {
   return null;
 };
 
+const FullPageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="flex items-center gap-3 animate-fade-in">
+      <Truck className="h-6 w-6 text-primary animate-pulse" />
+      <span className="text-muted-foreground font-mono text-sm">Loading...</span>
+    </div>
+  </div>
+);
+
 const AppLayout = () => {
   const { user, role, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [messagingExpanded, setMessagingExpanded] = useState(false);
   const [clientMessagingAccountId, setClientMessagingAccountId] = useState<string | null>(null);
+  const [roleWaitExpired, setRoleWaitExpired] = useState(false);
   useRealtimeUpdates(user?.id);
 
   const isStaffRole = role === "admin" || role === "producer";
@@ -53,28 +63,37 @@ const AppLayout = () => {
     return () => window.removeEventListener("client-account-ready", handler as EventListener);
   }, []);
 
+  useEffect(() => {
+    if (!loading && user && role === null) {
+      const timer = window.setTimeout(() => setRoleWaitExpired(true), 5000);
+      return () => window.clearTimeout(timer);
+    }
+    setRoleWaitExpired(false);
+  }, [loading, role, user]);
+
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex items-center gap-3 animate-fade-in">
-          <Truck className="h-6 w-6 text-primary animate-pulse" />
-          <span className="text-muted-foreground font-mono text-sm">Loading...</span>
-        </div>
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
   if (!user) return <Navigate to="/auth" replace />;
 
   // If we have a user but role hasn't resolved yet, keep showing the loader
-  // instead of making a role-based redirect on a null role (causes a flash
-  // of the wrong portal after sign-in).
+  // briefly instead of making a role-based redirect on a null role. If it
+  // never resolves, show an actionable fallback instead of spinning forever.
   if (role === null) {
+    if (!roleWaitExpired) return <FullPageLoader />;
+
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex items-center gap-3 animate-fade-in">
-          <Truck className="h-6 w-6 text-primary animate-pulse" />
-          <span className="text-muted-foreground font-mono text-sm">Loading...</span>
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="glass-panel max-w-md rounded-lg p-6 text-center space-y-4">
+          <Truck className="h-8 w-8 text-primary mx-auto" />
+          <div>
+            <h1 className="text-lg font-semibold">Portal access is still being set up</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              We could not find a staff or client role for this signed-in account yet. Try your invite link again, or contact 360 Risk Partners if this keeps happening.
+            </p>
+          </div>
+          <Button variant="outline" onClick={signOut}>Sign out</Button>
         </div>
       </div>
     );
