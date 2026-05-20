@@ -465,13 +465,11 @@ Deno.serve(async (req) => {
         account_id: accountId,
         action_type: 'email_failed',
         description: `Email '${templateName}' failed to queue for ${effectiveRecipient}`,
-        metadata: {
-          template_name: templateName,
-          recipient: effectiveRecipient,
+        metadata: emailMetadata({
           cc,
           email_log_id: emailLogId,
           error: enqueueErrorMessage,
-        },
+        }),
       })
     }
 
@@ -492,13 +490,11 @@ Deno.serve(async (req) => {
       account_id: accountId,
       action_type: 'email_queued',
       description: `Email '${templateName}' queued for ${effectiveRecipient}${ccProducerEmail ? ` (cc ${ccProducerEmail})` : ''}`,
-      metadata: {
-        template_name: templateName,
-        recipient: effectiveRecipient,
+      metadata: emailMetadata({
         cc,
         queue_id: queueId ?? null,
         email_log_id: emailLogId,
-      },
+      }),
     })
   }
 
