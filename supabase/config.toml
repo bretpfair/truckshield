@@ -19,3 +19,5 @@ project_id = "czowzqkqzvsamfhkaozk"
     verify_jwt = false
   [functions.coverwhale-api]
     verify_jwt = false
+  [functions.resend-client-portal-invite]
+    verify_jwt = false
