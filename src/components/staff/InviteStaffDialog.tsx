@@ -120,7 +120,9 @@ const InviteStaffDialog = () => {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Send an invitation to a new team member. They'll receive admin access upon signup.
+          Send an invitation to a new team member. They'll receive{" "}
+          <strong className="text-foreground">{selectedRole === "admin" ? "admin" : "producer"}</strong>{" "}
+          access upon signup. You can change their role anytime from Staff Management.
         </p>
         <div className="flex gap-2">
           <Input
@@ -177,6 +179,7 @@ const InviteStaffDialog = () => {
                         size="sm"
                         className="h-7 px-2"
                         onClick={() => copyLink(inv.token)}
+                        aria-label={copiedToken === inv.token ? "Invite link copied" : `Copy invite link for ${inv.email}`}
                       >
                         {copiedToken === inv.token ? (
                           <Check className="h-3.5 w-3.5 text-success" />
