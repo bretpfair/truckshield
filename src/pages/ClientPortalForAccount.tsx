@@ -376,7 +376,7 @@ const ClientPortalForAccount = (props: Props = {}) => {
 
       {/* Pending Info Requests Popup */}
       <Dialog open={showInfoRequestDialog} onOpenChange={setShowInfoRequestDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />

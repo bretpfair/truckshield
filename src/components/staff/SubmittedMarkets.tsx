@@ -653,7 +653,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       {/* Upload Quote Dialog */}
       <Dialog open={!!uploadDialog} onOpenChange={(open) => !open && setUploadDialog(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Upload Quote — {uploadDialog?.carrierName}</DialogTitle>
           </DialogHeader>
@@ -691,7 +691,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       {/* Additional Info Request Dialog */}
       <Dialog open={!!infoRequestDialog} onOpenChange={(open) => !open && setInfoRequestDialog(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -728,7 +728,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       {/* Decline Reason Dialog */}
       <Dialog open={!!declineDialog} onOpenChange={(open) => !open && setDeclineDialog(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-destructive" />
@@ -766,7 +766,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       {/* Update Quote Dialog */}
       <Dialog open={!!updateQuoteDialog} onOpenChange={(open) => !open && setUpdateQuoteDialog(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary" />
@@ -807,7 +807,7 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       {/* Bind Coverage Dialog */}
       <Dialog open={!!bindDialog} onOpenChange={(open) => !open && setBindDialog(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-success" />
