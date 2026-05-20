@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Shield, Mail, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import sitelogo from "@/assets/logo.png";
 
@@ -20,6 +21,7 @@ const Auth = () => {
   const staffInviteToken = searchParams.get("staff_invite");
   const mode = searchParams.get("mode");
   const { toast } = useToast();
+  const { refreshRole } = useAuth();
 
   const isStaffFlow = !!(staffInviteToken || mode === "staff");
   const [isLogin, setIsLogin] = useState(true);
@@ -30,6 +32,14 @@ const Auth = () => {
   const [inviteStatus, setInviteStatus] = useState<"loading" | "valid" | "expired" | "invalid" | null>(null);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [resendingLink, setResendingLink] = useState(false);
+
+  const authHashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const authErrorCode = authHashParams.get("error_code");
+  const authErrorDescription = authHashParams.get("error_description");
+  const authLinkExpired = !!inviteToken && (
+    authErrorCode === "otp_expired" ||
+    /expired|invalid/i.test(authErrorDescription || "")
+  );
 
   useEffect(() => {
     if (staffInviteToken) setIsLogin(false);
@@ -58,7 +68,9 @@ const Auth = () => {
           setEmail(result.email);
         }
 
-        if (result.status === "valid") {
+        if (authLinkExpired) {
+          setInviteStatus("expired");
+        } else if (result.status === "valid") {
           setInviteStatus("valid");
         } else if (result.status === "expired") {
           setInviteStatus("expired");
@@ -71,7 +83,7 @@ const Auth = () => {
     };
 
     fetchInviteDetails();
-  }, [inviteToken, isStaffFlow]);
+  }, [inviteToken, isStaffFlow, authLinkExpired]);
 
   // Accept staff invitation helper
   const acceptStaffInvitation = async () => {
@@ -118,14 +130,16 @@ const Auth = () => {
         if (inviteToken) {
           const result = await acceptInvitation().catch(() => ({ ok: false }));
           if (!result.ok) return; // stay on /auth so the user sees the banner
+          await refreshRole(session.user.id);
         }
         if (staffInviteToken) {
           await acceptStaffInvitation();
+          await refreshRole(session.user.id);
         }
-        navigate("/");
+        navigate(inviteToken ? "/client" : "/");
       }
     });
-  }, [inviteToken, staffInviteToken, navigate]);
+  }, [inviteToken, staffInviteToken, navigate, refreshRole]);
 
   // Resend magic link for expired invite tokens
   const handleResendInviteLink = async () => {
@@ -140,7 +154,7 @@ const Auth = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setMagicLinkSent(true);
-      toast({ title: "Check your email", description: "We sent you a new sign-in link." });
+      toast({ title: "Check your email", description: "We sent you a new access link." });
     }
     setResendingLink(false);
   };
@@ -155,7 +169,11 @@ const Auth = () => {
       if (error) {
         toast({ title: "Login failed", description: error.message, variant: "destructive" });
       } else {
-        if (staffInviteToken) await acceptStaffInvitation();
+        if (staffInviteToken) {
+          await acceptStaffInvitation();
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData.user) await refreshRole(userData.user.id);
+        }
         navigate("/");
       }
     } else {
@@ -173,7 +191,10 @@ const Auth = () => {
         toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
       } else {
         if (signUpData.session) {
-          if (staffInviteToken) await acceptStaffInvitation();
+          if (staffInviteToken) {
+            await acceptStaffInvitation();
+            await refreshRole(signUpData.session.user.id);
+          }
           navigate("/");
         } else {
           toast({ title: "Account created", description: "Check your email to verify your account." });
@@ -231,7 +252,7 @@ const Auth = () => {
       return (
         <div className="mb-4 p-3 rounded-md bg-muted border border-border text-sm text-muted-foreground flex items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Verifying your invitation…
+          Verifying your invitation...
         </div>
       );
     }
