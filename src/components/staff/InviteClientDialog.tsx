@@ -79,6 +79,16 @@ const InviteClientDialog = ({ accountId, defaultEmail }: Props) => {
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
       queryClient.invalidateQueries({ queryKey: ["activity_log"] });
+      queryClient.invalidateQueries({ queryKey: ["account", data.account_id] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      const normalizedEmail = email.trim().toLowerCase();
+      // Backfill the account's contact email so downstream notifications can
+      // reach the client. Never overwrite an existing value.
+      await supabase
+        .from("accounts")
+        .update({ contact_email: normalizedEmail })
+        .eq("id", data.account_id)
+        .or("contact_email.is.null,contact_email.eq.");
       // Log activity
       supabase.from("activity_log").insert({
         account_id: data.account_id,
@@ -88,14 +98,27 @@ const InviteClientDialog = ({ accountId, defaultEmail }: Props) => {
       });
 
       // Send invite email automatically
-      const portalLink = getInviteUrl(data.token);
-      const firstName = email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const firstName = normalizedEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      // Try a true single-click magic link; fall back to plain invite URL.
+      let portalLink = getInviteUrl(data.token);
+      try {
+        const { data: linkData } = await supabase.functions.invoke("create-client-magic-link", {
+          body: {
+            email: normalizedEmail,
+            inviteToken: data.token,
+            redirectTo: `${window.location.origin}/auth?invite=${data.token}`,
+          },
+        });
+        if (linkData?.magicLink) portalLink = linkData.magicLink;
+      } catch (err) {
+        console.warn("Magic link generation failed, using plain invite URL:", err);
+      }
       try {
         await supabase.functions.invoke("send-transactional-email", {
           body: {
             templateName: "client-portal-invite",
-            recipientEmail: email.trim().toLowerCase(),
-            accountId: selectedAccountId,
+            recipientEmail: normalizedEmail,
+            accountId: data.account_id,
             idempotencyKey: `portal-invite-${data.id}`,
             templateData: { firstName, portalLink },
           },
