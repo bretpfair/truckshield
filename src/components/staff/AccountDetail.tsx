@@ -642,6 +642,11 @@ const AccountDetail = (props: Props = {}) => {
                   if (result.sent) {
                     sonnerToast.success(result.message);
                     queryClient.invalidateQueries({ queryKey: ["invitations"] });
+                    queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+                    queryClient.invalidateQueries({ queryKey: ["accounts"] });
+                    queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+                    queryClient.invalidateQueries({ queryKey: ["email-send-log", accountId] });
+                    queryClient.invalidateQueries({ queryKey: ["admin-email-send-log"] });
                   } else {
                     sonnerToast.info(result.message);
                   }
