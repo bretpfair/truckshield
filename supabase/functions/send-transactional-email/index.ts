@@ -158,6 +158,10 @@ Deno.serve(async (req) => {
     )
   }
 
+  // Create backend client with elevated privileges for validation, rendering,
+  // enqueueing, and delivery metadata writes.
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
   // Client portal invites must never reuse a previously rendered magic link.
   // If a caller passes older templateData from an email row, extract only the
   // stable invite token and replace portalLink with a brand-new auth token.
@@ -223,9 +227,6 @@ Deno.serve(async (req) => {
     templateData,
     ...extra,
   })
-
-  // Create Supabase client with service role (bypasses RLS)
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   // Authorization: staff (admin/producer) can send any template.
   // Clients can only trigger sends for their own account.
