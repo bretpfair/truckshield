@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { activityEmailToLogRow, canResendEmailRow, dedupeEmailRows, type EmailLogRow } from "@/components/staff/EmailDeliveryLog";
+import { activityEmailToLogRow, canResendEmailRow, dedupeEmailRows, getInviteToken, type EmailLogRow } from "@/components/staff/EmailDeliveryLog";
 
 const PAGE_SIZE = 50;
 
@@ -127,6 +127,11 @@ const StaffEmailLog = () => {
       const meta = getMetadata(row);
       const accountId = meta.account_id;
       if (!accountId) throw new Error("This email row is not linked to an account.");
+      const templateData = meta.templateData || meta.template_data || fallbackTemplateData(row);
+      const inviteToken = row.template_name === "client-portal-invite" ? getInviteToken(row) : null;
+      const resendTemplateData = inviteToken
+        ? { ...templateData, inviteToken, portalLink: `${window.location.origin}/auth?invite=${inviteToken}` }
+        : templateData;
 
       const { error } = await supabase.functions.invoke("send-transactional-email", {
         body: {
@@ -134,7 +139,7 @@ const StaffEmailLog = () => {
           recipientEmail: row.recipient_email,
           accountId,
           idempotencyKey: `resend-${row.message_id || row.id}-${Date.now()}`,
-          templateData: meta.templateData || meta.template_data || fallbackTemplateData(row),
+          templateData: resendTemplateData,
         },
       });
       if (error) throw error;
