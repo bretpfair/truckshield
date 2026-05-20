@@ -41,6 +41,18 @@ const statusClasses: Record<string, string> = {
 
 const getMetadata = (row: EmailLogRow) => (row.metadata || {}) as Record<string, any>;
 
+export const canResendEmailRow = (row: EmailLogRow) => {
+  const meta = getMetadata(row);
+  const hasTemplateData = !!(meta.templateData || meta.template_data);
+
+  // Old activity fallback rows do not contain the generated invite portalLink.
+  // Do not resend those with a generic /client link because it will not sign in
+  // a pending invitee. Fresh rows include templateData and remain resendable.
+  if (row.template_name === "client-portal-invite" && !hasTemplateData) return false;
+
+  return true;
+};
+
 const parseTemplateName = (description?: string | null) => {
   const match = description?.match(/Email\s+["']([^"']+)["']/i);
   return match?.[1] || "app email";
@@ -152,6 +164,8 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
 
   const resend = useMutation({
     mutationFn: async (row: EmailLogRow) => {
+      if (!canResendEmailRow(row)) throw new Error("This older invite row is missing the original invite link. Send a fresh invite instead.");
+
       const meta = getMetadata(row);
       const templateData = meta.templateData || meta.template_data || fallbackTemplateData(row);
       const { error } = await supabase.functions.invoke("send-transactional-email", {
@@ -205,6 +219,7 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
                   const meta = getMetadata(row);
                   const cc = Array.isArray(meta.cc) ? meta.cc.join(", ") : meta.cc || "-";
                   const statusClass = statusClasses[row.status] || "bg-secondary text-muted-foreground border-border";
+                  const canResend = canResendEmailRow(row);
 
                   return (
                     <tr key={row.message_id || row.id} className="border-b last:border-0 align-top">
@@ -232,7 +247,8 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
                           size="sm"
                           variant="outline"
                           className="h-8 gap-1.5"
-                          disabled={resend.isPending}
+                          disabled={resend.isPending || !canResend}
+                          title={canResend ? undefined : "Send a fresh invite instead"}
                           onClick={() => resend.mutate(row)}
                         >
                           <RefreshCw className="h-3.5 w-3.5" /> Resend
