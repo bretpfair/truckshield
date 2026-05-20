@@ -207,8 +207,12 @@ Deno.serve(async (req) => {
       email: effectiveRecipient,
       options: { redirectTo },
     } as any)
+    const actionLink = (linkData as any)?.properties?.action_link || (linkData as any)?.action_link
     const hashedToken = (linkData as any)?.properties?.hashed_token
-    if (linkError || !hashedToken) {
+    const portalLink = actionLink || (hashedToken
+      ? `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(redirectTo)}`
+      : null)
+    if (linkError || !portalLink) {
       console.error('Failed to generate fresh client invite magic link', { linkError, effectiveRecipient })
       return new Response(JSON.stringify({ error: 'Failed to generate a fresh portal access link' }), {
         status: 500,
@@ -219,7 +223,7 @@ Deno.serve(async (req) => {
     templateData = {
       ...templateData,
       inviteToken,
-      portalLink: `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(redirectTo)}`,
+      portalLink,
     }
   }
 
