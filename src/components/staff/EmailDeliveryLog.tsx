@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-type EmailLogRow = {
+export type EmailLogRow = {
   id: string;
   created_at: string;
   error_message: string | null;
@@ -17,6 +17,15 @@ type EmailLogRow = {
   recipient_email: string;
   status: string;
   template_name: string;
+};
+
+type ActivityEmailRow = {
+  id: string;
+  account_id: string | null;
+  action_type: string;
+  created_at: string;
+  description: string | null;
+  metadata: any;
 };
 
 const statusClasses: Record<string, string> = {
@@ -31,6 +40,45 @@ const statusClasses: Record<string, string> = {
 };
 
 const getMetadata = (row: EmailLogRow) => (row.metadata || {}) as Record<string, any>;
+
+const parseTemplateName = (description?: string | null) => {
+  const match = description?.match(/Email\s+["']([^"']+)["']/i);
+  return match?.[1] || "app email";
+};
+
+const parseRecipient = (description?: string | null) => {
+  const match = description?.match(/\b(?:for|to)\s+([^\s,]+)/i);
+  return match?.[1] || "recipient";
+};
+
+export const activityEmailToLogRow = (row: ActivityEmailRow): EmailLogRow => {
+  const meta = (row.metadata || {}) as Record<string, any>;
+  const status = row.action_type === "email_sent"
+    ? "sent"
+    : row.action_type === "email_failed"
+      ? "failed"
+      : "pending";
+  const templateName = meta.template_name || parseTemplateName(row.description);
+  const recipientEmail = meta.recipient || meta.recipient_email || parseRecipient(row.description);
+  const accountId = meta.account_id || row.account_id;
+
+  return {
+    id: `activity-${row.id}`,
+    created_at: row.created_at,
+    error_message: meta.error || (status === "failed" ? row.description : null),
+    message_id: meta.email_log_id || meta.queue_id || `activity-${row.id}`,
+    metadata: {
+      ...meta,
+      ...(accountId ? { account_id: accountId } : {}),
+      activity_id: row.id,
+      activity_description: row.description,
+      activity_fallback: true,
+    },
+    recipient_email: recipientEmail,
+    status,
+    template_name: templateName,
+  };
+};
 
 export const dedupeEmailRows = (rows: EmailLogRow[]) => {
   const grouped = new Map<string, EmailLogRow>();
@@ -65,7 +113,7 @@ const fallbackTemplateData = (row: EmailLogRow) => {
     portalLink: "https://truckshield.360riskpartners.com/client",
     carrierName: meta.carrierName || meta.carrier_name || "your carrier",
     newStatus: meta.newStatus || meta.new_status || "updated",
-    requestDetails: meta.requestDetails || meta.request_details || meta.description || "Please review your portal for details.",
+    requestDetails: meta.requestDetails || meta.request_details || meta.description || meta.activity_description || "Please review your portal for details.",
     companyName: meta.companyName || meta.company_name,
   };
 };
@@ -77,15 +125,26 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
   const { data: rows, isLoading } = useQuery({
     queryKey: ["email-send-log", accountId, limit],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("email_send_log")
-        .select("*")
-        .filter("metadata->>account_id", "eq", accountId)
-        .order("created_at", { ascending: false })
-        .limit(limit * 3);
+      const [emailResult, activityResult] = await Promise.all([
+        supabase
+          .from("email_send_log")
+          .select("*")
+          .filter("metadata->>account_id", "eq", accountId)
+          .order("created_at", { ascending: false })
+          .limit(limit * 3),
+        supabase
+          .from("activity_log")
+          .select("id, account_id, action_type, created_at, description, metadata")
+          .eq("account_id", accountId)
+          .in("action_type", ["email_queued", "email_sent", "email_failed"])
+          .order("created_at", { ascending: false })
+          .limit(limit * 3),
+      ]);
 
-      if (error) throw error;
-      return data as EmailLogRow[];
+      if (emailResult.error && activityResult.error) throw emailResult.error;
+      const emailRows = (emailResult.data || []) as EmailLogRow[];
+      const activityRows = ((activityResult.data || []) as ActivityEmailRow[]).map(activityEmailToLogRow);
+      return [...emailRows, ...activityRows];
     },
   });
 
@@ -164,9 +223,9 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
                             <TriangleAlert className="h-3.5 w-3.5 text-destructive" aria-label="Email error" title={row.error_message} />
                           )}
                         </div>
-                        {meta.email_log_id && (
+                        {meta.email_log_id || meta.activity_fallback ? (
                           <p className="text-[10px] text-muted-foreground mt-1">Activity linked</p>
-                        )}
+                        ) : null}
                       </td>
                       <td className="py-3 text-right">
                         <Button
