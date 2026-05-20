@@ -18,7 +18,14 @@ create policy "Admins can read all email send logs"
 on public.email_send_log
 for select
 to authenticated
-using (public.has_role(auth.uid(), 'admin'));
+using (
+  exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = auth.uid()
+      and ur.role = 'admin'
+  )
+);
 
 create policy "Producers can read assigned account email send logs"
 on public.email_send_log
@@ -26,6 +33,12 @@ for select
 to authenticated
 using (
   public.email_send_log_account_id(metadata) is not null
+  and exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = auth.uid()
+      and ur.role = 'producer'
+  )
   and exists (
     select 1
     from public.accounts a
