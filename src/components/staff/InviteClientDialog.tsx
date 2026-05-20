@@ -4,12 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { UserPlus, Copy, Check, Mail, Clock, CheckCircle2 } from "lucide-react";
+import { UserPlus, Copy, Check, Mail } from "lucide-react";
 
 interface Props {
   accountId?: string;
@@ -123,6 +122,8 @@ const InviteClientDialog = ({ accountId, defaultEmail }: Props) => {
             templateData: { firstName, portalLink },
           },
         });
+        queryClient.invalidateQueries({ queryKey: ["email-send-log", data.account_id] });
+        queryClient.invalidateQueries({ queryKey: ["admin-email-send-log"] });
         toast({ title: "Invitation sent", description: "Portal invite email sent to the client." });
       } catch {
         toast({ title: "Invitation created", description: "Email delivery may be delayed while your domain verifies." });
