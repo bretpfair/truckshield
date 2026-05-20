@@ -19,7 +19,7 @@ async function sendViaResend(
   payload: Record<string, any>,
   apiKeys: { lovable: string; resend: string },
   unsubscribeBaseUrl: string
-): Promise<void> {
+): Promise<{ providerMessageId: string | null }> {
   const headers: Record<string, string> = {}
   if (payload.unsubscribe_token) {
     const url = `${unsubscribeBaseUrl}?token=${encodeURIComponent(payload.unsubscribe_token)}`
@@ -78,6 +78,15 @@ async function sendViaResend(
       retryAfterSeconds,
     }
     throw Object.assign(new Error(err.message), err)
+  }
+
+  try {
+    const json = await response.json()
+    const providerMessageId =
+      (json && typeof json === 'object' && typeof json.id === 'string') ? json.id : null
+    return { providerMessageId }
+  } catch {
+    return { providerMessageId: null }
   }
 }
 
@@ -360,7 +369,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendViaResend(
+        const { providerMessageId } = await sendViaResend(
           payload,
           { lovable: apiKey, resend: resendApiKey },
           unsubscribeBaseUrl
@@ -372,9 +381,10 @@ Deno.serve(async (req) => {
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
-          metadata: typeof payload.account_id === 'string'
-            ? { account_id: payload.account_id }
-            : null,
+          metadata: {
+            ...(typeof payload.account_id === 'string' ? { account_id: payload.account_id } : {}),
+            ...(providerMessageId ? { provider_message_id: providerMessageId } : {}),
+          },
         })
         await logAccountEmailActivity(supabase, payload, 'sent')
 
