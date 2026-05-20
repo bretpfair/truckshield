@@ -1,74 +1,79 @@
-# Production Review Fixes
+## Goal
 
-Address the read-only audit findings in priority order. Bundled into one pass since they're all small, surgical edits.
+Fix the broken invite + notification chain: invite link auto-authenticates → invite email persists to `accounts.contact_email` → downstream notifications use it and log delivery → account header refreshes after mutations → expired/invalid invites have a clear recovery path.
 
-## 1. Admin login routing flash (`/client` flicker)
+## 1. Auto-invite email must use a real magic link
 
-**Cause:** `AppLayout` checks `role` while `useAuth` is still resolving it. On first paint after sign-in, `role` is briefly `null` → `isStaffRole` is false → if the user lands on `/`, `RoleRedirect` sends them based on stale role, or guards mis-fire.
+**Problem.** `send-portal-invite-on-assignment` (fired by the producer-assignment trigger) sends a plain `/auth?invite={token}` URL — it pre-fills the email but does not create a session. Only the manual UI path uses `create-client-magic-link`.
 
-**Fix:**
-- In `RoleRedirect.tsx`: already waits on `loading`, but also wait until `role !== undefined/null` before deciding (add a short "role pending" gate that returns the loader).
-- In `AppLayout.tsx`: when `role` is still loading/null, render the loading state instead of running the `onDirectClientPortal` / `onStaffPortal` redirect guards. This prevents any client-shell paint for staff.
-- In `Auth.tsx`: after successful sign-in, fetch the role once before calling `navigate('/staff' | '/client')` instead of relying on `/` + RoleRedirect.
+**Fix.** Refactor `supabase/functions/send-portal-invite-on-assignment/index.ts` to generate a true magic link with the service role (`auth.admin.generateLink({ type: "magiclink", email, options: { email_redirect_to: "https://truckshield.360riskpartners.com/auth?invite={token}" } })`). Use the returned verify URL as `portalLink` in the template data. The `email_redirect_to` preserves invitation context so `Auth.tsx` can call `accept_invitation(p_token)` after authentication and route the user to `/client`. If generation fails, fall back to the plain `/auth?invite=...` URL and log the fallback clearly.
 
-## 2. Accounts tab routes to `/staff` instead of `/staff/accounts`
+## 2. Persist invite email to `accounts.contact_email`
 
-**Fix:** In `StaffDashboard.handleTabChange`, always navigate to `/staff/${value}` (including `accounts`). Keep `/staff` as a valid alias that still derives `currentTab = "accounts"`. Route `/staff/accounts` already exists in `App.tsx`.
+**Problem.** Manual invite paths (`src/lib/sendClientInvite.ts`, `src/components/staff/InviteClientDialog.tsx`) create the invitation but never write the email to `accounts.contact_email`. All downstream notifications gate on that field.
 
-## 3. Preview Client → wizard doesn't update URL
+**Fix.**
+- After a successful invitation insert in both files, update the account:
+  ```sql
+  UPDATE accounts
+  SET contact_email = <invite email>
+  WHERE id = <accountId>
+    AND (contact_email IS NULL OR contact_email = '');
+  ```
+- New migration: update `accept_invitation(p_token)` to backfill `accounts.contact_email` from `auth.jwt()->>'email'` when the account's contact email is still null/empty at acceptance.
 
-**Fix:** Add `/staff/preview/:accountId/application` route in `App.tsx` pointing at `ClientPortalForAccount`. In `ClientPortalForAccount`, mirror `ClientPortal`'s pattern: derive `showWizard` from `location.pathname.endsWith('/application')` and navigate to `…/application` / back when opening/closing the wizard.
+Never overwrite an existing contact email.
 
-## 4. Icon-only buttons missing accessible names
+## 3. Additional Info Request email + activity logging
 
-Add `aria-label` to every icon-only `<Button size="icon">` or icon-only ghost button. Sweep:
-- `src/components/AppLayout.tsx` — sign-out button, Preview Client button when text is hidden on mobile (`hidden xs:inline`).
-- `src/components/NotificationBell.tsx`, `ThemeToggle.tsx`.
-- `src/components/staff/AccountDetail.tsx` — Back, Delete, Download, Send Invite, Preview Client (when icon-only).
-- `src/components/staff/CarrierManager.tsx` — edit/delete row buttons.
-- `src/components/staff/DocumentHub.tsx` — document action buttons.
-- `src/components/staff/InviteStaffDialog.tsx` / `InviteClientDialog.tsx` — copy-link buttons.
-- `src/components/messaging/MessagingSidebar.tsx` — collapse/expand toggle.
+**Problem.** The "Additional Info Requested" flow depends on `account.contact_email` (now fixed by #2). Separately, `send-transactional-email` writes only to `email_send_log`, never `activity_log`, so staff cannot see whether a transactional email was queued or failed from the account timeline.
 
-## 5. Invite Staff copy says "admin access" but defaults to Producer
+**Fix.**
+- In `supabase/functions/send-transactional-email/index.ts`, after a successful `enqueue_email` (and when `accountId` is provided), insert an `activity_log` row with `action_type: "email_sent"`, a description that includes template name + recipient + CC if present, and metadata with `template_name`, `recipient`, `cc`, `queue_id` or `email_log_id`. On enqueue failure, insert `action_type: "email_failed"` with the error. The provider `message_id` does not exist at enqueue time — `process-email-queue` should update `email_send_log` with the provider `message_id` once the email is dispatched through Resend.
+- In `supabase/functions/notify-status-change/index.ts`, replace the existing `logEmailActivity` (failure-only) with a unified helper that logs both success and failure with the same shape.
+- Verify `supabase/functions/process-email-queue/index.ts` updates `email_send_log` with provider `message_id` on success and error string on failure/DLQ; add if missing.
 
-**Fix:** In `InviteStaffDialog.tsx`, replace the static copy with role-aware text: "They'll receive {selectedRole} access upon signup." (or just "They'll receive the selected role upon signup.")
+## 4. Instant account header refresh
 
-## 6. Dialog missing `aria-describedby`
+**Problem.** Quote/status mutations trigger a DB-level `auto_update_account_status` flip on `accounts.status`, but `SubmittedMarkets` only invalidates `["quotes"]` and `["activity_log"]`, leaving the account header stale until reload.
 
-**Fix:** The "New Account" UI in `StaffDashboard.tsx` uses a Card, not a Dialog — but the console warning indicates some Dialog elsewhere is missing it. Audit all `<DialogContent>` usages and add either a `<DialogDescription>` child or `aria-describedby={undefined}` per shadcn guidance. Likely culprits: InviteClientDialog, InviteStaffDialog, any confirm dialogs.
+**Fix.** In `src/components/staff/SubmittedMarkets.tsx`, every success path (`updateStatus`, `handleSubmitDecline`, `handleSubmitInfoRequest`, `handleUploadQuote`, `handleSubmitBind`, `handleUpdateQuote`, and any "Mark as Submitted" handler) must also invalidate `["account", accountId]` and `["accounts"]`. Apply the same set in `src/components/staff/CoverWhaleActions.tsx`. Audit `AccountDetail.tsx` for the exact query key and align.
 
-## 7. Metadata / robots / OG cleanup (`index.html`, `public/robots.txt`)
+## 5. Expired / invalid invite UX
 
-In `index.html`:
-- Remove `<!-- TODO -->` comments and `<meta name="author" content="Lovable" />`.
-- Replace `twitter:site="@Lovable"` with `@360RiskPartners` (or remove the tag).
-- Replace broken signed-GCS `og:image` / `twitter:image` URLs with a stable asset (host one at `public/og-image.png` and reference `https://truckshield.360riskpartners.com/og-image.png`) — or remove the og:image tags entirely if no asset is ready.
-- Add `<link rel="canonical" href="https://truckshield.360riskpartners.com/" />`, `<meta property="og:url" …>`, `<meta name="robots" content="noindex,nofollow" />` (this is a private B2B portal — should not be indexed at all).
+**Problem.** If `accept_invitation` returns `{ error: ... }` (e.g. wrong logged-in email), the page still navigates. "Send me a new link" uses raw `signInWithOtp`, not an invite-bound magic link.
 
-In `public/robots.txt`:
-- Switch to `User-agent: *` / `Disallow: /` since this is a gated portal, not a marketing site.
+**Fix.** In `src/pages/Auth.tsx`, on an `accept_invitation` error: do not navigate, set `inviteStatus` to `invalid` or `expired`, surface the message, show "Send me a new link". Extend `create-client-magic-link` (or add a small companion function) to allow self-service resend: validate the invite token, confirm the requester email matches, regenerate a magic link with `email_redirect_to=/auth?invite={token}`, and dispatch the branded portal-invite email through `send-transactional-email`. Replace the direct `signInWithOtp` call with this helper.
 
-## 8. Security headers
+## Technical Details
 
-The app is hosted on Lovable; we cannot set true HTTP response headers from the project. Add an `index.html` `<meta http-equiv="Content-Security-Policy" …>` covering script/style/img/connect sources (Supabase, fonts, self) and a `<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()">`. Document in `.lovable/plan.md` that `X-Frame-Options` / `frame-ancestors` and HSTS need to be set at the hosting/CDN layer — they cannot be set via meta tags reliably and should be configured at the custom domain proxy if available.
+**Files**
+- `supabase/functions/send-portal-invite-on-assignment/index.ts`
+- `supabase/functions/create-client-magic-link/index.ts` (extend for resend)
+- `supabase/functions/send-transactional-email/index.ts`
+- `supabase/functions/notify-status-change/index.ts`
+- `supabase/functions/process-email-queue/index.ts` (only if provider message_id / error logging is missing)
+- New migration updating `accept_invitation(p_token)`
+- `src/lib/sendClientInvite.ts`
+- `src/components/staff/InviteClientDialog.tsx`
+- `src/components/staff/SubmittedMarkets.tsx`
+- `src/components/staff/CoverWhaleActions.tsx`
+- `src/pages/Auth.tsx`
 
-## Files changed
+**Redeploy:** `send-portal-invite-on-assignment`, `create-client-magic-link`, `send-transactional-email`, `notify-status-change`, `process-email-queue` (if changed).
 
-- `src/App.tsx` — add preview wizard route
-- `src/components/AppLayout.tsx` — role-loading gate, header aria-labels
-- `src/components/RoleRedirect.tsx` — wait on role resolution
-- `src/pages/Auth.tsx` — role-aware post-login redirect
-- `src/pages/StaffDashboard.tsx` — Accounts tab navigates to `/staff/accounts`
-- `src/pages/ClientPortalForAccount.tsx` — wizard URL sync
-- `src/components/staff/InviteStaffDialog.tsx` — fix copy
-- `src/components/staff/AccountDetail.tsx`, `CarrierManager.tsx`, `DocumentHub.tsx`, `InviteClientDialog.tsx`, `NotificationBell.tsx`, `ThemeToggle.tsx`, `messaging/MessagingSidebar.tsx` — aria-labels
-- Dialog audit: add `<DialogDescription>` where missing
-- `index.html` — metadata cleanup, CSP/Permissions-Policy, canonical, robots noindex
-- `public/robots.txt` — disallow all
+## End-to-End QA
 
-## Out of scope
+1. Create test account, send manual invite, verify Gmail delivery + producer CC.
+2. Click invite link → user is authenticated and lands on `/client` (no "Send Magic Link" step).
+3. Verify `accounts.contact_email` is populated; existing values are preserved.
+4. Mark a carrier "Submitted" → header flips to `quoting` without reload.
+5. Mark a carrier "Additional Info Requested" → client receives email, producer CC'd, `activity_log` shows `email_sent` with queue_id, `email_send_log` shows pending → sent with provider message_id written by `process-email-queue`.
+6. Test valid / expired / invalid / wrong-email invite tokens; resend works for each recoverable case.
 
-- True HTTP security headers (HSTS, X-Frame-Options, real CSP) — requires hosting-layer config, not code.
-- Full state-changing QA pass (account creation, invites, uploads, quote flow) — user said they'll do this separately with a test account.
-- New OG image generation — only swap the broken URL; ask before generating new artwork.
+## Out of Scope
+
+- Rewriting the email queue architecture.
+- Bulk-migrating older accounts missing `contact_email`.
+- Changes to the staff invitation flow beyond shared helpers.
+- Overwriting existing `accounts.contact_email` values.
