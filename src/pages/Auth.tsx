@@ -90,18 +90,24 @@ const Auth = () => {
   };
 
   // Accept client invitation helper
-  const acceptInvitation = async () => {
-    if (!inviteToken) return;
+  const acceptInvitation = async (): Promise<{ ok: boolean }> => {
+    if (!inviteToken) return { ok: true };
     try {
       const { data, error } = await supabase.rpc("accept_invitation", { p_token: inviteToken });
       if (error) throw error;
       if (data && typeof data === "object" && "error" in (data as any)) {
-        toast({ title: "Invitation issue", description: (data as any).error, variant: "destructive" });
+        const msg = (data as any).error as string;
+        toast({ title: "Invitation issue", description: msg, variant: "destructive" });
+        setInviteStatus(/expired/i.test(msg) ? "expired" : "invalid");
+        return { ok: false };
       } else {
         toast({ title: "Welcome!", description: "Your account has been linked." });
+        return { ok: true };
       }
     } catch (err: any) {
       console.error("Invite acceptance error:", err);
+      setInviteStatus("invalid");
+      return { ok: false };
     }
   };
 
@@ -110,7 +116,8 @@ const Auth = () => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         if (inviteToken) {
-          try { await acceptInvitation(); } catch {}
+          const result = await acceptInvitation().catch(() => ({ ok: false }));
+          if (!result.ok) return; // stay on /auth so the user sees the banner
         }
         if (staffInviteToken) {
           await acceptStaffInvitation();
