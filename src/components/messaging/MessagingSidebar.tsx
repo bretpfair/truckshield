@@ -39,6 +39,7 @@ const MessagingSidebar = ({ expanded, onToggle, accountId, isStaff }: Props) => 
           size="icon"
           onClick={onToggle}
           className="fixed bottom-4 right-4 z-50 h-12 w-12 rounded-full shadow-lg"
+          aria-label={expanded ? "Close messages" : "Open messages"}
         >
           <MessageSquare className="h-5 w-5" />
         </Button>
@@ -79,7 +80,13 @@ const MessagingSidebar = ({ expanded, onToggle, accountId, isStaff }: Props) => 
             Messages
           </span>
         )}
-        <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggle}
+          className="h-8 w-8"
+          aria-label={expanded ? "Collapse messages panel" : "Expand messages panel"}
+        >
           {expanded ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
         </Button>
       </div>
@@ -87,7 +94,14 @@ const MessagingSidebar = ({ expanded, onToggle, accountId, isStaff }: Props) => 
       {/* Collapsed icon strip */}
       {!expanded && (
         <div className="flex flex-col items-center pt-3">
-          <Button variant="ghost" size="icon" onClick={onToggle} className="h-8 w-8" title="Open Messages">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            className="h-8 w-8"
+            title="Open Messages"
+            aria-label="Open messages panel"
+          >
             <MessageSquare className="h-4 w-4 text-primary" />
           </Button>
         </div>

@@ -6,7 +6,9 @@ import { Truck } from "lucide-react";
 const RoleRedirect = () => {
   const { user, role, loading } = useAuth();
 
-  if (loading) {
+  // Wait for both auth and role resolution so we never redirect to the
+  // wrong portal on a momentary null role.
+  if (loading || (user && role === null)) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
         <div className="flex items-center gap-3 animate-fade-in">

@@ -66,6 +66,20 @@ const AppLayout = () => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
+  // If we have a user but role hasn't resolved yet, keep showing the loader
+  // instead of making a role-based redirect on a null role (causes a flash
+  // of the wrong portal after sign-in).
+  if (role === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex items-center gap-3 animate-fade-in">
+          <Truck className="h-6 w-6 text-primary animate-pulse" />
+          <span className="text-muted-foreground font-mono text-sm">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (isStaffRole && onDirectClientPortal) {
     return <Navigate to="/staff" replace />;
   }
@@ -104,6 +118,7 @@ const AppLayout = () => {
                 size="sm"
                 onClick={handleTogglePreview}
                 className="gap-1 text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
+                aria-label={inStaffPreview ? "Back to staff view" : "Preview as client"}
               >
                 <Eye className="h-3 w-3" />
                 <span className="hidden xs:inline">{inStaffPreview ? "Back to Staff" : "Preview Client"}</span>
@@ -119,7 +134,7 @@ const AppLayout = () => {
               <User className="h-4 w-4" />
               <span>{user.email}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={signOut} className="h-7 w-7 sm:h-8 sm:w-8 p-0">
+            <Button variant="ghost" size="sm" onClick={signOut} className="h-7 w-7 sm:h-8 sm:w-8 p-0" aria-label="Sign out">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

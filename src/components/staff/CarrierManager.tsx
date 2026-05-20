@@ -427,10 +427,10 @@ const CarrierManager = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(c)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(c)} aria-label={`Edit ${c.name}`}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteCarrier.mutate(c.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteCarrier.mutate(c.id)} aria-label={`Delete ${c.name}`}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
