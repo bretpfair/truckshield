@@ -54,7 +54,10 @@ const StaffDashboard = () => {
     : "accounts";
 
   const handleTabChange = (value: string) => {
-    navigate(value === "accounts" ? "/staff" : `/staff/${value}`);
+    // Always use the explicit /staff/<tab> form so the URL matches the docs
+    // and the active tab. /staff alone still resolves to "accounts" as a
+    // backwards-compatible alias via the segment-derivation above.
+    navigate(`/staff/${value}`);
   };
 
   const goToAccount = (id: string) => navigate(`/staff/accounts/${id}`);

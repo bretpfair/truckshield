@@ -558,7 +558,7 @@ const AccountDetail = (props: Props = {}) => {
     <div className="space-y-3 sm:space-y-6 animate-fade-in">
       {/* Header row */}
       <div className="flex items-center gap-2 sm:gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
+        <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0" aria-label="Back to accounts">
           <ArrowLeft className="h-4 w-4 mr-1" /> <span className="hidden sm:inline">Back</span>
         </Button>
         <h2 className="text-lg sm:text-xl font-bold truncate min-w-0">{account.company_name}</h2>
@@ -581,6 +581,7 @@ const AccountDetail = (props: Props = {}) => {
               size="sm"
               className="gap-1.5 text-warning border-warning/30 hover:bg-warning/10 shrink-0"
               onClick={() => setShowCloseLostDialog(true)}
+              aria-label="Mark account as closed/lost"
             >
               <XCircle className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Close / Lost</span>
             </Button>
@@ -592,18 +593,20 @@ const AccountDetail = (props: Props = {}) => {
               className="gap-1.5 shrink-0"
               onClick={handleSaferUpdate}
               disabled={isSaferUpdating}
+              aria-label="Update account fields from SAFER"
             >
               {isSaferUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">{isSaferUpdating ? "Updating..." : "Update from SAFER"}</span>
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => setShowWizard(true)} className="gap-1.5 shrink-0" aria-label="View application">
             <ClipboardList className="h-3.5 w-3.5" /> <span className="hidden sm:inline">View</span> Application
           </Button>
           <Button
             variant="outline"
             size="sm"
             className="gap-1.5 shrink-0"
+            aria-label="Download application PDF"
             onClick={() =>
               generateApplicationPdf({
                 account,
@@ -623,6 +626,7 @@ const AccountDetail = (props: Props = {}) => {
               size="sm"
               className="gap-1.5 shrink-0"
               disabled={isSendingInvite}
+              aria-label="Send client portal invite"
               onClick={async () => {
                 setIsSendingInvite(true);
                 try {
@@ -650,7 +654,7 @@ const AccountDetail = (props: Props = {}) => {
             </Button>
           )}
           {onPreviewClient && (
-            <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5 shrink-0" aria-label="Preview as client">
               <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Preview Client</span>
             </Button>
           )}
@@ -659,6 +663,7 @@ const AccountDetail = (props: Props = {}) => {
             size="sm"
             className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
             onClick={() => setShowDeleteDialog(true)}
+            aria-label="Delete account"
           >
             <Trash2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Delete</span>
           </Button>

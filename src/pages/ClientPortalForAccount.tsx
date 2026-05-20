@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -72,7 +72,14 @@ interface Props {
 const ClientPortalForAccount = (props: Props = {}) => {
   const params = useParams<{ accountId: string }>();
   const accountId = props.accountId ?? params.accountId!;
-  const [showWizard, setShowWizard] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const showWizard = location.pathname.endsWith("/application");
+  const setShowWizard = (open: boolean) => {
+    navigate(open
+      ? `/staff/preview/${accountId}/application`
+      : `/staff/preview/${accountId}`);
+  };
   const [showInfoRequestDialog, setShowInfoRequestDialog] = useState(false);
 
   const { data: account, isLoading } = useQuery({
@@ -369,7 +376,7 @@ const ClientPortalForAccount = (props: Props = {}) => {
 
       {/* Pending Info Requests Popup */}
       <Dialog open={showInfoRequestDialog} onOpenChange={setShowInfoRequestDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />

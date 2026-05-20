@@ -275,7 +275,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       </Card>
 
       <Dialog open={!!resultDialog} onOpenChange={(open) => !open && setResultDialog(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
@@ -334,7 +334,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       </Dialog>
 
       <Dialog open={!!bindDialog} onOpenChange={(open) => !open && setBindDialog(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />

@@ -129,15 +129,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          fetchRole(session.user.id);
-          // Track login on SIGNED_IN event
+          // Keep loading=true until role is fetched so consumers (RoleRedirect,
+          // AppLayout) don't make routing decisions with a stale/null role.
+          setLoading(true);
+          fetchRole(session.user.id).finally(() => setLoading(false));
           if (_event === "SIGNED_IN") {
             trackLogin(session.user.id);
           }
         } else {
           setRole(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 

@@ -45,6 +45,7 @@ const App = () => (
               <Route path="/staff/accounts/:accountId" element={<AccountDetail />} />
               <Route path="/staff/accounts/:accountId/application" element={<AccountDetail />} />
               <Route path="/staff/preview/:accountId" element={<ClientPortalForAccount />} />
+              <Route path="/staff/preview/:accountId/application" element={<ClientPortalForAccount />} />
               <Route path="/client" element={<ClientPortal />} />
               <Route path="/client/application" element={<ClientPortal />} />
             </Route>
