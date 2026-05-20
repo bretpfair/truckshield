@@ -127,6 +127,8 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       toast({ title: "Status updated" });
     },
   });
@@ -212,6 +214,8 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       toast({ title: "Market declined", description: "Reason has been recorded" });
       setDeclineDialog(null);
       setDeclineReason("");
@@ -300,6 +304,8 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       toast({ title: "Info request sent", description: "Client has been notified" });
       setInfoRequestDialog(null);
       setInfoRequestDetails("");
@@ -345,6 +351,8 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       toast({ title: "Quote uploaded successfully" });
       setUploadDialog(null);
       setPremiumAmount("");
@@ -444,6 +452,8 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       toast({ title: "Quote updated successfully" });
       setUpdateQuoteDialog(null);
       setPremiumAmount("");
@@ -546,6 +556,8 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
 
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       toast({ title: "Coverage bound", description: `${bindDialog.carrierName} bound at $${premium.toLocaleString()}` });
       setBindDialog(null);
       setBoundPremium("");
