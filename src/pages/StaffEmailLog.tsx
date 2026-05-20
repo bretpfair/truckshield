@@ -11,18 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { dedupeEmailRows } from "@/components/staff/EmailDeliveryLog";
-
-type EmailLogRow = {
-  id: string;
-  created_at: string;
-  error_message: string | null;
-  message_id: string | null;
-  metadata: any;
-  recipient_email: string;
-  status: string;
-  template_name: string;
-};
+import { activityEmailToLogRow, dedupeEmailRows, type EmailLogRow } from "@/components/staff/EmailDeliveryLog";
 
 const PAGE_SIZE = 50;
 
@@ -35,6 +24,13 @@ const statusClasses: Record<string, string> = {
   suppressed: "bg-muted text-muted-foreground border-border",
   bounced: "bg-destructive/10 text-destructive border-destructive/20",
   complained: "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+const activityTypesByStatus: Record<string, string[]> = {
+  all: ["email_queued", "email_sent", "email_failed"],
+  pending: ["email_queued"],
+  sent: ["email_sent"],
+  failed: ["email_failed"],
 };
 
 const getMetadata = (row: EmailLogRow) => (row.metadata || {}) as Record<string, any>;
@@ -51,7 +47,7 @@ const fallbackTemplateData = (row: EmailLogRow) => {
     portalLink: "https://truckshield.360riskpartners.com/client",
     carrierName: meta.carrierName || meta.carrier_name || "your carrier",
     newStatus: meta.newStatus || meta.new_status || "updated",
-    requestDetails: meta.requestDetails || meta.request_details || meta.description || "Please review your portal for details.",
+    requestDetails: meta.requestDetails || meta.request_details || meta.description || meta.activity_description || "Please review your portal for details.",
     companyName: meta.companyName || meta.company_name,
   };
 };
@@ -72,20 +68,37 @@ const StaffEmailLog = () => {
     queryKey: ["admin-email-send-log", status, template, fromDate, toDate, page],
     enabled: role === "admin",
     queryFn: async () => {
-      let query = supabase
+      let emailQuery = supabase
         .from("email_send_log")
         .select("*")
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
-      if (status !== "all") query = query.eq("status", status);
-      if (template !== "all") query = query.eq("template_name", template);
-      if (fromDate) query = query.gte("created_at", new Date(`${fromDate}T00:00:00`).toISOString());
-      if (toDate) query = query.lte("created_at", new Date(`${toDate}T23:59:59`).toISOString());
+      if (status !== "all") emailQuery = emailQuery.eq("status", status);
+      if (template !== "all") emailQuery = emailQuery.eq("template_name", template);
+      if (fromDate) emailQuery = emailQuery.gte("created_at", new Date(`${fromDate}T00:00:00`).toISOString());
+      if (toDate) emailQuery = emailQuery.lte("created_at", new Date(`${toDate}T23:59:59`).toISOString());
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as EmailLogRow[];
+      let activityQuery = supabase
+        .from("activity_log")
+        .select("id, account_id, action_type, created_at, description, metadata")
+        .in("action_type", activityTypesByStatus[status] || [])
+        .order("created_at", { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+
+      if (fromDate) activityQuery = activityQuery.gte("created_at", new Date(`${fromDate}T00:00:00`).toISOString());
+      if (toDate) activityQuery = activityQuery.lte("created_at", new Date(`${toDate}T23:59:59`).toISOString());
+
+      const [emailResult, activityResult] = await Promise.all([emailQuery, activityQuery]);
+      if (emailResult.error && activityResult.error) throw emailResult.error;
+
+      const emailRows = (emailResult.data || []) as EmailLogRow[];
+      let activityRows = ((activityResult.data || []) as any[]).map(activityEmailToLogRow);
+      if (template !== "all") {
+        activityRows = activityRows.filter((row) => row.template_name === template);
+      }
+
+      return [...emailRows, ...activityRows] as EmailLogRow[];
     },
   });
 
@@ -96,7 +109,7 @@ const StaffEmailLog = () => {
 
     return result.filter((row) => {
       const meta = getMetadata(row);
-      return [row.recipient_email, row.template_name, row.message_id, meta.account_id]
+      return [row.recipient_email, row.template_name, row.message_id, meta.account_id, meta.activity_description]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(normalized));
     });
