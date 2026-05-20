@@ -45,7 +45,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshRole = useCallback(async (userId?: string): Promise<AppRole> => {
-    const targetUserId = userId || user?.id;
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const { data } = await supabase.auth.getUser();
+      targetUserId = data.user?.id;
+    }
     if (!targetUserId) return null;
 
     setLoading(true);
@@ -54,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }, [fetchRole, user?.id]);
+  }, [fetchRole]);
 
   const trackLogin = async (userId: string) => {
     // Insert into login_history
