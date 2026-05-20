@@ -171,18 +171,27 @@ const Auth = () => {
 
   // Resend magic link for expired invite tokens
   const handleResendInviteLink = async () => {
-    if (!inviteEmail) return;
+    if (!inviteToken) return;
     setResendingLink(true);
-    const redirectTo = `${window.location.origin}/auth?invite=${inviteToken}`;
-    const { error } = await supabase.auth.signInWithOtp({
-      email: inviteEmail,
-      options: { emailRedirectTo: redirectTo },
-    });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setMagicLinkSent(true);
-      toast({ title: "Check your email", description: "We sent you a new access link." });
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "resend-client-portal-invite",
+        { body: { invite_token: inviteToken } },
+      );
+      const errMsg =
+        (data && typeof data === "object" && (data as any).error) ||
+        error?.message;
+      if (errMsg) {
+        toast({ title: "Couldn't send a new link", description: String(errMsg), variant: "destructive" });
+      } else {
+        setMagicLinkSent(true);
+        toast({
+          title: "Check your email",
+          description: `We sent a fresh portal invite to ${inviteEmail ?? "your inbox"}.`,
+        });
+      }
+    } catch (err: any) {
+      toast({ title: "Couldn't send a new link", description: err?.message ?? "Unknown error", variant: "destructive" });
     }
     setResendingLink(false);
   };
