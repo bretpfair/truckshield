@@ -30,7 +30,7 @@ const Auth = () => {
 
   // Invite token state
   const [inviteStatus, setInviteStatus] = useState<
-    "loading" | "valid" | "expired" | "invalid" | "accepted" | null
+    "loading" | "valid" | "link_expired" | "invite_expired" | "invalid" | "accepted" | null
   >(null);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [resendingLink, setResendingLink] = useState(false);
@@ -72,12 +72,12 @@ const Auth = () => {
           setEmail(result.email);
         }
 
-        if (authLinkExpired) {
-          setInviteStatus("expired");
+        if (authLinkExpired && result.status === "valid") {
+          setInviteStatus("link_expired");
         } else if (result.status === "valid") {
           setInviteStatus("valid");
         } else if (result.status === "expired") {
-          setInviteStatus("expired");
+          setInviteStatus("invite_expired");
         } else if (result.status === "accepted") {
           setInviteStatus("accepted");
         } else {
@@ -116,7 +116,7 @@ const Auth = () => {
       if (data && typeof data === "object" && "error" in (data as any)) {
         const msg = (data as any).error as string;
         toast({ title: "Invitation issue", description: msg, variant: "destructive" });
-        if (/expired/i.test(msg)) setInviteStatus("expired");
+        if (/expired/i.test(msg)) setInviteStatus("invite_expired");
         else if (/accepted|already/i.test(msg)) setInviteStatus("accepted");
         else setInviteStatus("invalid");
         return { ok: false };
@@ -313,7 +313,7 @@ const Auth = () => {
       );
     }
 
-    if (inviteStatus === "expired") {
+    if (inviteStatus === "link_expired") {
       return (
         <div className="mb-4 p-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-sm space-y-3">
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
@@ -337,6 +337,20 @@ const Auth = () => {
             )}
             {magicLinkSent ? "Link sent — check your email" : "Send me a new link"}
           </Button>
+        </div>
+      );
+    }
+
+    if (inviteStatus === "invite_expired") {
+      return (
+        <div className="mb-4 p-4 rounded-md bg-destructive/10 border border-destructive/20 text-sm space-y-2">
+          <div className="flex items-center gap-2 text-destructive font-medium">
+            <AlertCircle className="h-4 w-4" />
+            This invitation has expired
+          </div>
+          <p className="text-muted-foreground">
+            Invitations are valid for 7 days. Please contact your agent to request a new invitation — this link can't be reused.
+          </p>
         </div>
       );
     }
