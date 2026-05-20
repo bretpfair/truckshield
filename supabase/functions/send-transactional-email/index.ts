@@ -5,13 +5,13 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
-const SITE_NAME = "TruckShield"
+const SITE_NAME = 'TruckShield'
 // SENDER_DOMAIN is the subdomain verified in Resend with SPF/DKIM/DMARC.
 // Sending is performed by process-email-queue via the Resend connector gateway.
-const SENDER_DOMAIN = "truckshield.360riskpartners.com"
+const SENDER_DOMAIN = 'truckshield.360riskpartners.com'
 // FROM_DOMAIN is the domain shown in the From: header. Must be a domain
 // (or subdomain of one) that is verified in Resend.
-const FROM_DOMAIN = "truckshield.360riskpartners.com"
+const FROM_DOMAIN = 'truckshield.360riskpartners.com'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -140,6 +140,14 @@ Deno.serve(async (req) => {
     )
   }
 
+  const emailMetadata = (extra: Record<string, unknown> = {}) => ({
+    ...(accountId ? { account_id: accountId } : {}),
+    template_name: templateName,
+    recipient: effectiveRecipient,
+    templateData,
+    ...extra,
+  })
+
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -200,6 +208,7 @@ Deno.serve(async (req) => {
       template_name: templateName,
       recipient_email: effectiveRecipient,
       status: 'suppressed',
+      metadata: emailMetadata(),
     })
 
     console.log('Email suppressed', { effectiveRecipient, templateName })
@@ -234,6 +243,7 @@ Deno.serve(async (req) => {
       recipient_email: effectiveRecipient,
       status: 'failed',
       error_message: 'Failed to look up unsubscribe token',
+      metadata: emailMetadata(),
     })
     return new Response(
       JSON.stringify({ error: 'Failed to prepare email' }),
@@ -267,6 +277,7 @@ Deno.serve(async (req) => {
         recipient_email: effectiveRecipient,
         status: 'failed',
         error_message: 'Failed to create unsubscribe token',
+        metadata: emailMetadata(),
       })
       return new Response(
         JSON.stringify({ error: 'Failed to prepare email' }),
@@ -296,6 +307,7 @@ Deno.serve(async (req) => {
         recipient_email: effectiveRecipient,
         status: 'failed',
         error_message: 'Failed to confirm unsubscribe token storage',
+        metadata: emailMetadata(),
       })
       return new Response(
         JSON.stringify({ error: 'Failed to prepare email' }),
@@ -319,6 +331,7 @@ Deno.serve(async (req) => {
       status: 'suppressed',
       error_message:
         'Unsubscribe token used but email missing from suppressed list',
+      metadata: emailMetadata(),
     })
     return new Response(
       JSON.stringify({ success: false, reason: 'email_suppressed' }),
@@ -393,6 +406,7 @@ Deno.serve(async (req) => {
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
+  const cc = ccProducerEmail ? [ccProducerEmail] : null
 
   // Log pending BEFORE enqueue so we have a record even if enqueue crashes
   const { data: pendingLog } = await supabase.from('email_send_log').insert({
@@ -400,7 +414,7 @@ Deno.serve(async (req) => {
     template_name: templateName,
     recipient_email: effectiveRecipient,
     status: 'pending',
-    metadata: accountId ? { account_id: accountId } : null,
+    metadata: emailMetadata({ cc }),
   }).select('id').maybeSingle()
   const emailLogId = pendingLog?.id ?? null
 
@@ -419,6 +433,7 @@ Deno.serve(async (req) => {
       idempotency_key: idempotencyKey,
       unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
+      templateData,
       ...(ccProducerEmail ? { cc: [ccProducerEmail], reply_to: [ccProducerEmail] } : {}),
       ...(accountId ? { account_id: accountId } : {}),
     },
@@ -431,25 +446,31 @@ Deno.serve(async (req) => {
       effectiveRecipient,
     })
 
+    const enqueueErrorMessage = String(enqueueError?.message || enqueueError)
     await supabase.from('email_send_log').insert({
       message_id: messageId,
       template_name: templateName,
       recipient_email: effectiveRecipient,
       status: 'failed',
       error_message: 'Failed to enqueue email',
+      metadata: emailMetadata({
+        cc,
+        email_log_id: emailLogId,
+        error: enqueueErrorMessage,
+      }),
     })
 
     if (accountId) {
       await supabase.from('activity_log').insert({
         account_id: accountId,
         action_type: 'email_failed',
-        description: `Email "${templateName}" failed to queue for ${effectiveRecipient}`,
+        description: `Email '${templateName}' failed to queue for ${effectiveRecipient}`,
         metadata: {
           template_name: templateName,
           recipient: effectiveRecipient,
-          cc: ccProducerEmail ? [ccProducerEmail] : null,
+          cc,
           email_log_id: emailLogId,
-          error: String(enqueueError?.message || enqueueError),
+          error: enqueueErrorMessage,
         },
       })
     }
@@ -462,19 +483,19 @@ Deno.serve(async (req) => {
 
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
 
-  // Log enqueue success so staff see "queued" immediately in the account
-  // timeline. process-email-queue will later log "sent" / "failed" once the
+  // Log enqueue success so staff see queued immediately in the account
+  // timeline. process-email-queue will later log sent / failed once the
   // provider has dispatched (and update email_send_log with the provider
   // message_id).
   if (accountId) {
     await supabase.from('activity_log').insert({
       account_id: accountId,
       action_type: 'email_queued',
-      description: `Email "${templateName}" queued for ${effectiveRecipient}${ccProducerEmail ? ` (cc ${ccProducerEmail})` : ''}`,
+      description: `Email '${templateName}' queued for ${effectiveRecipient}${ccProducerEmail ? ` (cc ${ccProducerEmail})` : ''}`,
       metadata: {
         template_name: templateName,
         recipient: effectiveRecipient,
-        cc: ccProducerEmail ? [ccProducerEmail] : null,
+        cc,
         queue_id: queueId ?? null,
         email_log_id: emailLogId,
       },
