@@ -442,6 +442,9 @@ const AccountDetail = (props: Props = {}) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
       toast({ title: "Marked as submitted" });
     },
     onError: (err: any) => {
