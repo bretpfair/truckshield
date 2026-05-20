@@ -13,6 +13,7 @@ import Unsubscribe from "./pages/Unsubscribe.tsx";
 import AppLayout from "./components/AppLayout.tsx";
 import RoleRedirect from "./components/RoleRedirect.tsx";
 import StaffDashboard from "./pages/StaffDashboard.tsx";
+import StaffEmailLog from "./pages/StaffEmailLog.tsx";
 import ClientPortal from "./pages/ClientPortal.tsx";
 import ClientPortalForAccount from "./pages/ClientPortalForAccount.tsx";
 import AccountDetail from "./components/staff/AccountDetail.tsx";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/staff/invite" element={<StaffDashboard />} />
               <Route path="/staff/invite-staff" element={<StaffDashboard />} />
               <Route path="/staff/staff-manage" element={<StaffDashboard />} />
+              <Route path="/staff/emails" element={<StaffEmailLog />} />
               <Route path="/staff/accounts/:accountId" element={<AccountDetail />} />
               <Route path="/staff/accounts/:accountId/application" element={<AccountDetail />} />
               <Route path="/staff/preview/:accountId" element={<ClientPortalForAccount />} />
