@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { activityEmailToLogRow, dedupeEmailRows, type EmailLogRow } from "@/components/staff/EmailDeliveryLog";
+import { activityEmailToLogRow, canResendEmailRow, dedupeEmailRows, type EmailLogRow } from "@/components/staff/EmailDeliveryLog";
 
 const PAGE_SIZE = 50;
 
@@ -122,6 +122,8 @@ const StaffEmailLog = () => {
 
   const resend = useMutation({
     mutationFn: async (row: EmailLogRow) => {
+      if (!canResendEmailRow(row)) throw new Error("This older invite row is missing the original invite link. Send a fresh invite instead.");
+
       const meta = getMetadata(row);
       const accountId = meta.account_id;
       if (!accountId) throw new Error("This email row is not linked to an account.");
@@ -237,6 +239,7 @@ const StaffEmailLog = () => {
                   {deduped.map((row) => {
                     const meta = getMetadata(row);
                     const statusClass = statusClasses[row.status] || "bg-secondary text-muted-foreground border-border";
+                    const canResend = canResendEmailRow(row);
 
                     return (
                       <tr key={row.message_id || row.id} className="border-b last:border-0 align-top">
@@ -269,7 +272,8 @@ const StaffEmailLog = () => {
                             size="sm"
                             variant="outline"
                             className="h-8 gap-1.5"
-                            disabled={resend.isPending || !meta.account_id}
+                            disabled={resend.isPending || !meta.account_id || !canResend}
+                            title={canResend ? undefined : "Send a fresh invite instead"}
                             onClick={() => resend.mutate(row)}
                           >
                             <RefreshCw className="h-3.5 w-3.5" /> Resend
