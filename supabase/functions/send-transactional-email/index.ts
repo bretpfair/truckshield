@@ -6,6 +6,7 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
 const SITE_NAME = 'TruckShield'
+const SITE_URL = 'https://truckshield.360riskpartners.com'
 // SENDER_DOMAIN is the subdomain verified in Resend with SPF/DKIM/DMARC.
 // Sending is performed by process-email-queue via the Resend connector gateway.
 const SENDER_DOMAIN = 'truckshield.360riskpartners.com'
@@ -26,6 +27,23 @@ function generateToken(): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
+}
+
+function readInviteTokenFromUrl(value: unknown): string | null {
+  if (!value || typeof value !== 'string') return null
+  try {
+    const url = new URL(value)
+    const direct = url.searchParams.get('invite')
+    if (direct) return direct
+    const redirect = url.searchParams.get('redirect_to') || url.searchParams.get('redirectTo')
+    if (redirect) return readInviteTokenFromUrl(decodeURIComponent(redirect))
+  } catch {
+    const direct = value.match(/[?&]invite=([^&#]+)/i)?.[1]
+    if (direct) return decodeURIComponent(direct)
+    const redirect = value.match(/[?&]redirect_to=([^&#]+)/i)?.[1]
+    if (redirect) return readInviteTokenFromUrl(decodeURIComponent(redirect))
+  }
+  return null
 }
 
 // Auth: verify JWT in code since verify_jwt is false (signing-keys system)
