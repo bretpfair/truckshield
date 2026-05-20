@@ -78,7 +78,7 @@ export const activityEmailToLogRow = (row: ActivityEmailRow): EmailLogRow => {
     id: `activity-${row.id}`,
     created_at: row.created_at,
     error_message: meta.error || (status === "failed" ? row.description : null),
-    message_id: meta.email_log_id || meta.queue_id || `activity-${row.id}`,
+    message_id: meta.message_id || meta.email_log_id || meta.queue_id || `activity-${row.id}`,
     metadata: {
       ...meta,
       ...(accountId ? { account_id: accountId } : {}),
