@@ -108,6 +108,8 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       queryClient.invalidateQueries({ queryKey: ["coverwhale_submissions", accountId] });
       queryClient.invalidateQueries({ queryKey: ["quotes", accountId] });
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["account", accountId] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
 
       if (action === "quote" || action === "indication") {
         setResultDialog(data);

@@ -67,6 +67,14 @@ export async function sendClientInvite({
 
   if (error) throw error;
 
+  // Backfill the account's contact email so downstream notifications can
+  // reach the client. Never overwrite an existing value.
+  await supabase
+    .from("accounts")
+    .update({ contact_email: normalizedEmail })
+    .eq("id", accountId)
+    .or("contact_email.is.null,contact_email.eq.");
+
   // Generate a single-click magic link
   const portalLink = await generateMagicLink(normalizedEmail, invitation.token);
   const firstName = deriveFirstName(normalizedEmail);

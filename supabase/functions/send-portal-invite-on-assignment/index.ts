@@ -128,7 +128,28 @@ Deno.serve(async (req) => {
     })
   }
 
-  const portalLink = `https://truckshield.360riskpartners.com/auth?invite=${invitation.token}`
+  const inviteRedirect = `https://truckshield.360riskpartners.com/auth?invite=${invitation.token}`
+
+  // Generate a true single-click magic link via Supabase Admin so the
+  // invite email authenticates the client on click. Falls back to the
+  // plain invite URL on failure.
+  let portalLink = inviteRedirect
+  try {
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email: contactEmail,
+      options: { redirectTo: inviteRedirect },
+    } as any)
+    const hashedToken = (linkData as any)?.properties?.hashed_token
+    if (!linkError && hashedToken) {
+      portalLink = `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(inviteRedirect)}`
+    } else {
+      console.warn('Magic link generation failed; using plain invite URL', { linkError })
+    }
+  } catch (err) {
+    console.warn('Magic link generation threw; using plain invite URL', err)
+  }
+
   const firstName =
     (account.business_owner_name as string | null)?.split(/\s+/)[0] ||
     contactEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())

@@ -395,15 +395,16 @@ Deno.serve(async (req) => {
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
 
   // Log pending BEFORE enqueue so we have a record even if enqueue crashes
-  await supabase.from('email_send_log').insert({
+  const { data: pendingLog } = await supabase.from('email_send_log').insert({
     message_id: messageId,
     template_name: templateName,
     recipient_email: effectiveRecipient,
     status: 'pending',
     metadata: accountId ? { account_id: accountId } : null,
-  })
+  }).select('id').maybeSingle()
+  const emailLogId = pendingLog?.id ?? null
 
-  const { error: enqueueError } = await supabase.rpc('enqueue_email', {
+  const { data: queueId, error: enqueueError } = await supabase.rpc('enqueue_email', {
     queue_name: 'transactional_emails',
     payload: {
       message_id: messageId,
@@ -438,6 +439,21 @@ Deno.serve(async (req) => {
       error_message: 'Failed to enqueue email',
     })
 
+    if (accountId) {
+      await supabase.from('activity_log').insert({
+        account_id: accountId,
+        action_type: 'email_failed',
+        description: `Email "${templateName}" failed to queue for ${effectiveRecipient}`,
+        metadata: {
+          template_name: templateName,
+          recipient: effectiveRecipient,
+          cc: ccProducerEmail ? [ccProducerEmail] : null,
+          email_log_id: emailLogId,
+          error: String(enqueueError?.message || enqueueError),
+        },
+      })
+    }
+
     return new Response(JSON.stringify({ error: 'Failed to enqueue email' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -445,6 +461,25 @@ Deno.serve(async (req) => {
   }
 
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
+
+  // Log enqueue success so staff see "queued" immediately in the account
+  // timeline. process-email-queue will later log "sent" / "failed" once the
+  // provider has dispatched (and update email_send_log with the provider
+  // message_id).
+  if (accountId) {
+    await supabase.from('activity_log').insert({
+      account_id: accountId,
+      action_type: 'email_queued',
+      description: `Email "${templateName}" queued for ${effectiveRecipient}${ccProducerEmail ? ` (cc ${ccProducerEmail})` : ''}`,
+      metadata: {
+        template_name: templateName,
+        recipient: effectiveRecipient,
+        cc: ccProducerEmail ? [ccProducerEmail] : null,
+        queue_id: queueId ?? null,
+        email_log_id: emailLogId,
+      },
+    })
+  }
 
   if (ccProducerEmail) {
     console.log(`Producer ${ccProducerEmail} CC'd and set as reply-to for ${effectiveRecipient}`)
