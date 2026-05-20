@@ -6,6 +6,7 @@ import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
 const SITE_NAME = 'TruckShield'
+const SITE_URL = 'https://truckshield.360riskpartners.com'
 // SENDER_DOMAIN is the subdomain verified in Resend with SPF/DKIM/DMARC.
 // Sending is performed by process-email-queue via the Resend connector gateway.
 const SENDER_DOMAIN = 'truckshield.360riskpartners.com'
@@ -28,6 +29,23 @@ function generateToken(): string {
     .join('')
 }
 
+function readInviteTokenFromUrl(value: unknown): string | null {
+  if (!value || typeof value !== 'string') return null
+  try {
+    const url = new URL(value)
+    const direct = url.searchParams.get('invite')
+    if (direct) return direct
+    const redirect = url.searchParams.get('redirect_to') || url.searchParams.get('redirectTo')
+    if (redirect) return readInviteTokenFromUrl(decodeURIComponent(redirect))
+  } catch {
+    const direct = value.match(/[?&]invite=([^&#]+)/i)?.[1]
+    if (direct) return decodeURIComponent(direct)
+    const redirect = value.match(/[?&]redirect_to=([^&#]+)/i)?.[1]
+    if (redirect) return readInviteTokenFromUrl(decodeURIComponent(redirect))
+  }
+  return null
+}
+
 // Auth: verify JWT in code since verify_jwt is false (signing-keys system)
 
 Deno.serve(async (req) => {
@@ -40,26 +58,7 @@ Deno.serve(async (req) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
 
-  // Validate JWT in code
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-  const authClient = createClient(supabaseUrl!, supabaseAnonKey!, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const token = authHeader.replace('Bearer ', '')
-  const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token)
-  if (claimsError || !claimsData?.claims) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-  const callerUserId = claimsData.claims.sub as string
-
-  if (!supabaseUrl || !supabaseServiceKey) {
+  if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
     console.error('Missing required environment variables')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
@@ -68,6 +67,29 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
+  }
+
+  // Validate JWT in code
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const token = authHeader.replace('Bearer ', '')
+  const isServiceCaller = token === supabaseServiceKey
+  let callerUserId: string | null = null
+  if (!isServiceCaller) {
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token)
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    callerUserId = claimsData.claims.sub as string
   }
 
   // Parse request body
@@ -140,6 +162,67 @@ Deno.serve(async (req) => {
     )
   }
 
+  // Create backend client with elevated privileges for validation, rendering,
+  // enqueueing, and delivery metadata writes.
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+  // Client portal invites must never reuse a previously rendered magic link.
+  // If a caller passes older templateData from an email row, extract only the
+  // stable invite token and replace portalLink with a brand-new auth token.
+  if (templateName === 'client-portal-invite') {
+    const inviteToken = readInviteTokenFromUrl(templateData.portalLink) || templateData.inviteToken || templateData.invite_token
+    if (!inviteToken || typeof inviteToken !== 'string') {
+      return new Response(JSON.stringify({ error: 'A fresh invite token is required for client portal invites' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: invitation, error: inviteLookupError } = await supabase
+      .from('client_invitations')
+      .select('email, status, expires_at')
+      .eq('token', inviteToken)
+      .maybeSingle()
+
+    if (inviteLookupError || !invitation) {
+      return new Response(JSON.stringify({ error: 'Invalid invitation token' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (
+      invitation.status !== 'pending' ||
+      new Date(invitation.expires_at).getTime() < Date.now() ||
+      String(invitation.email).toLowerCase() !== String(effectiveRecipient).toLowerCase()
+    ) {
+      return new Response(JSON.stringify({ error: 'Invitation is expired, already used, or not valid for this recipient' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const redirectTo = `${SITE_URL}/auth?invite=${inviteToken}`
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email: effectiveRecipient,
+      options: { redirectTo },
+    } as any)
+    const hashedToken = (linkData as any)?.properties?.hashed_token
+    if (linkError || !hashedToken) {
+      console.error('Failed to generate fresh client invite magic link', { linkError, effectiveRecipient })
+      return new Response(JSON.stringify({ error: 'Failed to generate a fresh portal access link' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    templateData = {
+      ...templateData,
+      inviteToken,
+      portalLink: `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(redirectTo)}`,
+    }
+  }
+
   const emailMetadata = (extra: Record<string, unknown> = {}) => ({
     ...(accountId ? { account_id: accountId } : {}),
     message_id: messageId,
@@ -149,35 +232,34 @@ Deno.serve(async (req) => {
     ...extra,
   })
 
-  // Create Supabase client with service role (bypasses RLS)
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-  // Authorization: staff (admin/producer) can send any template.
-  // Clients can only trigger sends for their own account.
-  const { data: callerRoles } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', callerUserId)
-  const isStaff = (callerRoles ?? []).some(
-    (r: { role: string }) => r.role === 'admin' || r.role === 'producer',
-  )
-  if (!isStaff) {
-    // Client must own the account this email is being sent for
-    if (!accountId) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    const { data: ownedAccount } = await supabase
-      .from('accounts')
-      .select('id')
-      .eq('id', accountId)
-      .eq('client_user_id', callerUserId)
-      .maybeSingle()
-    if (!ownedAccount) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+  if (!isServiceCaller) {
+    // Authorization: staff (admin/producer) can send any template.
+    // Clients can only trigger sends for their own account.
+    const { data: callerRoles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', callerUserId)
+    const isStaff = (callerRoles ?? []).some(
+      (r: { role: string }) => r.role === 'admin' || r.role === 'producer',
+    )
+    if (!isStaff) {
+      // Client must own the account this email is being sent for
+      if (!accountId) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const { data: ownedAccount } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('id', accountId)
+        .eq('client_user_id', callerUserId)
+        .maybeSingle()
+      if (!ownedAccount) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
   }
 

@@ -28,22 +28,23 @@ export async function sendClientInvite({
     .maybeSingle();
 
   if (existingInvite) {
-    // Resend with a fresh magic link
-    const portalLink = await generateMagicLink(normalizedEmail, existingInvite.token);
+    // send-transactional-email generates the fresh auth token at queue time.
+    const portalLink = getInviteRedirect(existingInvite.token);
     const firstName = deriveFirstName(normalizedEmail);
 
     // Backfill account.contact_email if empty so downstream client emails work
     await backfillContactEmail(accountId, normalizedEmail);
 
-    await supabase.functions.invoke("send-transactional-email", {
+    const { error: sendError } = await supabase.functions.invoke("send-transactional-email", {
       body: {
         templateName: "client-portal-invite",
         recipientEmail: normalizedEmail,
         accountId,
         idempotencyKey: `portal-invite-resend-${existingInvite.id}-${Date.now()}`,
-        templateData: { firstName, portalLink, companyName },
+        templateData: { firstName, portalLink, inviteToken: existingInvite.token, companyName },
       },
     });
+    if (sendError) throw sendError;
 
     // Log activity
     await supabase.from("activity_log").insert({
@@ -73,20 +74,22 @@ export async function sendClientInvite({
   // Backfill account.contact_email if empty — source for later client emails
   await backfillContactEmail(accountId, normalizedEmail);
 
-  // Generate a single-click magic link
-  const portalLink = await generateMagicLink(normalizedEmail, invitation.token);
+  // send-transactional-email converts this stable invite URL into a fresh
+  // single-click auth link for the email being queued.
+  const portalLink = getInviteRedirect(invitation.token);
   const firstName = deriveFirstName(normalizedEmail);
 
   // Send invite email
-  await supabase.functions.invoke("send-transactional-email", {
+  const { error: sendError } = await supabase.functions.invoke("send-transactional-email", {
     body: {
       templateName: "client-portal-invite",
       recipientEmail: normalizedEmail,
       accountId,
       idempotencyKey: `portal-invite-${invitation.id}`,
-      templateData: { firstName, portalLink, companyName },
+      templateData: { firstName, portalLink, inviteToken: invitation.token, companyName },
     },
   });
+  if (sendError) throw sendError;
 
   // Log activity
   await supabase.from("activity_log").insert({
@@ -103,24 +106,8 @@ export async function sendClientInvite({
  * Calls the Edge Function to generate a combined magic link + invite token URL.
  * Falls back to a plain invite URL if the magic link generation fails.
  */
-async function generateMagicLink(email: string, inviteToken: string): Promise<string> {
-  const redirectTo = `${window.location.origin}/auth?invite=${inviteToken}`;
-
-  try {
-    const { data, error } = await supabase.functions.invoke("create-client-magic-link", {
-      body: { email, inviteToken, redirectTo },
-    });
-
-    if (error || !data?.magicLink) {
-      console.warn("Magic link generation failed, falling back to plain invite link:", error);
-      return redirectTo;
-    }
-
-    return data.magicLink;
-  } catch (err) {
-    console.warn("Magic link generation failed, falling back to plain invite link:", err);
-    return redirectTo;
-  }
+function getInviteRedirect(inviteToken: string): string {
+  return `${window.location.origin}/auth?invite=${inviteToken}`;
 }
 
 function deriveFirstName(email: string): string {
