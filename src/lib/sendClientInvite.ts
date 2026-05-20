@@ -32,6 +32,9 @@ export async function sendClientInvite({
     const portalLink = await generateMagicLink(normalizedEmail, existingInvite.token);
     const firstName = deriveFirstName(normalizedEmail);
 
+    // Backfill account.contact_email if empty so downstream client emails work
+    await backfillContactEmail(accountId, normalizedEmail);
+
     await supabase.functions.invoke("send-transactional-email", {
       body: {
         templateName: "client-portal-invite",
@@ -67,13 +70,8 @@ export async function sendClientInvite({
 
   if (error) throw error;
 
-  // Backfill the account's contact email so downstream notifications can
-  // reach the client. Never overwrite an existing value.
-  await supabase
-    .from("accounts")
-    .update({ contact_email: normalizedEmail })
-    .eq("id", accountId)
-    .or("contact_email.is.null,contact_email.eq.");
+  // Backfill account.contact_email if empty — source for later client emails
+  await backfillContactEmail(accountId, normalizedEmail);
 
   // Generate a single-click magic link
   const portalLink = await generateMagicLink(normalizedEmail, invitation.token);
@@ -130,4 +128,16 @@ function deriveFirstName(email: string): string {
     .split("@")[0]
     .replace(/[._-]/g, " ")
     .replace(/\b\w/g, (c: string) => c.toUpperCase());
+}
+
+async function backfillContactEmail(accountId: string, normalizedEmail: string): Promise<void> {
+  const { error } = await supabase
+    .from("accounts")
+    .update({ contact_email: normalizedEmail })
+    .eq("id", accountId)
+    .or("contact_email.is.null,contact_email.eq.");
+  if (error) {
+    console.error("Failed to backfill accounts.contact_email", { accountId, error });
+    throw new Error(`Could not store invite email on account: ${error.message}`);
+  }
 }

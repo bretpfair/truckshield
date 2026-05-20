@@ -272,33 +272,76 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
         });
       }
 
-      // Send email notification to client
-      const clientEmail = account?.contact_email;
-      if (clientEmail) {
-        // Get client name if available
-        let firstName: string | undefined;
-        if (account?.client_user_id) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("user_id", account.client_user_id)
-            .single();
-          firstName = profile?.full_name?.split(" ")[0];
+      // Resolve recipient: accounts.contact_email first, then profile email
+      let clientEmail: string | null = account?.contact_email?.trim() || null;
+      let firstName: string | undefined;
+      let profileEmail: string | null = null;
+      if (account?.client_user_id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("user_id", account.client_user_id)
+          .single();
+        firstName = profile?.full_name?.split(" ")[0];
+        profileEmail = profile?.email?.trim() || null;
+        if (!clientEmail && profileEmail) {
+          clientEmail = profileEmail;
+          // Backfill accounts.contact_email
+          await supabase
+            .from("accounts")
+            .update({ contact_email: profileEmail })
+            .eq("id", accountId)
+            .or("contact_email.is.null,contact_email.eq.");
         }
+      }
 
-        await supabase.functions.invoke("send-transactional-email", {
-          body: {
-            templateName: "additional-info-request",
-            recipientEmail: clientEmail,
-            accountId,
-            idempotencyKey: `info-request-${infoRequestDialog.quoteId}-${Date.now()}`,
-            templateData: {
-              firstName,
-              carrierName: infoRequestDialog.carrierName,
-              requestDetails: infoRequestDetails.trim(),
-              portalLink: `${window.location.origin}/client`,
-            },
-          },
+      let emailQueued = false;
+      let emailErrorMsg: string | null = null;
+      if (clientEmail) {
+        try {
+          const { data: invokeData, error: invokeError } = await supabase.functions.invoke(
+            "send-transactional-email",
+            {
+              body: {
+                templateName: "additional-info-request",
+                recipientEmail: clientEmail,
+                accountId,
+                idempotencyKey: `info-request-${infoRequestDialog.quoteId}-${Date.now()}`,
+                templateData: {
+                  firstName,
+                  carrierName: infoRequestDialog.carrierName,
+                  requestDetails: infoRequestDetails.trim(),
+                  portalLink: `${window.location.origin}/client`,
+                },
+              },
+            }
+          );
+          if (invokeError) emailErrorMsg = invokeError.message || String(invokeError);
+          else if (invokeData && typeof invokeData === "object" && (invokeData as any).error) {
+            emailErrorMsg = String((invokeData as any).error);
+          } else {
+            emailQueued = true;
+          }
+        } catch (err: any) {
+          emailErrorMsg = err?.message || String(err);
+        }
+      } else {
+        emailErrorMsg = "No client email on file";
+      }
+
+      if (!emailQueued) {
+        await supabase.from("activity_log").insert({
+          account_id: accountId,
+          action_type: "email_failed",
+          description: `Additional info request email not sent for ${infoRequestDialog.carrierName}: ${emailErrorMsg}`,
+          metadata: {
+            template_name: "additional-info-request",
+            recipient: clientEmail,
+            account_id: accountId,
+            quote_id: infoRequestDialog.quoteId,
+            carrier: infoRequestDialog.carrierName,
+            error: emailErrorMsg,
+          } as any,
         });
       }
 
@@ -306,7 +349,21 @@ const SubmittedMarkets = ({ accountId, quotes, companyName = "Account" }: Props)
       queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] });
       queryClient.invalidateQueries({ queryKey: ["account", accountId] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      toast({ title: "Info request sent", description: "Client has been notified" });
+      if (emailQueued) {
+        toast({ title: "Info request sent", description: "Client has been notified" });
+      } else if (!clientEmail) {
+        toast({
+          title: "Request recorded",
+          description: "No client email on file — please reach out manually.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Request recorded — email failed",
+          description: emailErrorMsg || "Email delivery failed. Check the activity log.",
+          variant: "destructive",
+        });
+      }
       setInfoRequestDialog(null);
       setInfoRequestDetails("");
     } catch (err: any) {

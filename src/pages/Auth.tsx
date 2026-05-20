@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ const Auth = () => {
   const staffInviteToken = searchParams.get("staff_invite");
   const mode = searchParams.get("mode");
   const { toast } = useToast();
-  const { refreshRole } = useAuth();
+  const { refreshRole, session: authSession } = useAuth();
 
   const isStaffFlow = !!(staffInviteToken || mode === "staff");
   const [isLogin, setIsLogin] = useState(true);
@@ -29,9 +29,13 @@ const Auth = () => {
   const [staffMagicLinkSent, setStaffMagicLinkSent] = useState(false);
 
   // Invite token state
-  const [inviteStatus, setInviteStatus] = useState<"loading" | "valid" | "expired" | "invalid" | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<
+    "loading" | "valid" | "link_expired" | "invite_expired" | "invalid" | "accepted" | null
+  >(null);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [resendingLink, setResendingLink] = useState(false);
+  const acceptingInviteRef = useRef(false);
+  const inviteProcessedRef = useRef<string | null>(null);
 
   const authHashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const authErrorCode = authHashParams.get("error_code");
@@ -68,12 +72,14 @@ const Auth = () => {
           setEmail(result.email);
         }
 
-        if (authLinkExpired) {
-          setInviteStatus("expired");
+        if (authLinkExpired && result.status === "valid") {
+          setInviteStatus("link_expired");
         } else if (result.status === "valid") {
           setInviteStatus("valid");
         } else if (result.status === "expired") {
-          setInviteStatus("expired");
+          setInviteStatus("invite_expired");
+        } else if (result.status === "accepted") {
+          setInviteStatus("accepted");
         } else {
           setInviteStatus("invalid");
         }
@@ -110,7 +116,9 @@ const Auth = () => {
       if (data && typeof data === "object" && "error" in (data as any)) {
         const msg = (data as any).error as string;
         toast({ title: "Invitation issue", description: msg, variant: "destructive" });
-        setInviteStatus(/expired/i.test(msg) ? "expired" : "invalid");
+        if (/expired/i.test(msg)) setInviteStatus("invite_expired");
+        else if (/accepted|already/i.test(msg)) setInviteStatus("accepted");
+        else setInviteStatus("invalid");
         return { ok: false };
       } else {
         toast({ title: "Welcome!", description: "Your account has been linked." });
@@ -123,23 +131,43 @@ const Auth = () => {
     }
   };
 
-  // Detect existing session on mount
+  // React to current auth session (covers both initial restore and the
+  // onAuthStateChange events that fire after Supabase processes a magic-link
+  // redirect). Guard against double-processing the same invite token.
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        if (inviteToken) {
+    if (!authSession) return;
+    const userId = authSession.user.id;
+
+    const run = async () => {
+      if (inviteToken && !isStaffFlow) {
+        if (inviteProcessedRef.current === inviteToken || acceptingInviteRef.current) return;
+        acceptingInviteRef.current = true;
+        try {
           const result = await acceptInvitation().catch(() => ({ ok: false }));
+          inviteProcessedRef.current = inviteToken;
           if (!result.ok) return; // stay on /auth so the user sees the banner
-          await refreshRole(session.user.id);
+          await refreshRole(userId);
+          navigate("/client", { replace: true });
+        } finally {
+          acceptingInviteRef.current = false;
         }
-        if (staffInviteToken) {
-          await acceptStaffInvitation();
-          await refreshRole(session.user.id);
-        }
-        navigate(inviteToken ? "/client" : "/");
+        return;
       }
-    });
-  }, [inviteToken, staffInviteToken, navigate, refreshRole]);
+
+      if (staffInviteToken) {
+        if (inviteProcessedRef.current === staffInviteToken) return;
+        inviteProcessedRef.current = staffInviteToken;
+        await acceptStaffInvitation();
+        await refreshRole(userId);
+        navigate("/", { replace: true });
+        return;
+      }
+
+      navigate("/", { replace: true });
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authSession, inviteToken, staffInviteToken, isStaffFlow]);
 
   // Resend magic link for expired invite tokens
   const handleResendInviteLink = async () => {
@@ -262,16 +290,30 @@ const Auth = () => {
         <div className="mb-4 p-4 rounded-md bg-destructive/10 border border-destructive/20 text-sm space-y-2">
           <div className="flex items-center gap-2 text-destructive font-medium">
             <AlertCircle className="h-4 w-4" />
-            Invalid or expired invitation
+            Invalid invitation
           </div>
           <p className="text-muted-foreground">
-            This invitation link is no longer valid. Please contact your agent to request a new one.
+            We couldn't find this invitation. Please contact your agent to request a new one — the same link can't be reused.
           </p>
         </div>
       );
     }
 
-    if (inviteStatus === "expired") {
+    if (inviteStatus === "accepted") {
+      return (
+        <div className="mb-4 p-4 rounded-md bg-muted border border-border text-sm space-y-2">
+          <div className="flex items-center gap-2 text-foreground font-medium">
+            <AlertCircle className="h-4 w-4" />
+            Invitation already used
+          </div>
+          <p className="text-muted-foreground">
+            This invitation has already been accepted. Sign in below with a magic link to access your portal.
+          </p>
+        </div>
+      );
+    }
+
+    if (inviteStatus === "link_expired") {
       return (
         <div className="mb-4 p-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-sm space-y-3">
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
@@ -295,6 +337,20 @@ const Auth = () => {
             )}
             {magicLinkSent ? "Link sent — check your email" : "Send me a new link"}
           </Button>
+        </div>
+      );
+    }
+
+    if (inviteStatus === "invite_expired") {
+      return (
+        <div className="mb-4 p-4 rounded-md bg-destructive/10 border border-destructive/20 text-sm space-y-2">
+          <div className="flex items-center gap-2 text-destructive font-medium">
+            <AlertCircle className="h-4 w-4" />
+            This invitation has expired
+          </div>
+          <p className="text-muted-foreground">
+            Invitations are valid for 7 days. Please contact your agent to request a new invitation — this link can't be reused.
+          </p>
         </div>
       );
     }
@@ -504,7 +560,7 @@ const Auth = () => {
                     Use a different email
                   </button>
                 </div>
-              ) : inviteStatus === "expired" || inviteStatus === "invalid" ? null : (
+              ) : inviteStatus === "invite_expired" || inviteStatus === "invalid" ? null : (
                 <form onSubmit={handleMagicLink} className="space-y-4">
                   <p className="text-sm text-muted-foreground">
                     {inviteEmail
