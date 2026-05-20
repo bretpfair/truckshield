@@ -14,7 +14,7 @@ export interface AccountCompletenessResult {
 }
 
 const percentTotal = (values: Record<string, unknown>) =>
-  Object.values(values).reduce((sum, value) => sum + (parseFloat(String(value)) || 0), 0);
+  Object.values(values).reduce<number>((sum, value) => sum + (parseFloat(String(value)) || 0), 0);
 
 const hasCompleteRadius = (account: any) => {
   const radiusRow = (account?.radius_operations as any)?.[0] || {};

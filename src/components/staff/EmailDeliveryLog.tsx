@@ -235,7 +235,9 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
                             {row.status.replace(/_/g, " ")}
                           </Badge>
                           {row.error_message && (
-                            <TriangleAlert className="h-3.5 w-3.5 text-destructive" aria-label="Email error" title={row.error_message} />
+                            <span title={row.error_message} className="inline-flex">
+                              <TriangleAlert className="h-3.5 w-3.5 text-destructive" aria-label="Email error" />
+                            </span>
                           )}
                         </div>
                         {meta.email_log_id || meta.activity_fallback ? (
