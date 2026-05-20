@@ -158,6 +158,63 @@ Deno.serve(async (req) => {
     )
   }
 
+  // Client portal invites must never reuse a previously rendered magic link.
+  // If a caller passes older templateData from an email row, extract only the
+  // stable invite token and replace portalLink with a brand-new auth token.
+  if (templateName === 'client-portal-invite') {
+    const inviteToken = readInviteTokenFromUrl(templateData.portalLink) || templateData.inviteToken || templateData.invite_token
+    if (!inviteToken || typeof inviteToken !== 'string') {
+      return new Response(JSON.stringify({ error: 'A fresh invite token is required for client portal invites' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: invitation, error: inviteLookupError } = await supabase
+      .from('client_invitations')
+      .select('email, status, expires_at')
+      .eq('token', inviteToken)
+      .maybeSingle()
+
+    if (inviteLookupError || !invitation) {
+      return new Response(JSON.stringify({ error: 'Invalid invitation token' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (
+      invitation.status !== 'pending' ||
+      new Date(invitation.expires_at).getTime() < Date.now() ||
+      String(invitation.email).toLowerCase() !== String(effectiveRecipient).toLowerCase()
+    ) {
+      return new Response(JSON.stringify({ error: 'Invitation is expired, already used, or not valid for this recipient' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const redirectTo = `${SITE_URL}/auth?invite=${inviteToken}`
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email: effectiveRecipient,
+      options: { redirectTo },
+    } as any)
+    const hashedToken = (linkData as any)?.properties?.hashed_token
+    if (linkError || !hashedToken) {
+      console.error('Failed to generate fresh client invite magic link', { linkError, effectiveRecipient })
+      return new Response(JSON.stringify({ error: 'Failed to generate a fresh portal access link' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    templateData = {
+      ...templateData,
+      inviteToken,
+      portalLink: `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(redirectTo)}`,
+    }
+  }
+
   const emailMetadata = (extra: Record<string, unknown> = {}) => ({
     ...(accountId ? { account_id: accountId } : {}),
     message_id: messageId,
