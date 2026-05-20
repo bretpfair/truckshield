@@ -9,7 +9,12 @@
     <meta name="robots" content="noindex, nofollow" />
     <link rel="canonical" href="https://truckshield.360riskpartners.com/" />
 
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.lovable.app https://truckshield.360riskpartners.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" />
+    <!--
+      Security note: frame-ancestors, X-Frame-Options, and the authoritative
+      Content-Security-Policy must be sent as HTTP response headers by the
+      production host/CDN. A meta CSP cannot enforce clickjacking protection.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.lovable.app https://truckshield.360riskpartners.com; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests" />
     <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), interest-cohort=()" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
