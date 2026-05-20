@@ -6,7 +6,11 @@ returns uuid
 language sql
 immutable
 as $$
-  select nullif(p_metadata ->> 'account_id', '')::uuid;
+  select case
+    when coalesce(p_metadata ->> 'account_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then (p_metadata ->> 'account_id')::uuid
+    else null
+  end;
 $$;
 
 alter table public.email_send_log enable row level security;
