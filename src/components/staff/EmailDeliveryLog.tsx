@@ -41,7 +41,7 @@ const statusClasses: Record<string, string> = {
 
 const getMetadata = (row: EmailLogRow) => (row.metadata || {}) as Record<string, any>;
 
-const getInviteToken = (row: EmailLogRow): string | null => {
+export const getInviteToken = (row: EmailLogRow): string | null => {
   const meta = getMetadata(row);
   const templateData = meta.templateData || meta.template_data || {};
   if (templateData.inviteToken || templateData.invite_token) {
