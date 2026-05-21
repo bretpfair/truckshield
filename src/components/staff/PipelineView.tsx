@@ -291,6 +291,30 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
       filteredAccounts = filteredAccounts.filter((a) => a.assigned_producer_id === producerFilter);
     }
   }
+  if (quickFilter) {
+    filteredAccounts = filteredAccounts.filter((a) => {
+      const inv = invitationMap?.[a.id];
+      const em = inviteEmailMap?.[a.id];
+      switch (quickFilter) {
+        case "missing_email":
+          return !(a as any).contact_email;
+        case "needs_info":
+          return a.status === "pending_info";
+        case "ready_markets":
+          return (a.application_step ?? 0) >= 10 && (a.status === "pending_info" || a.status === "info_complete");
+        case "stale":
+          return isStale(a);
+        case "invite_pending":
+          return inv?.status === "pending" && (!inv.expires_at || new Date(inv.expires_at) > new Date());
+        case "invite_accepted":
+          return inv?.status === "accepted";
+        case "email_failed":
+          return em ? ["failed", "bounced", "dlq"].includes(em.status) : false;
+        default:
+          return true;
+      }
+    });
+  }
 
   const moveAccount = useMutation({
     mutationFn: async ({ accountId, newStatus }: { accountId: string; newStatus: string }) => {
