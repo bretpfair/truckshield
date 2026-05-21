@@ -233,11 +233,18 @@ const StaffEmailLog = () => {
                 <tbody>
                   {deduped.map((row) => {
                     const meta = getMetadata(row);
-                    const statusClass = statusClasses[row.status] || "bg-secondary text-muted-foreground border-border";
                     const canResend = canResendEmailRow(row);
+                    const rowKey = row.message_id || row.id;
+                    const isOpen = !!expanded[rowKey];
+                    const isFailure = ["failed", "bounced", "dlq", "complained"].includes(row.status);
+                    const shortError = row.error_message
+                      ? row.error_message.split(/[\n.]/)[0].slice(0, 120)
+                      : null;
+                    const providerId = meta.provider_message_id || meta.providerMessageId || null;
 
                     return (
-                      <tr key={row.message_id || row.id} className="border-b last:border-0 align-top">
+                      <>
+                      <tr key={rowKey} className="border-b last:border-0 align-top">
                         <td className="py-3 pr-3 whitespace-nowrap font-mono text-xs text-muted-foreground">
                           {format(new Date(row.created_at), "MMM d, h:mm a")}
                         </td>
@@ -253,16 +260,23 @@ const StaffEmailLog = () => {
                           )}
                         </td>
                         <td className="py-3 pr-3">
-                          <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className={`text-[10px] ${statusClass}`}>
-                              {row.status.replace(/_/g, " ")}
-                            </Badge>
-                            {row.error_message && (
-                              <span title={row.error_message} className="inline-flex">
-                                <TriangleAlert className="h-3.5 w-3.5 text-destructive" aria-label="Email error" />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <EmailStatusBadge status={row.status} />
+                            {isFailure && shortError && (
+                              <span className="text-[11px] text-destructive truncate max-w-[260px]" title={row.error_message || undefined}>
+                                {shortError}
                               </span>
                             )}
                           </div>
+                          <button
+                            type="button"
+                            className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                            onClick={() => setExpanded((m) => ({ ...m, [rowKey]: !m[rowKey] }))}
+                            aria-expanded={isOpen}
+                          >
+                            <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                            Details
+                          </button>
                         </td>
                         <td className="py-3 text-right">
                           <Button
@@ -277,6 +291,33 @@ const StaffEmailLog = () => {
                           </Button>
                         </td>
                       </tr>
+                      {isOpen && (
+                        <tr key={`${rowKey}-details`} className="border-b last:border-0 bg-muted/20">
+                          <td colSpan={6} className="py-2 px-3">
+                            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-[11px] font-mono">
+                              {row.message_id && (
+                                <div className="min-w-0"><dt className="text-muted-foreground">Message ID</dt><dd className="break-all">{row.message_id}</dd></div>
+                              )}
+                              {providerId && (
+                                <div className="min-w-0"><dt className="text-muted-foreground">Provider ID</dt><dd className="break-all">{String(providerId)}</dd></div>
+                              )}
+                              {meta.account_id && (
+                                <div className="min-w-0"><dt className="text-muted-foreground">Account</dt><dd className="break-all">{meta.account_id}</dd></div>
+                              )}
+                              {meta.idempotency_key && (
+                                <div className="min-w-0"><dt className="text-muted-foreground">Idempotency</dt><dd className="break-all">{meta.idempotency_key}</dd></div>
+                              )}
+                              {row.error_message && (
+                                <div className="sm:col-span-2">
+                                  <dt className="text-muted-foreground">Error</dt>
+                                  <dd className="break-all text-destructive whitespace-pre-wrap">{row.error_message}</dd>
+                                </div>
+                              )}
+                            </dl>
+                          </td>
+                        </tr>
+                      )}
+                      </>
                     );
                   })}
                 </tbody>
