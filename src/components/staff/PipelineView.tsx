@@ -77,6 +77,8 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   const [producerFilter, setProducerFilter] = useState<string>("all");
   const [staleFilter, setStaleFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  type QuickFilter = null | "missing_email" | "invite_pending" | "invite_accepted" | "email_failed" | "needs_info" | "ready_markets" | "stale";
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { role, user } = useAuth();
