@@ -1,12 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Mail, RefreshCw, TriangleAlert } from "lucide-react";
+import { Mail, RefreshCw, TriangleAlert, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { EmailStatusBadge } from "./EmailStatusBadge";
 
 export type EmailLogRow = {
   id: string;
@@ -28,7 +28,8 @@ type ActivityEmailRow = {
   metadata: any;
 };
 
-const statusClasses: Record<string, string> = {
+// Status palette centralized in <EmailStatusBadge />.
+export const statusClasses: Record<string, string> = {
   pending: "bg-warning/10 text-warning border-warning/20",
   sent: "bg-success/10 text-success border-success/20",
   failed: "bg-destructive/10 text-destructive border-destructive/20",
@@ -37,6 +38,7 @@ const statusClasses: Record<string, string> = {
   suppressed: "bg-muted text-muted-foreground border-border",
   bounced: "bg-destructive/10 text-destructive border-destructive/20",
   complained: "bg-destructive/10 text-destructive border-destructive/20",
+  queued: "bg-warning/10 text-warning border-warning/20",
 };
 
 const getMetadata = (row: EmailLogRow) => (row.metadata || {}) as Record<string, any>;
