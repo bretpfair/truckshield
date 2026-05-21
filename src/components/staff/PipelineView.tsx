@@ -77,6 +77,8 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
   const [producerFilter, setProducerFilter] = useState<string>("all");
   const [staleFilter, setStaleFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  type QuickFilter = null | "missing_email" | "invite_pending" | "invite_accepted" | "email_failed" | "needs_info" | "ready_markets" | "stale";
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { role, user } = useAuth();
@@ -225,6 +227,43 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     },
   });
 
+  // Bulk invite + email maps (one round-trip each) for quick-filter chips.
+  const { data: invitationMap, isError: invitationMapError } = useQuery({
+    queryKey: ["pipeline-invitations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_invitations")
+        .select("account_id, status, expires_at, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, { status: string; expires_at: string; created_at: string }> = {};
+      (data || []).forEach((r: any) => {
+        if (!map[r.account_id]) map[r.account_id] = r;
+      });
+      return map;
+    },
+  });
+
+  const { data: inviteEmailMap, isError: inviteEmailMapError } = useQuery({
+    queryKey: ["pipeline-invite-emails"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_send_log")
+        .select("id, created_at, status, metadata")
+        .eq("template_name", "client-portal-invite")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, { status: string; created_at: string }> = {};
+      (data || []).forEach((r: any) => {
+        const aid = r.metadata?.account_id;
+        if (aid && !map[aid]) map[aid] = { status: r.status, created_at: r.created_at };
+      });
+      return map;
+    },
+  });
+
+  const inviteChipsDisabled = invitationMapError || inviteEmailMapError;
+
   const isStale = (account: Account) => {
     const lastActivity = lastActivityMap?.[account.id] || account.updated_at || account.created_at;
     if (!lastActivity) return false;
@@ -251,6 +290,30 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     } else {
       filteredAccounts = filteredAccounts.filter((a) => a.assigned_producer_id === producerFilter);
     }
+  }
+  if (quickFilter) {
+    filteredAccounts = filteredAccounts.filter((a) => {
+      const inv = invitationMap?.[a.id];
+      const em = inviteEmailMap?.[a.id];
+      switch (quickFilter) {
+        case "missing_email":
+          return !(a as any).contact_email;
+        case "needs_info":
+          return a.status === "pending_info";
+        case "ready_markets":
+          return (a.application_step ?? 0) >= 10 && (a.status === "pending_info" || a.status === "info_complete");
+        case "stale":
+          return isStale(a);
+        case "invite_pending":
+          return inv?.status === "pending" && (!inv.expires_at || new Date(inv.expires_at) > new Date());
+        case "invite_accepted":
+          return inv?.status === "accepted";
+        case "email_failed":
+          return em ? ["failed", "bounced", "dlq"].includes(em.status) : false;
+        default:
+          return true;
+      }
+    });
   }
 
   const moveAccount = useMutation({
@@ -391,6 +454,42 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
 
   return (
     <div className="space-y-3">
+      {/* Quick filter chips */}
+      <div className="overflow-x-auto -mx-2 px-2 scrollbar-none">
+        <div className="flex items-center gap-1.5 w-max">
+          {([
+            { key: "missing_email", label: "Missing Email" },
+            { key: "invite_pending", label: "Invite Pending", needsInvite: true },
+            { key: "invite_accepted", label: "Invite Accepted", needsInvite: true },
+            { key: "email_failed", label: "Email Failed", needsInvite: true },
+            { key: "needs_info", label: "Needs Info" },
+            { key: "ready_markets", label: "Ready for Markets" },
+            { key: "stale", label: `Stale ${STALE_DAYS}+ Days` },
+          ] as { key: Exclude<QuickFilter, null>; label: string; needsInvite?: boolean }[]).map((chip) => {
+            const active = quickFilter === chip.key;
+            const disabled = chip.needsInvite && inviteChipsDisabled;
+            return (
+              <Button
+                key={chip.key}
+                variant={active ? "default" : "outline"}
+                size="sm"
+                className="h-7 px-2.5 text-xs shrink-0"
+                disabled={disabled}
+                title={disabled ? "Not available for your role" : undefined}
+                onClick={() => setQuickFilter(active ? null : chip.key)}
+              >
+                {chip.label}
+              </Button>
+            );
+          })}
+          {quickFilter && (
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => setQuickFilter(null)}>
+              <X className="h-3 w-3" /> Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* Toolbar: filters + bulk actions */}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowFilters(!showFilters)}>

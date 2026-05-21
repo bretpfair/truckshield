@@ -1,79 +1,101 @@
-## Goal
+# Staff UI: Invite & Email Workflow Visibility
 
-Fix the broken invite + notification chain: invite link auto-authenticates → invite email persists to `accounts.contact_email` → downstream notifications use it and log delivery → account header refreshes after mutations → expired/invalid invites have a clear recovery path.
+UI-only refresh of staff Account Detail and Account List so invite/email state is obvious and actionable. One small frontend helper (`getInviteSnapshot.ts`) to avoid per-row N+1 fetches. No backend changes. Retry / Send New Link reuses the existing working `sendClientInvite` flow.
 
-## 1. Auto-invite email must use a real magic link
+## Build order (priority)
 
-**Problem.** `send-portal-invite-on-assignment` (fired by the producer-assignment trigger) sends a plain `/auth?invite={token}` URL — it pre-fills the email but does not create a session. Only the manual UI path uses `create-client-magic-link`.
+1. Next Step banner
+2. Invite Status Card
+3. Email Delivery badges + collapsible details
+4. Account list quick filters
+5. Activity grouping (visual only)
 
-**Fix.** Refactor `supabase/functions/send-portal-invite-on-assignment/index.ts` to generate a true magic link with the service role (`auth.admin.generateLink({ type: "magiclink", email, options: { email_redirect_to: "https://truckshield.360riskpartners.com/auth?invite={token}" } })`). Use the returned verify URL as `portalLink` in the template data. The `email_redirect_to` preserves invitation context so `Auth.tsx` can call `accept_invitation(p_token)` after authentication and route the user to `/client`. If generation fails, fall back to the plain `/auth?invite=...` URL and log the fallback clearly.
+## 1. Next Step Banner (account detail)
 
-## 2. Persist invite email to `accounts.contact_email`
+New `src/components/staff/AccountNextStep.tsx`, mounted under the header row in `AccountDetail.tsx`. Single dense `glass-panel` row with status-colored left border, plain copy, one or two inline action buttons.
 
-**Problem.** Manual invite paths (`src/lib/sendClientInvite.ts`, `src/components/staff/InviteClientDialog.tsx`) create the invitation but never write the email to `accounts.contact_email`. All downstream notifications gate on that field.
+Inference order (first match wins; if a status can't be confidently derived, banner is hidden — never invent statuses):
 
-**Fix.**
-- After a successful invitation insert in both files, update the account:
-  ```sql
-  UPDATE accounts
-  SET contact_email = <invite email>
-  WHERE id = <accountId>
-    AND (contact_email IS NULL OR contact_email = '');
-  ```
-- New migration: update `accept_invitation(p_token)` to backfill `accounts.contact_email` from `auth.jwt()->>'email'` when the account's contact email is still null/empty at acceptance.
+1. `accounts.contact_email` missing → "Client email missing" · "Add Email" (opens existing `InviteClientDialog`).
+2. Latest `email_send_log` row for `client-portal-invite` is `failed` / `dlq` / `bounced` AND newer than the latest `client_invitations` row → "Invite email delivery failed" · "Retry" (calls existing `sendClientInvite`).
+3. Latest invitation `pending` (and not expired), no `client_user_id` → "Client invited, waiting for portal access" · "Send New Link" (calls existing `sendClientInvite` — same path Resend uses today).
+4. `client_user_id` set OR invitation status `accepted` → "Client portal access active" (no action).
+5. Application incomplete (`getAccountDataCompleteness`) → "Application incomplete — {missing[0]}" · "View Application" (+ "Request Info" if an existing handler is found; otherwise just View).
+6. Ready (`ready === true`, status in `pending_info` / `info_complete`) → "Ready to check markets" · "Check Markets" (scrolls Market Guidance into view).
 
-Never overwrite an existing contact email.
+All data sourced from the existing `account` query + one new `useQuery(['invite-snapshot', accountId])` from `getInviteSnapshot.ts`.
 
-## 3. Additional Info Request email + activity logging
+## 2. Invite Status Card
 
-**Problem.** The "Additional Info Requested" flow depends on `account.contact_email` (now fixed by #2). Separately, `send-transactional-email` writes only to `email_send_log`, never `activity_log`, so staff cannot see whether a transactional email was queued or failed from the account timeline.
+New `src/components/staff/InviteStatusCard.tsx`. Replaces the current bare `<InviteClientDialog>` mount at the bottom of `AccountDetail.tsx`. The dialog component is still reused as the "Edit email & send" form behind a button.
 
-**Fix.**
-- In `supabase/functions/send-transactional-email/index.ts`, after a successful `enqueue_email` (and when `accountId` is provided), insert an `activity_log` row with `action_type: "email_sent"`, a description that includes template name + recipient + CC if present, and metadata with `template_name`, `recipient`, `cc`, `queue_id` or `email_log_id`. On enqueue failure, insert `action_type: "email_failed"` with the error. The provider `message_id` does not exist at enqueue time — `process-email-queue` should update `email_send_log` with the provider `message_id` once the email is dispatched through Resend.
-- In `supabase/functions/notify-status-change/index.ts`, replace the existing `logEmailActivity` (failure-only) with a unified helper that logs both success and failure with the same shape.
-- Verify `supabase/functions/process-email-queue/index.ts` updates `email_send_log` with provider `message_id` on success and error string on failure/DLQ; add if missing.
+Card content (dense, `grid-cols-1 sm:grid-cols-2`):
 
-## 4. Instant account header refresh
+- Client email (with pencil → opens `InviteClientDialog`)
+- Last invite sent: timestamp or "—"
+- Email delivery: `<EmailStatusBadge />` — Queued / Pending / Sent / Failed / Bounced / Unknown
+- Invite status: `<InviteStatusBadge />` — Pending / Accepted / Expired / Active / Unknown
+- Last accepted: timestamp or "—"
+- Buttons: "Send Invite" / "Send New Link" (one or the other, both call `sendClientInvite`); "View Email Log" scrolls to `EmailDeliveryLog`; "Copy Link" only shown when `safeInviteUrl` exists — strictly the stable `/auth?invite={token}` URL, never a Supabase magic-link/hashed URL.
 
-**Problem.** Quote/status mutations trigger a DB-level `auto_update_account_status` flip on `accounts.status`, but `SubmittedMarkets` only invalidates `["quotes"]` and `["activity_log"]`, leaving the account header stale until reload.
+## 3. Email Delivery badges + details
 
-**Fix.** In `src/components/staff/SubmittedMarkets.tsx`, every success path (`updateStatus`, `handleSubmitDecline`, `handleSubmitInfoRequest`, `handleUploadQuote`, `handleSubmitBind`, `handleUpdateQuote`, and any "Mark as Submitted" handler) must also invalidate `["account", accountId]` and `["accounts"]`. Apply the same set in `src/components/staff/CoverWhaleActions.tsx`. Audit `AccountDetail.tsx` for the exact query key and align.
+New `src/components/staff/EmailStatusBadge.tsx` exporting `<EmailStatusBadge status="..." />` and `<InviteStatusBadge status="..." />`. Centralizes the existing palette (`bg-warning/10 text-warning`, etc.) and covers `queued` and `accepted` / `expired` for invite use. Labels: Queued, Pending, Sent, Failed, Bounced, Suppressed, Rate-Limited, DLQ, Accepted, Expired, Active, Unknown.
 
-## 5. Expired / invalid invite UX
+Update `EmailDeliveryLog.tsx` and `StaffEmailLog.tsx`:
 
-**Problem.** If `accept_invitation` returns `{ error: ... }` (e.g. wrong logged-in email), the page still navigates. "Send me a new link" uses raw `signInWithOtp`, not an invite-bound magic link.
+- Swap inline `<Badge variant="outline" className={...}>` for `<EmailStatusBadge />`.
+- For `failed` / `bounced` / `dlq` rows, render a plain-language first-sentence summary (truncated ~120 chars) next to the badge.
+- Move full `error_message`, `provider_message_id`, `message_id`, and raw metadata access into a `<Collapsible>` "Details" disclosure inside the same row (one extra `<tr>` underneath when expanded).
 
-**Fix.** In `src/pages/Auth.tsx`, on an `accept_invitation` error: do not navigate, set `inviteStatus` to `invalid` or `expired`, surface the message, show "Send me a new link". Extend `create-client-magic-link` (or add a small companion function) to allow self-service resend: validate the invite token, confirm the requester email matches, regenerate a magic link with `email_redirect_to=/auth?invite={token}`, and dispatch the branded portal-invite email through `send-transactional-email`. Replace the direct `signInWithOtp` call with this helper.
+## 4. Staff Account List quick filters
 
-## Technical Details
+In `PipelineView.tsx`, add a chip row above the existing search/filter controls. Single-select toggle, re-click to clear.
 
-**Files**
-- `supabase/functions/send-portal-invite-on-assignment/index.ts`
-- `supabase/functions/create-client-magic-link/index.ts` (extend for resend)
-- `supabase/functions/send-transactional-email/index.ts`
-- `supabase/functions/notify-status-change/index.ts`
-- `supabase/functions/process-email-queue/index.ts` (only if provider message_id / error logging is missing)
-- New migration updating `accept_invitation(p_token)`
-- `src/lib/sendClientInvite.ts`
-- `src/components/staff/InviteClientDialog.tsx`
-- `src/components/staff/SubmittedMarkets.tsx`
-- `src/components/staff/CoverWhaleActions.tsx`
-- `src/pages/Auth.tsx`
+Chips & data source:
 
-**Redeploy:** `send-portal-invite-on-assignment`, `create-client-magic-link`, `send-transactional-email`, `notify-status-change`, `process-email-queue` (if changed).
+- Missing Email — `!account.contact_email` (loaded already)
+- Needs Info — `account.status === 'pending_info'` (loaded already)
+- Ready for Markets — `account.application_step === 10` AND `status === 'pending_info'/'info_complete'` (loaded already; intentionally permissive without per-account completeness fetch)
+- Stale 7+ Days — existing `isStale` helper (already computed)
+- Invite Pending / Invite Accepted / Email Failed — backed by two new lightweight bulk queries:
+  - `client_invitations` → `select('account_id, status, expires_at, created_at')` once for all accounts, reduce to a `Map<account_id, latestInvite>`.
+  - `email_send_log` → `select('id, created_at, status, metadata')` `eq('template_name', 'client-portal-invite')`, reduce to a `Map<account_id, latestInviteEmail>` (account_id read from `metadata->>account_id`).
+  
+  Both queries are independent of account count (single round-trip each), so no N+1. RLS already restricts both tables to accessible accounts. If either query is disabled by RLS for the current viewer (e.g. producer with limited access), the three derived chips are disabled with a tooltip instead of inventing data.
 
-## End-to-End QA
+## 5. Activity grouping (visual only)
 
-1. Create test account, send manual invite, verify Gmail delivery + producer CC.
-2. Click invite link → user is authenticated and lands on `/client` (no "Send Magic Link" step).
-3. Verify `accounts.contact_email` is populated; existing values are preserved.
-4. Mark a carrier "Submitted" → header flips to `quoting` without reload.
-5. Mark a carrier "Additional Info Requested" → client receives email, producer CC'd, `activity_log` shows `email_sent` with queue_id, `email_send_log` shows pending → sent with provider message_id written by `process-email-queue`.
-6. Test valid / expired / invalid / wrong-email invite tokens; resend works for each recoverable case.
+In `ActivityLog.tsx`, group consecutive entries that share `metadata.message_id` (fallback: same template/recipient within a 10-minute window) covering `client_invite_sent`, `client_invite_resent`, `email_queued`, `email_sent`, `email_failed`, `client_linked`. Render as one collapsible row: "Portal invite — {recipient} · {final status}" with the latest timestamp. Expanding reveals the raw rows verbatim with their existing icons/badges. All other entries unchanged. No DB writes — purely client-side reduce.
 
-## Out of Scope
+## Files
 
-- Rewriting the email queue architecture.
-- Bulk-migrating older accounts missing `contact_email`.
-- Changes to the staff invitation flow beyond shared helpers.
-- Overwriting existing `accounts.contact_email` values.
+- New: `src/lib/getInviteSnapshot.ts`
+- New: `src/components/staff/EmailStatusBadge.tsx`
+- New: `src/components/staff/AccountNextStep.tsx`
+- New: `src/components/staff/InviteStatusCard.tsx`
+- Edit: `src/components/staff/AccountDetail.tsx` (mount banner + card; replace bottom InviteClientDialog block)
+- Edit: `src/components/staff/EmailDeliveryLog.tsx` (badge + Details disclosure)
+- Edit: `src/pages/StaffEmailLog.tsx` (badge + Details disclosure)
+- Edit: `src/components/staff/PipelineView.tsx` (chip row + bulk invitation/email maps)
+- Edit: `src/components/staff/ActivityLog.tsx` (invite-event grouping)
+
+## Constraints honored
+
+- UI only, no edge function / DB changes.
+- No Supabase auth/magic-link URLs exposed or copied. Only the stable `/auth?invite={token}` URL is copyable, and only when a pending invitation exists.
+- Statuses derived strictly from existing `client_user_id`, `client_invitations`, and `email_send_log`. If ambiguous → "Unknown" badge or banner hidden.
+- Account-list extras use two bulk queries, not per-row lookups.
+- Retry / Send New Link reuse `sendClientInvite()` from `src/lib/sendClientInvite.ts`.
+- Activity grouping is visual; raw rows remain visible on expand.
+
+## Manual QA
+
+1. Account without `contact_email` → banner "Client email missing"; status card empty + "Add Email" opens dialog. Chip "Missing Email" matches in list.
+2. Account with email, no invite → banner says next-most-relevant ("Application incomplete" or "Ready"); status card shows Invite Status: Unknown + "Send Invite".
+3. Send invite → banner flips to "Client invited, waiting for portal access"; status card shows Email Delivery: Pending → Sent; Invite Status: Pending; "Copy Link" appears (`/auth?invite=...`). "Invite Pending" chip matches in list.
+4. Force a failed send → banner shows "Invite email delivery failed" + Retry; email log row shows Failed badge + short summary + Details disclosure with full `error_message` / `provider_message_id`. "Email Failed" chip matches in list.
+5. Accept invite in incognito → banner "Client portal access active"; status card shows Invite Status: Active. "Invite Accepted" chip matches in list.
+6. Quick filter chips toggle and clear cleanly; combining with search still works.
+7. Activity feed → invite + email_queued + email_sent collapse to one row; expand shows the originals.
+8. Mobile 360px → banner/card/chips/email rows do not overlap or truncate important text.

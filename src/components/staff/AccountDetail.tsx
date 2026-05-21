@@ -35,6 +35,8 @@ import MarketGuidance from "./MarketGuidance";
 import SubmittedMarkets from "./SubmittedMarkets";
 import ActivityLog from "./ActivityLog";
 import InviteClientDialog from "./InviteClientDialog";
+import AccountNextStep from "./AccountNextStep";
+import InviteStatusCard from "./InviteStatusCard";
 import DocumentHub from "./DocumentHub";
 import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
@@ -568,6 +570,18 @@ const AccountDetail = (props: Props = {}) => {
         <Badge variant="outline" className="shrink-0 text-[10px] sm:text-xs">{account.status.replace(/_/g, " ")}</Badge>
       </div>
 
+      {/* Next Step banner */}
+      <AccountNextStep
+        account={account as any}
+        onOpenApplication={() => setShowWizard(true)}
+        onScrollToMarkets={() => {
+          document.getElementById("market-guidance-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onEditEmail={() => {
+          document.getElementById("invite-status-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+      />
+
       {/* Producer assignment (admin) */}
       {isAdmin && (
         <div className="flex items-center">
@@ -734,6 +748,7 @@ const AccountDetail = (props: Props = {}) => {
       {/* Market Guidance (collapsible) */}
       {carriers && (
         <Collapsible defaultOpen>
+          <div id="market-guidance-anchor" />
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full flex items-center justify-between px-0 py-2 hover:bg-transparent">
               <span className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -757,10 +772,16 @@ const AccountDetail = (props: Props = {}) => {
         </Collapsible>
       )}
 
-      {/* Client Invite (if no client linked) */}
-      {!account.client_user_id && (
-        <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
-      )}
+      {/* Client Portal Invite — status card + dialog for editing email */}
+      <div id="invite-status-anchor" className="space-y-3">
+        <InviteStatusCard
+          account={account as any}
+          onViewEmailLog={() => document.getElementById("email-delivery-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />
+        {!account.client_user_id && (
+          <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
+        )}
+      </div>
 
       {/* Messages */}
       <AccountMessages accountId={accountId} isStaff />
