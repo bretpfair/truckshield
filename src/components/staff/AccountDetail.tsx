@@ -570,6 +570,18 @@ const AccountDetail = (props: Props = {}) => {
         <Badge variant="outline" className="shrink-0 text-[10px] sm:text-xs">{account.status.replace(/_/g, " ")}</Badge>
       </div>
 
+      {/* Next Step banner */}
+      <AccountNextStep
+        account={account as any}
+        onOpenApplication={() => setShowWizard(true)}
+        onScrollToMarkets={() => {
+          document.getElementById("market-guidance-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onEditEmail={() => {
+          document.getElementById("invite-status-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+      />
+
       {/* Producer assignment (admin) */}
       {isAdmin && (
         <div className="flex items-center">
