@@ -54,6 +54,7 @@ const StaffEmailLog = () => {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const { data: rows, isLoading } = useQuery({
     queryKey: ["admin-email-send-log", status, template, fromDate, toDate, page],
@@ -105,6 +106,28 @@ const StaffEmailLog = () => {
         .some((value) => String(value).toLowerCase().includes(normalized));
     });
   }, [rows, search]);
+
+  // Visual-only grouping: same template + recipient + account + same minute.
+  type EmailGroup = { key: string; rows: EmailLogRow[] };
+  const groups: EmailGroup[] = useMemo(() => {
+    const map = new Map<string, EmailLogRow[]>();
+    for (const row of deduped) {
+      const meta = getMetadata(row);
+      const minute = new Date(row.created_at);
+      minute.setSeconds(0, 0);
+      const key = [
+        row.template_name || "",
+        (row.recipient_email || "").toLowerCase(),
+        meta.account_id || "",
+        minute.toISOString(),
+      ].join("|");
+      const list = map.get(key) || [];
+      list.push(row);
+      map.set(key, list);
+    }
+    return [...map.entries()].map(([key, rows]) => ({ key, rows }))
+      .sort((a, b) => new Date(b.rows[0].created_at).getTime() - new Date(a.rows[0].created_at).getTime());
+  }, [deduped]);
 
   const templates = useMemo(
     () => [...new Set((rows || []).map((row) => row.template_name).filter(Boolean))].sort(),
@@ -232,7 +255,11 @@ const StaffEmailLog = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {deduped.map((row) => {
+                  {groups.map((group) => {
+                    const row = group.rows[0];
+                    const groupSize = group.rows.length;
+                    const isGrouped = groupSize > 1;
+                    const groupOpen = !!openGroups[group.key];
                     const meta = getMetadata(row);
                     const canResend = canResendEmailRow(row);
                     const rowKey = row.message_id || row.id;
@@ -249,7 +276,23 @@ const StaffEmailLog = () => {
                         <td className="py-3 pr-3 whitespace-nowrap font-mono text-xs text-muted-foreground">
                           {format(new Date(row.created_at), "MMM d, h:mm a")}
                         </td>
-                        <td className="py-3 pr-3 font-medium">{row.template_name}</td>
+                        <td className="py-3 pr-3 font-medium">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{row.template_name}</span>
+                            {isGrouped && (
+                              <button
+                                type="button"
+                                onClick={() => setOpenGroups((m) => ({ ...m, [group.key]: !m[group.key] }))}
+                                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground hover:text-foreground"
+                                aria-expanded={groupOpen}
+                                title="Identical sends in this minute"
+                              >
+                                ×{groupSize}
+                                <ChevronDown className={`h-3 w-3 transition-transform ${groupOpen ? "rotate-180" : ""}`} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3 pr-3 break-all">{row.recipient_email}</td>
                         <td className="py-3 pr-3">
                           {meta.account_id ? (
@@ -318,6 +361,24 @@ const StaffEmailLog = () => {
                           </td>
                         </tr>
                       )}
+                      {isGrouped && groupOpen && group.rows.slice(1).map((sibling) => {
+                        const sMeta = getMetadata(sibling);
+                        const sKey = sibling.message_id || sibling.id;
+                        return (
+                          <tr key={`${rowKey}-sib-${sKey}`} className="border-b last:border-0 bg-muted/10 text-xs">
+                            <td className="py-2 pr-3 pl-6 font-mono text-muted-foreground whitespace-nowrap">
+                              ↳ {format(new Date(sibling.created_at), "h:mm:ss a")}
+                            </td>
+                            <td className="py-2 pr-3 text-muted-foreground">{sibling.template_name}</td>
+                            <td className="py-2 pr-3 break-all text-muted-foreground">{sibling.recipient_email}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{sMeta.account_id ? "—" : ""}</td>
+                            <td className="py-2 pr-3"><EmailStatusBadge status={sibling.status} /></td>
+                            <td className="py-2 text-right text-muted-foreground font-mono">
+                              {sibling.message_id ? sibling.message_id.slice(0, 8) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       </>
                     );
                   })}

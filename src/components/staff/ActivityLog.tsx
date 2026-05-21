@@ -81,6 +81,12 @@ const ActivityLog = ({ accountId }: Props) => {
     "client_linked",
   ]);
 
+  // Same-type, same-minute collapse — primarily for noisy login/accepted streams.
+  const MINUTE_GROUP_TYPES = new Set([
+    "client_login",
+    "client_linked",
+  ]);
+
   type Group = { kind: "single"; entry: TimelineEntry } | { kind: "group"; entries: TimelineEntry[]; key: string };
 
   const grouped: Group[] = useMemo(() => {
@@ -103,13 +109,22 @@ const ActivityLog = ({ accountId }: Props) => {
       return null;
     };
     for (const e of timeline) {
-      const inGroup = INVITE_GROUP_TYPES.has(e.action_type);
-      if (!inGroup) { flush(); out.push({ kind: "single", entry: e }); continue; }
+      const inInvite = INVITE_GROUP_TYPES.has(e.action_type);
+      const inMinute = MINUTE_GROUP_TYPES.has(e.action_type);
+      if (!inInvite && !inMinute) { flush(); out.push({ kind: "single", entry: e }); continue; }
       if (!buf.length) { buf.push(e); continue; }
       const head = buf[0];
-      const sameKey = bufKey(head) && bufKey(head) === bufKey(e);
-      const within10 = Math.abs(new Date(head.created_at).getTime() - new Date(e.created_at).getTime()) <= 10 * 60 * 1000;
-      if (sameKey || within10) buf.push(e);
+      const headInvite = INVITE_GROUP_TYPES.has(head.action_type);
+      const headMinute = MINUTE_GROUP_TYPES.has(head.action_type);
+      const dt = Math.abs(new Date(head.created_at).getTime() - new Date(e.created_at).getTime());
+      let canMerge = false;
+      if (inInvite && headInvite) {
+        const sameKey = bufKey(head) && bufKey(head) === bufKey(e);
+        canMerge = !!sameKey || dt <= 10 * 60 * 1000;
+      } else if (inMinute && headMinute && head.action_type === e.action_type) {
+        canMerge = dt <= 60 * 1000;
+      }
+      if (canMerge) buf.push(e);
       else { flush(); buf.push(e); }
     }
     flush();
@@ -199,16 +214,28 @@ const ActivityLog = ({ accountId }: Props) => {
                 // grouped
                 const entries = g.entries;
                 const latest = entries[0];
+                const isMinuteGroup = MINUTE_GROUP_TYPES.has(latest.action_type)
+                  && entries.every((e) => e.action_type === latest.action_type);
                 const final = entries.find((e) => e.action_type === "email_failed")
                   || entries.find((e) => e.action_type === "email_sent")
                   || entries.find((e) => e.action_type === "client_linked")
                   || latest;
                 const recipient = latest.metadata?.recipient || latest.metadata?.recipient_email || "";
                 const open = !!openGroups[g.key];
-                const tone = final.action_type === "email_failed" ? "text-destructive"
+                const tone = isMinuteGroup
+                  ? (actionColors[latest.action_type] || "text-primary")
+                  : final.action_type === "email_failed" ? "text-destructive"
                   : final.action_type === "client_linked" ? "text-success"
                   : final.action_type === "email_sent" ? "text-accent" : "text-primary";
-                const summary = `Portal invite${recipient ? ` — ${recipient}` : ""} · ${final.action_type.replace(/_/g, " ")}`;
+                const GroupIcon = isMinuteGroup
+                  ? (actionIcons[latest.action_type] || Mail)
+                  : Mail;
+                const summary = isMinuteGroup
+                  ? `${entries.length}× ${latest.action_type.replace(/_/g, " ")}`
+                  : `Portal invite${recipient ? ` — ${recipient}` : ""} · ${final.action_type.replace(/_/g, " ")}`;
+                const groupBadge = isMinuteGroup
+                  ? (latest.action_type === "client_login" ? "Login" : "Accepted")
+                  : "Invite";
                 return (
                   <div key={g.key} className="text-sm">
                     <button
@@ -217,7 +244,7 @@ const ActivityLog = ({ accountId }: Props) => {
                       onClick={() => setOpenGroups((m) => ({ ...m, [g.key]: !m[g.key] }))}
                       aria-expanded={open}
                     >
-                      <div className={`mt-0.5 shrink-0 ${tone}`}><Mail className="h-4 w-4" /></div>
+                      <div className={`mt-0.5 shrink-0 ${tone}`}><GroupIcon className="h-4 w-4" /></div>
                       <div className="min-w-0 flex-1">
                         <p className="text-foreground flex items-center gap-1.5">
                           {summary}
@@ -227,7 +254,7 @@ const ActivityLog = ({ accountId }: Props) => {
                           {entries.length} events · latest {format(new Date(latest.created_at), "MMM d, yyyy h:mm a")}
                         </p>
                       </div>
-                      <Badge variant="outline" className="text-[10px] h-5 shrink-0">Invite</Badge>
+                      <Badge variant="outline" className="text-[10px] h-5 shrink-0">{groupBadge}</Badge>
                     </button>
                     {open && (
                       <div className="mt-2 ml-7 pl-3 border-l border-border space-y-2">
