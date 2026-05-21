@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { Copy, Check, Mail, RefreshCw, Loader2, ExternalLink, UserPlus } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchInviteSnapshot } from "@/lib/getInviteSnapshot";
 import { sendClientInvite } from "@/lib/sendClientInvite";
@@ -28,14 +29,16 @@ const InviteStatusCard = ({ account, onEditEmail, onViewEmailLog }: Props) => {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
 
   const { data: snapshot, isLoading } = useQuery({
     queryKey: ["invite-snapshot", account.id, account.client_user_id ?? null],
     queryFn: () => fetchInviteSnapshot(account.id, account.client_user_id),
   });
 
-  const send = async () => {
-    if (!account.contact_email) {
+  const send = async (overrideEmail?: string) => {
+    const target = (overrideEmail ?? account.contact_email ?? "").trim();
+    if (!target) {
       onEditEmail?.();
       return;
     }
@@ -43,12 +46,13 @@ const InviteStatusCard = ({ account, onEditEmail, onViewEmailLog }: Props) => {
     try {
       const result = await sendClientInvite({
         accountId: account.id,
-        email: account.contact_email,
+        email: target,
         invitedBy: user?.id,
         companyName: account.company_name,
       });
       if (result.sent) sonnerToast.success(result.message);
       else sonnerToast.info(result.message);
+      setEmailDraft("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["invite-snapshot", account.id] }),
         queryClient.invalidateQueries({ queryKey: ["account", account.id] }),
@@ -93,6 +97,33 @@ const InviteStatusCard = ({ account, onEditEmail, onViewEmailLog }: Props) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!account.contact_email && (
+          <div className="rounded-md border border-warning/30 bg-warning/5 p-3 space-y-2">
+            <p className="text-xs font-mono uppercase tracking-wider text-warning">Client email missing</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="email"
+                placeholder="client@example.com"
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                className="h-9 flex-1"
+              />
+              <Button
+                size="sm"
+                className="gap-1.5"
+                disabled={busy || !emailDraft.trim()}
+                onClick={() => send(emailDraft)}
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                Save & Send Invite
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Saving will set the account contact email and send the portal invite.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <Field label="Client Email">
             {account.contact_email ? (
@@ -131,7 +162,7 @@ const InviteStatusCard = ({ account, onEditEmail, onViewEmailLog }: Props) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button size="sm" className="gap-1.5" onClick={send} disabled={busy || !account.contact_email}>
+          <Button size="sm" className="gap-1.5" onClick={() => send()} disabled={busy || !account.contact_email}>
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
               inviteStatus === "pending" ? <RefreshCw className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
             {primaryLabel}
