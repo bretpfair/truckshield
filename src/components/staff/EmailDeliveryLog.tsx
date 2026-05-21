@@ -331,3 +331,10 @@ const EmailDeliveryLog = ({ accountId, limit = 50 }: { accountId: string; limit?
 };
 
 export default EmailDeliveryLog;
+
+const Detail = ({ label, value }: { label: string; value: string }) => (
+  <div className="min-w-0">
+    <dt className="text-muted-foreground">{label}</dt>
+    <dd className="break-all">{value}</dd>
+  </div>
+);
