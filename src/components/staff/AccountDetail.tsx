@@ -748,6 +748,7 @@ const AccountDetail = (props: Props = {}) => {
       {/* Market Guidance (collapsible) */}
       {carriers && (
         <Collapsible defaultOpen>
+          <div id="market-guidance-anchor" />
           <CollapsibleTrigger asChild>
             <Button variant="ghost" className="w-full flex items-center justify-between px-0 py-2 hover:bg-transparent">
               <span className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -771,10 +772,16 @@ const AccountDetail = (props: Props = {}) => {
         </Collapsible>
       )}
 
-      {/* Client Invite (if no client linked) */}
-      {!account.client_user_id && (
-        <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
-      )}
+      {/* Client Portal Invite — status card + dialog for editing email */}
+      <div id="invite-status-anchor" className="space-y-3">
+        <InviteStatusCard
+          account={account as any}
+          onViewEmailLog={() => document.getElementById("email-delivery-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        />
+        {!account.client_user_id && (
+          <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
+        )}
+      </div>
 
       {/* Messages */}
       <AccountMessages accountId={accountId} isStaff />
