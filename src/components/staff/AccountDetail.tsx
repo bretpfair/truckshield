@@ -35,6 +35,8 @@ import MarketGuidance from "./MarketGuidance";
 import SubmittedMarkets from "./SubmittedMarkets";
 import ActivityLog from "./ActivityLog";
 import InviteClientDialog from "./InviteClientDialog";
+import AccountNextStep from "./AccountNextStep";
+import InviteStatusCard from "./InviteStatusCard";
 import DocumentHub from "./DocumentHub";
 import TaskManager from "./TaskManager";
 import ApplicationWizard from "@/components/application/ApplicationWizard";
