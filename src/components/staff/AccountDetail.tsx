@@ -635,49 +635,6 @@ const AccountDetail = (props: Props = {}) => {
           >
             <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Download</span>
           </Button>
-          {account.contact_email && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 shrink-0"
-              disabled={isSendingInvite}
-              aria-label="Send client portal invite"
-              onClick={async () => {
-                setIsSendingInvite(true);
-                try {
-                  const result = await sendClientInvite({
-                    accountId,
-                    email: account.contact_email!,
-                    invitedBy: user?.id,
-                    companyName: account.company_name,
-                  });
-                  if (result.sent) {
-                    sonnerToast.success(result.message);
-                    await Promise.all([
-                      queryClient.invalidateQueries({ queryKey: ["invitations"] }),
-                      queryClient.invalidateQueries({ queryKey: ["account", accountId] }),
-                      queryClient.invalidateQueries({ queryKey: ["accounts"] }),
-                      queryClient.invalidateQueries({ queryKey: ["activity_log", accountId] }),
-                      queryClient.invalidateQueries({ queryKey: ["email-send-log", accountId] }),
-                      queryClient.invalidateQueries({ queryKey: ["admin-email-send-log"] }),
-                      queryClient.refetchQueries({ queryKey: ["account", accountId] }),
-                      queryClient.refetchQueries({ queryKey: ["activity_log", accountId] }),
-                      queryClient.refetchQueries({ queryKey: ["email-send-log", accountId] }),
-                    ]);
-                  } else {
-                    sonnerToast.info(result.message);
-                  }
-                } catch (err: any) {
-                  sonnerToast.error("Failed to send invite", { description: err.message });
-                } finally {
-                  setIsSendingInvite(false);
-                }
-              }}
-            >
-              {isSendingInvite ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">Send Invite</span>
-            </Button>
-          )}
           {onPreviewClient && (
             <Button variant="outline" size="sm" onClick={() => onPreviewClient(accountId)} className="gap-1.5 shrink-0" aria-label="Preview as client">
               <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Preview Client</span>
@@ -776,9 +733,6 @@ const AccountDetail = (props: Props = {}) => {
           account={account as any}
           onViewEmailLog={() => document.getElementById("email-delivery-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         />
-        {!account.client_user_id && (
-          <InviteClientDialog accountId={accountId} defaultEmail={account.contact_email || ""} />
-        )}
       </div>
 
       {/* Messages */}
