@@ -227,6 +227,43 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
     },
   });
 
+  // Bulk invite + email maps (one round-trip each) for quick-filter chips.
+  const { data: invitationMap, isError: invitationMapError } = useQuery({
+    queryKey: ["pipeline-invitations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_invitations")
+        .select("account_id, status, expires_at, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, { status: string; expires_at: string; created_at: string }> = {};
+      (data || []).forEach((r: any) => {
+        if (!map[r.account_id]) map[r.account_id] = r;
+      });
+      return map;
+    },
+  });
+
+  const { data: inviteEmailMap, isError: inviteEmailMapError } = useQuery({
+    queryKey: ["pipeline-invite-emails"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_send_log")
+        .select("id, created_at, status, metadata")
+        .eq("template_name", "client-portal-invite")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const map: Record<string, { status: string; created_at: string }> = {};
+      (data || []).forEach((r: any) => {
+        const aid = r.metadata?.account_id;
+        if (aid && !map[aid]) map[aid] = { status: r.status, created_at: r.created_at };
+      });
+      return map;
+    },
+  });
+
+  const inviteChipsDisabled = invitationMapError || inviteEmailMapError;
+
   const isStale = (account: Account) => {
     const lastActivity = lastActivityMap?.[account.id] || account.updated_at || account.created_at;
     if (!lastActivity) return false;
