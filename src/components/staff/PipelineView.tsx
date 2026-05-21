@@ -454,6 +454,42 @@ const PipelineView = ({ accounts: rawAccounts, onSelectAccount }: Props) => {
 
   return (
     <div className="space-y-3">
+      {/* Quick filter chips */}
+      <div className="overflow-x-auto -mx-2 px-2 scrollbar-none">
+        <div className="flex items-center gap-1.5 w-max">
+          {([
+            { key: "missing_email", label: "Missing Email" },
+            { key: "invite_pending", label: "Invite Pending", needsInvite: true },
+            { key: "invite_accepted", label: "Invite Accepted", needsInvite: true },
+            { key: "email_failed", label: "Email Failed", needsInvite: true },
+            { key: "needs_info", label: "Needs Info" },
+            { key: "ready_markets", label: "Ready for Markets" },
+            { key: "stale", label: `Stale ${STALE_DAYS}+ Days` },
+          ] as { key: Exclude<QuickFilter, null>; label: string; needsInvite?: boolean }[]).map((chip) => {
+            const active = quickFilter === chip.key;
+            const disabled = chip.needsInvite && inviteChipsDisabled;
+            return (
+              <Button
+                key={chip.key}
+                variant={active ? "default" : "outline"}
+                size="sm"
+                className="h-7 px-2.5 text-xs shrink-0"
+                disabled={disabled}
+                title={disabled ? "Not available for your role" : undefined}
+                onClick={() => setQuickFilter(active ? null : chip.key)}
+              >
+                {chip.label}
+              </Button>
+            );
+          })}
+          {quickFilter && (
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => setQuickFilter(null)}>
+              <X className="h-3 w-3" /> Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* Toolbar: filters + bulk actions */}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowFilters(!showFilters)}>
