@@ -53,6 +53,7 @@ const StaffEmailLog = () => {
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const { data: rows, isLoading } = useQuery({
     queryKey: ["admin-email-send-log", status, template, fromDate, toDate, page],
