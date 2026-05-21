@@ -598,7 +598,7 @@ const AccountDetail = (props: Props = {}) => {
               onClick={() => setShowCloseLostDialog(true)}
               aria-label="Mark account as closed/lost"
             >
-              <XCircle className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Close / Lost</span>
+              <XCircle className="h-3.5 w-3.5" /> Closed/Lost
             </Button>
           )}
           {account.dot_number && (
