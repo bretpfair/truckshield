@@ -5,26 +5,16 @@ import { format } from "date-fns";
 import { Mail, RefreshCw, Search, TriangleAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { activityEmailToLogRow, canResendEmailRow, dedupeEmailRows, getInviteToken, type EmailLogRow } from "@/components/staff/EmailDeliveryLog";
+import { EmailStatusBadge } from "@/components/staff/EmailStatusBadge";
+import { ChevronDown } from "lucide-react";
 
 const PAGE_SIZE = 50;
-
-const statusClasses: Record<string, string> = {
-  pending: "bg-warning/10 text-warning border-warning/20",
-  sent: "bg-success/10 text-success border-success/20",
-  failed: "bg-destructive/10 text-destructive border-destructive/20",
-  dlq: "bg-destructive/10 text-destructive border-destructive/20",
-  rate_limited: "bg-warning/10 text-warning border-warning/20",
-  suppressed: "bg-muted text-muted-foreground border-border",
-  bounced: "bg-destructive/10 text-destructive border-destructive/20",
-  complained: "bg-destructive/10 text-destructive border-destructive/20",
-};
 
 const activityTypesByStatus: Record<string, string[]> = {
   all: ["email_queued", "email_sent", "email_failed"],
