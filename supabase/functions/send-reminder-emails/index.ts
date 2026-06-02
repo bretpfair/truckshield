@@ -384,6 +384,7 @@ Deno.serve(async (req: Request) => {
         .select('id, company_name, client_user_id, contact_email, assigned_producer_id')
         .in('id', accountIds)
         .not('client_user_id', 'is', null)
+        .gte('updated_at', fourteenDaysAgo)
 
       const accountMap = new Map((accounts || []).map((a: any) => [a.id, a]))
 
@@ -508,6 +509,7 @@ Deno.serve(async (req: Request) => {
         .select('id, company_name, client_user_id, contact_email, assigned_producer_id, application_step')
         .in('id', flAccountIds)
         .not('client_user_id', 'is', null)
+        .gte('updated_at', fourteenDaysAgo)
 
       if (flAccounts) {
         // Only send follow-up if application hasn't progressed past step 2
