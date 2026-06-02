@@ -331,7 +331,7 @@ Deno.serve(async (req: Request) => {
             .select('id')
             .eq('template_name', 'application-milestone')
             .eq('recipient_email', normalizedEmail)
-            .contains('metadata', { account_id: account.id, milestone: String(milestone) })
+            .contains('metadata', { account_id: account.id, milestone: milestone })
             .in('status', ['pending', 'sent'])
             .limit(1)
 
@@ -349,7 +349,7 @@ Deno.serve(async (req: Request) => {
               email,
               templateData,
               `app-milestone-${account.id}-${milestone}`,
-              { cc, replyTo: cc },
+              { cc, replyTo: cc, accountId: account.id, metadata: { milestone } },
             )
             milestoneSent = true
             appReminders++
