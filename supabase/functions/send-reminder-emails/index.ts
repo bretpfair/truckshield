@@ -29,7 +29,7 @@ async function enqueueEmail(
   recipientEmail: string,
   templateData: Record<string, any>,
   idempotencyKey: string,
-  options?: { cc?: string | null; replyTo?: string | null },
+  options?: { cc?: string | null; replyTo?: string | null; accountId?: string; metadata?: Record<string, any> },
 ) {
   const template = TEMPLATES[templateName]
   if (!template) {
@@ -104,11 +104,14 @@ async function enqueueEmail(
   const messageId = crypto.randomUUID()
 
   // Log pending
+  const pendingMetadata: Record<string, any> = { ...(options?.metadata || {}) }
+  if (options?.accountId) pendingMetadata.account_id = options.accountId
   await supabase.from('email_send_log').insert({
     message_id: messageId,
     template_name: templateName,
     recipient_email: normalizedEmail,
     status: 'pending',
+    metadata: Object.keys(pendingMetadata).length ? pendingMetadata : null,
   })
 
   // Enqueue
@@ -127,6 +130,7 @@ async function enqueueEmail(
       idempotency_key: idempotencyKey,
       unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
+      ...(options?.accountId ? { account_id: options.accountId } : {}),
       ...(options?.cc ? { cc: [options.cc.toLowerCase()] } : {}),
       ...(options?.replyTo ? { reply_to: [options.replyTo.toLowerCase()] } : {}),
     },
