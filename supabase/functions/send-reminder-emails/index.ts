@@ -249,12 +249,17 @@ Deno.serve(async (req: Request) => {
   let firstLoginFollowups = 0
 
   try {
+    // 14-day inactivity cutoff — stop sending progress/reminder emails once
+    // the account hasn't been touched for 14 days.
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+
     // 1. Incomplete application reminders
     const { data: incompleteAccounts } = await supabase
       .from('accounts')
       .select('*, assigned_producer_id')
       .eq('status', 'pending_info')
       .not('client_user_id', 'is', null)
+      .gte('updated_at', fourteenDaysAgo)
 
     if (incompleteAccounts && incompleteAccounts.length > 0) {
       const accountIds = incompleteAccounts.map((a: any) => a.id)
@@ -291,32 +296,73 @@ Deno.serve(async (req: Request) => {
         const today = new Date().toISOString().split('T')[0]
         const producerEmail = account.assigned_producer_id ? producerEmailMap.get(account.assigned_producer_id) : undefined
 
+        const firstName = profile?.full_name?.split(' ')[0] || undefined
+        const cc = producerEmail && producerEmail.toLowerCase() !== email.toLowerCase() ? producerEmail : null
+
+        // Send AT MOST one progress email per account per cron run, in priority order:
+        //   1) application-not-started (step <= 1)
+        //   2) application-milestone (new 25/50/75 crossed, never previously sent)
+        //   3) application-reminder (general progress nudge)
         if (step <= 1) {
-          const templateData = {
-            firstName: profile?.full_name?.split(' ')[0] || undefined,
-            companyName: account.company_name,
-            portalLink: PORTAL_LINK,
-          }
-          const cc = producerEmail && producerEmail.toLowerCase() !== email.toLowerCase() ? producerEmail : null
+          const templateData = { firstName, companyName: account.company_name, portalLink: PORTAL_LINK }
           await enqueueEmail(supabase, 'application-not-started', email, templateData, `app-not-started-${account.id}-${today}`, { cc, replyTo: cc })
           notStartedReminders++
-        } else {
-          const pu = powerUnitsAll.filter((u: any) => u.account_id === account.id)
-          const tr = trailersAll.filter((t: any) => t.account_id === account.id)
-          const dr = driversAll.filter((d: any) => d.account_id === account.id)
-          const lh = lossHistoryAll.filter((l: any) => l.account_id === account.id)
-          const completionPercent = calculateServerProgress(account, pu, tr, dr, lh).toString()
-
-          const templateData = {
-            firstName: profile?.full_name?.split(' ')[0] || undefined,
-            companyName: account.company_name,
-            completionPercent,
-            portalLink: PORTAL_LINK,
-          }
-          const cc = producerEmail && producerEmail.toLowerCase() !== email.toLowerCase() ? producerEmail : null
-          await enqueueEmail(supabase, 'application-reminder', email, templateData, `app-reminder-${account.id}-${today}`, { cc, replyTo: cc })
-          appReminders++
+          continue
         }
+
+        const pu = powerUnitsAll.filter((u: any) => u.account_id === account.id)
+        const tr = trailersAll.filter((t: any) => t.account_id === account.id)
+        const dr = driversAll.filter((d: any) => d.account_id === account.id)
+        const lh = lossHistoryAll.filter((l: any) => l.account_id === account.id)
+        const progress = calculateServerProgress(account, pu, tr, dr, lh)
+
+        // Highest milestone crossed (25/50/75 only; 100 is application-complete, not a milestone).
+        const milestone = Math.min(75, Math.floor(progress / 25) * 25)
+        let milestoneSent = false
+        if (milestone >= 25) {
+          const normalizedEmail = email.toLowerCase()
+          // Lifetime dedupe — each milestone fires at most once per account, ever.
+          const { data: priorMilestone } = await supabase
+            .from('email_send_log')
+            .select('id')
+            .eq('template_name', 'application-milestone')
+            .eq('recipient_email', normalizedEmail)
+            .contains('metadata', { account_id: account.id, milestone: String(milestone) })
+            .in('status', ['pending', 'sent'])
+            .limit(1)
+
+          if (!priorMilestone || priorMilestone.length === 0) {
+            const ownerName = account.business_owner_name || ''
+            const templateData = {
+              firstName: firstName || ownerName.split(' ')[0] || undefined,
+              companyName: account.company_name,
+              completionPercentage: milestone.toString(),
+              portalLink: PORTAL_LINK,
+            }
+            await enqueueEmail(
+              supabase,
+              'application-milestone',
+              email,
+              templateData,
+              `app-milestone-${account.id}-${milestone}`,
+              { cc, replyTo: cc },
+            )
+            milestoneSent = true
+            appReminders++
+          }
+        }
+
+        if (milestoneSent) continue
+
+        // Fall back to generic progress reminder.
+        const templateData = {
+          firstName,
+          companyName: account.company_name,
+          completionPercent: progress.toString(),
+          portalLink: PORTAL_LINK,
+        }
+        await enqueueEmail(supabase, 'application-reminder', email, templateData, `app-reminder-${account.id}-${today}`, { cc, replyTo: cc })
+        appReminders++
       }
     }
 
