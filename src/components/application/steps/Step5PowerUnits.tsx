@@ -111,25 +111,44 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
 
   const decodeVin = useCallback(async (vin: string, idx: number) => {
     const cleanVin = vin.trim().toUpperCase();
-    if (cleanVin.length !== 17 || !/^[A-HJ-NPR-Z0-9]{17}$/.test(cleanVin)) return;
+    if (!cleanVin) return;
+    if (cleanVin.length !== 17) {
+      toast({
+        title: "VIN must be 17 characters",
+        description: `Entered ${cleanVin.length}. Double-check the VIN and try again.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(cleanVin)) {
+      toast({
+        title: "Invalid VIN characters",
+        description: "VINs cannot contain I, O, or Q. Please re-enter.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setDecodingVin((prev) => ({ ...prev, [idx]: true }));
     try {
       const res = await fetch(
-        `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${encodeURIComponent(cleanVin)}?format=json`
+        `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${encodeURIComponent(cleanVin)}?format=json`
       );
       if (!res.ok) throw new Error("VIN lookup failed");
       const json = await res.json();
       const result = json.Results?.[0];
       if (!result) return;
 
+      const errText: string = result.ErrorText || "";
+      const errCode: string = String(result.ErrorCode || "");
+      // ErrorCode "0" = decoded successfully; non-zero codes can still return partial data
       const updates: Record<string, string> = {};
-      if (result.ModelYear && result.ModelYear !== "0") updates.year = result.ModelYear;
+      if (result.ModelYear && String(result.ModelYear) !== "0") updates.year = String(result.ModelYear);
       if (result.Make) {
         const matched = TRUCK_MAKES.find((m) => normalize(m) === normalize(result.Make));
-        if (matched) updates.make = matched;
+        updates.make = matched || result.Make;
       }
-      if (result.Model) updates.model = result.Model;
+      if (result.Model) updates.model = String(result.Model);
       if (result.BodyClass) {
         const matched = mapBodyClassToTruckType(result.BodyClass);
         if (matched) updates.truck_type = matched;
@@ -140,12 +159,21 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
       }
 
       if (Object.keys(updates).length > 0) {
+        dirtyRef.current = true;
         setUnits((prev) => {
           const copy = [...prev];
           copy[idx] = { ...copy[idx], ...updates };
           return copy;
         });
-        toast({ title: "VIN decoded", description: `Found: ${Object.values(updates).join(", ")}` });
+        toast({ title: "VIN decoded", description: `Auto-filled: ${Object.values(updates).join(", ")}` });
+      } else {
+        toast({
+          title: "VIN not recognized",
+          description: errText
+            ? errText.split(";")[0].slice(0, 140)
+            : "NHTSA returned no usable data. Please enter details manually.",
+          variant: "destructive",
+        });
       }
       } catch (err) {
       console.error("VIN decode failed", err);
