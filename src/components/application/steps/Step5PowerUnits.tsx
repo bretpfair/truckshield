@@ -7,6 +7,32 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GVW_CLASSES, TRUCK_TYPES, TRUCK_MAKES, US_STATES } from "../constants";
+
+const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const mapBodyClassToTruckType = (bodyClass: string): string | undefined => {
+  const n = normalize(bodyClass);
+  // Direct normalized match against TRUCK_TYPES
+  const direct = TRUCK_TYPES.find((t) => normalize(t) === n);
+  if (direct) return direct;
+  // Common NHTSA variants
+  if (n.includes("trucktractor") || n.includes("tractortruck")) return "Truck Tractor";
+  if (n.includes("pickup")) return "Pickup Truck";
+  if (n.includes("cargovan") || n.includes("van")) return "Cargo Van";
+  if (n.includes("dump")) return "Dump Truck";
+  if (n.includes("garbage") || n.includes("refuse")) return "Garbage Truck";
+  if (n.includes("tow") || n.includes("wrecker")) return "Tow Truck";
+  if (n.includes("tank")) return "Tank Truck";
+  if (n.includes("box") || n.includes("straight")) return "Box Truck";
+  return undefined;
+};
+
+const mapGvwrToClass = (gvwr: string): string | undefined => {
+  const m = gvwr.match(/Class\s*(\d+[A-Z]?)/i);
+  if (!m) return undefined;
+  const target = `Class ${m[1].toUpperCase()}`;
+  return GVW_CLASSES.find((c) => c.value.toLowerCase() === target.toLowerCase())?.value;
+};
 import { Plus, Trash2, Loader2, Upload, FileText, X } from "lucide-react";
 import { buildDocumentPath } from "@/lib/documentNaming";
 import { useToast } from "@/hooks/use-toast";
@@ -100,13 +126,17 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
       const updates: Record<string, string> = {};
       if (result.ModelYear && result.ModelYear !== "0") updates.year = result.ModelYear;
       if (result.Make) {
-        const matched = TRUCK_MAKES.find((m) => m.toLowerCase() === result.Make.toLowerCase());
+        const matched = TRUCK_MAKES.find((m) => normalize(m) === normalize(result.Make));
         if (matched) updates.make = matched;
       }
       if (result.Model) updates.model = result.Model;
       if (result.BodyClass) {
-        const matched = TRUCK_TYPES.find((t) => t.toLowerCase() === result.BodyClass.toLowerCase());
+        const matched = mapBodyClassToTruckType(result.BodyClass);
         if (matched) updates.truck_type = matched;
+      }
+      if (result.GVWR) {
+        const matched = mapGvwrToClass(result.GVWR);
+        if (matched) updates.gvw_class = matched;
       }
 
       if (Object.keys(updates).length > 0) {
@@ -117,8 +147,9 @@ const Step5PowerUnits = ({ account, formData: parentFormData }: StepProps) => {
         });
         toast({ title: "VIN decoded", description: `Found: ${Object.values(updates).join(", ")}` });
       }
-    } catch {
-      // Silent fail — user can fill manually
+      } catch (err) {
+      console.error("VIN decode failed", err);
+      toast({ title: "VIN lookup failed", description: "Couldn't decode VIN. Enter details manually.", variant: "destructive" });
     } finally {
       setDecodingVin((prev) => ({ ...prev, [idx]: false }));
     }
