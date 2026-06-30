@@ -62,34 +62,56 @@ const hasCoverageLimits = (account: any) => {
   return Boolean(coverage.primary_bipd && coverage.icc_filing && coverage.state_filing);
 };
 
-const hasPowerUnits = (powerUnits: any[] = []) =>
-  powerUnits.length > 0 &&
-  powerUnits.every(
-    (unit) =>
-      unit.vin &&
-      unit.year &&
-      unit.make &&
-      unit.truck_type &&
-      unit.gvw_class &&
-      unit.garage_zip &&
-      unit.titled_state,
-  );
+const POWER_UNIT_FIELDS: { key: string; label: string }[] = [
+  { key: "vin", label: "VIN" },
+  { key: "year", label: "year" },
+  { key: "make", label: "make" },
+  { key: "truck_type", label: "truck type" },
+  { key: "gvw_class", label: "GVW class" },
+  { key: "garage_zip", label: "garage ZIP" },
+  { key: "titled_state", label: "titled state" },
+];
 
-const hasDrivers = (drivers: any[] = []) =>
-  drivers.length > 0 &&
-  drivers.every(
-    (driver) =>
-      driver.first_name &&
-      driver.last_name &&
-      driver.date_of_birth &&
-      driver.license_number &&
-      driver.license_state &&
-      driver.license_type &&
-      driver.driver_type &&
-      driver.original_issue_year &&
-      driver.date_hired_year &&
-      driver.experience_years != null,
-  );
+const describePowerUnits = (powerUnits: any[] = []): string | null => {
+  if (powerUnits.length === 0) return "At least one power unit is required";
+  const incomplete: string[] = [];
+  powerUnits.forEach((unit, idx) => {
+    const missing = POWER_UNIT_FIELDS.filter(({ key }) => !unit?.[key]).map((f) => f.label);
+    if (missing.length > 0) {
+      const label = unit?.vin ? `VIN ${String(unit.vin).slice(-6)}` : `unit #${idx + 1}`;
+      incomplete.push(`${label} (${missing.join(", ")})`);
+    }
+  });
+  if (incomplete.length === 0) return null;
+  return `Power units missing details: ${incomplete.join("; ")}`;
+};
+
+const DRIVER_FIELDS: { key: string; label: string }[] = [
+  { key: "first_name", label: "first name" },
+  { key: "last_name", label: "last name" },
+  { key: "date_of_birth", label: "date of birth" },
+  { key: "license_number", label: "license #" },
+  { key: "license_state", label: "license state" },
+  { key: "license_type", label: "license type" },
+  { key: "driver_type", label: "driver type" },
+  { key: "original_issue_year", label: "original issue year" },
+  { key: "date_hired_year", label: "hire year" },
+];
+
+const describeDrivers = (drivers: any[] = []): string | null => {
+  if (drivers.length === 0) return "At least one driver is required";
+  const incomplete: string[] = [];
+  drivers.forEach((driver, idx) => {
+    const missing = DRIVER_FIELDS.filter(({ key }) => !driver?.[key]).map((f) => f.label);
+    if (driver?.experience_years == null) missing.push("years of experience");
+    if (missing.length > 0) {
+      const label = [driver?.first_name, driver?.last_name].filter(Boolean).join(" ") || `driver #${idx + 1}`;
+      incomplete.push(`${label} (${missing.join(", ")})`);
+    }
+  });
+  if (incomplete.length === 0) return null;
+  return `Drivers missing details: ${incomplete.join("; ")}`;
+};
 
 const hasLossHistory = (account: any, lossHistory: any[] = []) => {
   const gq = (account?.general_questions || {}) as any;
@@ -108,8 +130,10 @@ export function getAccountDataCompleteness({
   if (!hasCoverageLimits(account)) missing.push("Coverage limits");
   if (!hasCompleteRadius(account)) missing.push("Radius distribution (must total 100%)");
   if (!hasCompleteCommodities(account)) missing.push("Commodities (must total 100%)");
-  if (!hasPowerUnits(powerUnits)) missing.push("Power Units (>=1)");
-  if (!hasDrivers(drivers)) missing.push("Drivers (>=1)");
+  const powerUnitsMsg = describePowerUnits(powerUnits);
+  if (powerUnitsMsg) missing.push(powerUnitsMsg);
+  const driversMsg = describeDrivers(drivers);
+  if (driversMsg) missing.push(driversMsg);
   if (!hasLossHistory(account, lossHistory)) missing.push("Loss history");
 
   const emptyApplication =
