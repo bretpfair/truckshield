@@ -789,13 +789,43 @@ Deno.serve(async (req) => {
     }
 
     // ==== PDF PROXY ====
-    // Streams a Cover Whale S3-hosted PDF back through our origin so browser
-    // ad-blockers (which block *.s3.amazonaws.com hostnames containing
-    // "submission") don't block the download.
+    // Streams a Cover Whale S3-hosted PDF back through our origin. Solves two
+    // problems: (1) browser ad-blockers that block *.s3.amazonaws.com hosts
+    // containing "submission", and (2) Cover Whale's pre-signed URLs expire
+    // after 5 minutes, so we always fetch a fresh URL from the submission
+    // endpoint before streaming.
     if (action === "pdf-proxy") {
-      const pdfUrl: string | undefined = body.pdfUrl;
+      let pdfUrl: string | undefined = body.pdfUrl;
+
+      // If we have a submissionNumber, always refetch a fresh signed URL
+      if (submissionNumber) {
+        const creds = getCWCredentials();
+        const cwToken = await getAccessToken(creds);
+        try {
+          const sub = await cwFetch(cwToken, creds.baseUrl, `/submission/${submissionNumber}`, "GET");
+          const fresh =
+            sub?.quote_pdf ||
+            sub?.QuoteDocumentURL ||
+            sub?.quoteDocumentURL ||
+            sub?.documentURL ||
+            sub?.pdf_url ||
+            sub?.quotePDF ||
+            null;
+          if (fresh) {
+            pdfUrl = fresh;
+            // Persist the new URL for reference (will expire again in 5 min)
+            await supabase
+              .from("coverwhale_submissions")
+              .update({ quote_pdf_url: fresh })
+              .eq("submission_number", submissionNumber);
+          }
+        } catch (e) {
+          console.error("[CW] Failed to refresh PDF URL:", e);
+        }
+      }
+
       if (!pdfUrl) {
-        return new Response(JSON.stringify({ error: "pdfUrl is required" }), {
+        return new Response(JSON.stringify({ error: "No PDF URL available for this submission" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -820,7 +850,11 @@ Deno.serve(async (req) => {
       if (!upstream.ok) {
         const text = await upstream.text();
         return new Response(
-          JSON.stringify({ error: "Failed to fetch PDF", status: upstream.status, details: text }),
+          JSON.stringify({
+            error: "Failed to fetch PDF (the pre-signed link may have expired). Try refreshing status.",
+            status: upstream.status,
+            details: text,
+          }),
           { status: upstream.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
