@@ -199,15 +199,6 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
             <Button
               size="sm"
               className="gap-1.5"
-              onClick={() => callCW("indication")}
-              disabled={!!loading}
-            >
-              {loading === "indication" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-              Get Indication
-            </Button>
-            <Button
-              size="sm"
-              className="gap-1.5"
               onClick={() => callCW("quote")}
               disabled={!!loading}
             >
