@@ -400,6 +400,53 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                 onChange={(e) => setBindEffectiveDate(e.target.value)}
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ins-name" className="text-xs">Insured Full Name</Label>
+                <Input id="ins-name" value={bindForm.insuredFullName}
+                  onChange={(e) => setBindForm({ ...bindForm, insuredFullName: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ins-email" className="text-xs">Insured Email</Label>
+                <Input id="ins-email" type="email" value={bindForm.insuredEmail}
+                  onChange={(e) => setBindForm({ ...bindForm, insuredEmail: e.target.value })} />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="agent-email" className="text-xs">Retail Agent Email</Label>
+                <Input id="agent-email" type="email" value={bindForm.retailAgentEmail}
+                  onChange={(e) => setBindForm({ ...bindForm, retailAgentEmail: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-mono uppercase text-muted-foreground">Dashcam Shipping Address</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label htmlFor="ship-street" className="text-xs">Street</Label>
+                  <Input id="ship-street" value={bindForm.shipStreet}
+                    onChange={(e) => setBindForm({ ...bindForm, shipStreet: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ship-city" className="text-xs">City</Label>
+                  <Input id="ship-city" value={bindForm.shipCity}
+                    onChange={(e) => setBindForm({ ...bindForm, shipCity: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ship-state" className="text-xs">State</Label>
+                  <Input id="ship-state" maxLength={2} value={bindForm.shipState}
+                    onChange={(e) => setBindForm({ ...bindForm, shipState: e.target.value.toUpperCase() })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ship-zip" className="text-xs">ZIP</Label>
+                  <Input id="ship-zip" value={bindForm.shipZip}
+                    onChange={(e) => setBindForm({ ...bindForm, shipZip: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ship-county" className="text-xs">County</Label>
+                  <Input id="ship-county" value={bindForm.shipCounty}
+                    onChange={(e) => setBindForm({ ...bindForm, shipCounty: e.target.value })} />
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setBindDialog(null)}>Cancel</Button>
