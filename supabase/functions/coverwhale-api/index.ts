@@ -783,9 +783,56 @@ Deno.serve(async (req) => {
 
     if (!action) {
       return new Response(
-        JSON.stringify({ error: "Missing 'action'. Use: quote, indication, submission-status, bind" }),
+        JSON.stringify({ error: "Missing 'action'. Use: quote, indication, submission-status, bind, pdf-proxy" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    // ==== PDF PROXY ====
+    // Streams a Cover Whale S3-hosted PDF back through our origin so browser
+    // ad-blockers (which block *.s3.amazonaws.com hostnames containing
+    // "submission") don't block the download.
+    if (action === "pdf-proxy") {
+      const pdfUrl: string | undefined = body.pdfUrl;
+      if (!pdfUrl) {
+        return new Response(JSON.stringify({ error: "pdfUrl is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      let parsed: URL;
+      try {
+        parsed = new URL(pdfUrl);
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid pdfUrl" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Only allow Cover Whale S3 hosts
+      if (!/(^|\.)s3[.-].*amazonaws\.com$/.test(parsed.hostname) && !parsed.hostname.endsWith(".amazonaws.com")) {
+        return new Response(JSON.stringify({ error: "Host not allowed" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const upstream = await fetch(pdfUrl);
+      if (!upstream.ok) {
+        const text = await upstream.text();
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch PDF", status: upstream.status, details: text }),
+          { status: upstream.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const buf = await upstream.arrayBuffer();
+      return new Response(buf, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": upstream.headers.get("Content-Type") || "application/pdf",
+          "Content-Disposition": `inline; filename="coverwhale-quote.pdf"`,
+          "Cache-Control": "private, max-age=300",
+        },
+      });
     }
 
     const creds = getCWCredentials();
