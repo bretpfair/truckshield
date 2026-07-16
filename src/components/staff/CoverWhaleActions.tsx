@@ -188,6 +188,9 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
   const latestSub = submissions?.[0];
 
   const openQuotePdf = async (url: string, submissionNumber?: string) => {
+    // Open the tab synchronously inside the click handler so the browser's
+    // user-activation isn't consumed by the awaited invoke below (popup blockers).
+    const newTab = window.open("about:blank", "_blank");
     try {
       const { data, error } = await supabase.functions.invoke("coverwhale-api", {
         body: { action: "pdf-proxy", pdfUrl: url, submissionNumber },
@@ -196,7 +199,11 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       // supabase-js returns a Blob when the function replies with a binary content-type
       const blob = data instanceof Blob ? data : new Blob([data as ArrayBuffer], { type: "application/pdf" });
       const objUrl = URL.createObjectURL(blob);
-      window.open(objUrl, "_blank");
+      if (newTab) {
+        newTab.location.href = objUrl;
+      } else {
+        window.open(objUrl, "_blank");
+      }
       // Revoke after a delay so the new tab has time to load it
       setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
     } catch (err: any) {
@@ -206,7 +213,11 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
         description: "Falling back to direct link. If it doesn't open, disable your ad blocker for this site.",
         variant: "destructive",
       });
-      window.open(url, "_blank");
+      if (newTab) {
+        newTab.location.href = url;
+      } else {
+        window.open(url, "_blank");
+      }
     }
   };
 
