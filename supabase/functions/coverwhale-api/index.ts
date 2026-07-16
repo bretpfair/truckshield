@@ -295,11 +295,13 @@ function mapTruckTypeToBody(tt: string | null, _gvw: string | null): string {
   const l = tt.toLowerCase();
   if (l.includes("tractor")) return "tractor";
   if (l.includes("box")) return "box_truck";
-  if (l.includes("straight")) return "straight_truck";
-  if (l.includes("flatbed")) return "flatbed_truck";
-  if (l.includes("dump")) return "dump_truck";
-  if (l.includes("pick")) return "pick_up";
-  if (l.includes("stake")) return "stake_truck";
+  if (l.includes("dump")) return "dump_trucks";
+  if (l.includes("pick")) return "pick-up_trucks_suv_or_service_trucks";
+  if (l.includes("tow")) return "tow_trucks";
+  if (l.includes("cement")) return "cement_trucks";
+  if (l.includes("garbage") || l.includes("refuse")) return "garbage_trucks";
+  if (l.includes("logging")) return "logging_trucks";
+  if (l.includes("straight") || l.includes("flatbed") || l.includes("stake")) return "straight_truck";
   return "tractor";
 }
 
@@ -308,21 +310,22 @@ function mapTrailerType(tt: string | null): string {
   const l = tt.toLowerCase();
   const map: [string, string][] = [
     ["dry van", "dry_van_trailer"],
-    ["flatbed", "flatbed_trailer"],
-    ["refriger", "refrigerated_van_trailer"],
-    ["reefer", "refrigerated_van_trailer"],
-    ["step", "step_deck_trailer"],
-    ["dump", "dump_trailer"],
-    ["lowboy", "low_boy_trailer"],
-    ["low boy", "low_boy_trailer"],
-    ["auto", "auto_transporter_trailer"],
-    ["car", "auto_transporter_trailer"],
+    ["flatbed", "flat_bed_trailer"],
+    ["flat bed", "flat_bed_trailer"],
+    ["refriger", "refrigeration_trailer"],
+    ["reefer", "refrigeration_trailer"],
+    ["auto", "auto_hauler_trailers"],
+    ["car", "auto_hauler_trailers"],
     ["curtain", "curtain_van_trailer"],
-    ["gooseneck", "gooseneck_trailer"],
-    ["intermodal", "intermodal_container_hauler_trailer"],
-    ["tilt", "tilt_deck_trailer"],
-    ["utility", "utility_trailer"],
-    ["bulk", "dry_bulk_trailer"],
+    ["livestock", "livestock_trailer"],
+    ["tanker", "tank_trailer"],
+    ["tank", "tank_trailer"],
+    ["liquid", "tank_trailer"],
+    ["bulk", "hopper_trailer"],
+    ["hopper", "hopper_trailer"],
+    ["pneumatic", "pneumatic_trailer"],
+    ["double", "double_trailers"],
+    ["triple", "triple_trailers"],
   ];
   for (const [k, v] of map) {
     if (l.includes(k)) return v;
@@ -336,7 +339,7 @@ function mapTrailerType(tt: string | null): string {
 
 const COMMODITY_MAP: Record<string, string> = {
   "general freight": "general_merchandise",
-  "agricultural/farm supplies": "agricultural_farm_supplies",
+  "agricultural/farm supplies": "farm_products",
   beverages: "beverages",
   "building materials": "building_materials",
   chemicals: "chemicals_packaged_or_bulk",
@@ -353,7 +356,7 @@ const COMMODITY_MAP: Record<string, string> = {
   meat: "meat",
   "metal: sheets, coils, rolls": "metal_and steel",
   "mobile homes": "mobile_homes",
-  "motor vehicles": "automobiles_5_vehicles_or_less",
+  "motor vehicles": "automobiles_or_motorcycles",
   "oilfield equipment": "machinery_and_heavy_equipment",
   "paper products": "paper_and_paper_products",
   "refrigerated food": "frozen_or_refrigerated",
