@@ -866,9 +866,8 @@ Deno.serve(async (req) => {
       // If we have a submissionNumber, always refetch a fresh signed URL
       if (submissionNumber) {
         const creds = getCWCredentials();
-        const cwToken = await getAccessToken(creds);
         try {
-          const sub = await cwFetch(cwToken, creds.baseUrl, `/submission/${submissionNumber}`, "GET");
+          const sub = await cwFetch(creds, `/submission/${submissionNumber}`, "GET");
           const fresh =
             sub?.quote_pdf ||
             sub?.QuoteDocumentURL ||
@@ -936,7 +935,6 @@ Deno.serve(async (req) => {
     }
 
     const creds = getCWCredentials();
-    const cwToken = await getAccessToken(creds);
 
     // ==== QUOTE / INDICATION ====
     if (action === "quote" || action === "indication") {
@@ -951,7 +949,7 @@ Deno.serve(async (req) => {
       const endpoint = action === "quote" ? "/quote" : "/indication";
 
       console.log(`[CW] Sending ${action} for account ${accountId}`);
-      const result = await cwFetch(cwToken, creds.baseUrl, endpoint, "POST", payload);
+      const result = await cwFetch(creds, endpoint, "POST", payload);
       console.log(`[CW] Response:`, JSON.stringify(result).slice(0, 1500));
 
       // ---- Persist results ----
@@ -1055,7 +1053,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const result = await cwFetch(cwToken, creds.baseUrl, `/submission/${submissionNumber}`, "GET");
+      const result = await cwFetch(creds, `/submission/${submissionNumber}`, "GET");
 
       await supabase
         .from("coverwhale_submissions")
@@ -1087,8 +1085,7 @@ Deno.serve(async (req) => {
       }
 
       const result = await cwFetch(
-        cwToken,
-        creds.baseUrl,
+        creds,
         `/bind/${submissionNumber}`,
         "PUT",
         bindData,
