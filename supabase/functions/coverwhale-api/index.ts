@@ -36,6 +36,53 @@ interface QuoteResult {
 let cachedToken: string | null = null;
 let tokenExpiry = 0; // unix ms
 
+// Safety margin: refresh 5 minutes before the API-reported expiry
+const TOKEN_SAFETY_MARGIN_MS = 5 * 60 * 1000;
+
+function getAdminClient() {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function readSharedToken(): Promise<{ token: string; expiresAt: number } | null> {
+  try {
+    const admin = getAdminClient();
+    const { data } = await admin
+      .from("coverwhale_token_cache")
+      .select("access_token, expires_at")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!data?.access_token || !data?.expires_at) return null;
+    return { token: data.access_token, expiresAt: new Date(data.expires_at).getTime() };
+  } catch (err) {
+    console.warn("[CW] readSharedToken failed:", (err as Error).message);
+    return null;
+  }
+}
+
+async function writeSharedToken(token: string, expiresAt: number): Promise<void> {
+  try {
+    const admin = getAdminClient();
+    await admin
+      .from("coverwhale_token_cache")
+      .upsert({ id: 1, access_token: token, expires_at: new Date(expiresAt).toISOString(), updated_at: new Date().toISOString() });
+  } catch (err) {
+    console.warn("[CW] writeSharedToken failed:", (err as Error).message);
+  }
+}
+
+async function clearSharedToken(): Promise<void> {
+  cachedToken = null;
+  tokenExpiry = 0;
+  try {
+    const admin = getAdminClient();
+    await admin.from("coverwhale_token_cache").delete().eq("id", 1);
+  } catch (err) {
+    console.warn("[CW] clearSharedToken failed:", (err as Error).message);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Credentials
 // ---------------------------------------------------------------------------
@@ -56,21 +103,25 @@ function getCWCredentials(): CWCredentials {
 // Authentication (with caching)
 // ---------------------------------------------------------------------------
 
-async function getAccessToken(creds: CWCredentials): Promise<string> {
-  // Check in-memory cache first
-  if (cachedToken && Date.now() < tokenExpiry) {
+async function getAccessToken(creds: CWCredentials, forceRefresh = false): Promise<string> {
+  const now = Date.now();
+
+  // 1) In-memory cache (per isolate)
+  if (!forceRefresh && cachedToken && now < tokenExpiry) {
     return cachedToken;
   }
 
-  // Check env-based cache (persists across cold starts if set externally)
-  const envToken = Deno.env.get("CW_ACCESS_TOKEN");
-  const envExpiry = Number(Deno.env.get("CW_TOKEN_EXPIRATION") || "0") * 1000;
-  if (envToken && Date.now() < envExpiry) {
-    cachedToken = envToken;
-    tokenExpiry = envExpiry;
-    return envToken;
+  // 2) Shared DB cache (across isolates)
+  if (!forceRefresh) {
+    const shared = await readSharedToken();
+    if (shared && now < shared.expiresAt) {
+      cachedToken = shared.token;
+      tokenExpiry = shared.expiresAt;
+      return shared.token;
+    }
   }
 
+  // 3) Authenticate against Cover Whale
   console.log("[CW] Authenticating…");
   const res = await fetch(`${creds.baseUrl}/authentication`, {
     method: "POST",
@@ -86,9 +137,14 @@ async function getAccessToken(creds: CWCredentials): Promise<string> {
   const data = await res.json();
   if (!data.AccessToken) throw new Error("No AccessToken in auth response");
 
+  // Use ExpiresIn (seconds) from the auth response, minus a safety margin.
+  const expiresInSec = Number(data.ExpiresIn) > 0 ? Number(data.ExpiresIn) : 3600;
+  const expiresAt = Date.now() + expiresInSec * 1000 - TOKEN_SAFETY_MARGIN_MS;
+
   cachedToken = data.AccessToken;
-  tokenExpiry = Date.now() + 23 * 60 * 60 * 1000; // 23 h safety margin
-  console.log("[CW] Authenticated successfully");
+  tokenExpiry = expiresAt;
+  await writeSharedToken(data.AccessToken, expiresAt);
+  console.log(`[CW] Authenticated successfully (expires in ${expiresInSec}s)`);
   return data.AccessToken;
 }
 
@@ -97,27 +153,29 @@ async function getAccessToken(creds: CWCredentials): Promise<string> {
 // ---------------------------------------------------------------------------
 
 async function cwFetch(
-  token: string,
-  baseUrl: string,
+  creds: CWCredentials,
   path: string,
   method: string,
   body?: unknown,
   retries = 2,
 ): Promise<any> {
-  const url = `${baseUrl}${path}`;
-  const opts: RequestInit = {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      AccessToken: token,
-    },
-  };
-  if (body && (method === "POST" || method === "PUT")) {
-    opts.body = JSON.stringify(body);
-  }
+  const url = `${creds.baseUrl}${path}`;
+  let reauthed = false;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const token = await getAccessToken(creds);
+    const opts: RequestInit = {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        AccessToken: token,
+      },
+    };
+    if (body && (method === "POST" || method === "PUT")) {
+      opts.body = JSON.stringify(body);
+    }
+
     try {
       console.log(`[CW] ${method} ${path} (attempt ${attempt + 1})`);
       const res = await fetch(url, opts);
@@ -130,7 +188,15 @@ async function cwFetch(
       }
 
       if (!res.ok) {
-        // Don't retry client errors (4xx) except 429
+        // 401 → cached token is stale/invalidated. Clear and re-auth once.
+        if (res.status === 401 && !reauthed) {
+          console.warn("[CW] 401 – clearing cached token and re-authenticating");
+          reauthed = true;
+          await clearSharedToken();
+          await getAccessToken(creds, true);
+          continue;
+        }
+        // Don't retry other client errors (4xx) except 429
         if (res.status >= 400 && res.status < 500 && res.status !== 429) {
           throw { status: res.status, data: json };
         }
@@ -800,9 +866,8 @@ Deno.serve(async (req) => {
       // If we have a submissionNumber, always refetch a fresh signed URL
       if (submissionNumber) {
         const creds = getCWCredentials();
-        const cwToken = await getAccessToken(creds);
         try {
-          const sub = await cwFetch(cwToken, creds.baseUrl, `/submission/${submissionNumber}`, "GET");
+          const sub = await cwFetch(creds, `/submission/${submissionNumber}`, "GET");
           const fresh =
             sub?.quote_pdf ||
             sub?.QuoteDocumentURL ||
@@ -870,7 +935,6 @@ Deno.serve(async (req) => {
     }
 
     const creds = getCWCredentials();
-    const cwToken = await getAccessToken(creds);
 
     // ==== QUOTE / INDICATION ====
     if (action === "quote" || action === "indication") {
@@ -885,7 +949,7 @@ Deno.serve(async (req) => {
       const endpoint = action === "quote" ? "/quote" : "/indication";
 
       console.log(`[CW] Sending ${action} for account ${accountId}`);
-      const result = await cwFetch(cwToken, creds.baseUrl, endpoint, "POST", payload);
+      const result = await cwFetch(creds, endpoint, "POST", payload);
       console.log(`[CW] Response:`, JSON.stringify(result).slice(0, 1500));
 
       // ---- Persist results ----
@@ -989,7 +1053,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const result = await cwFetch(cwToken, creds.baseUrl, `/submission/${submissionNumber}`, "GET");
+      const result = await cwFetch(creds, `/submission/${submissionNumber}`, "GET");
 
       await supabase
         .from("coverwhale_submissions")
@@ -1021,8 +1085,7 @@ Deno.serve(async (req) => {
       }
 
       const result = await cwFetch(
-        cwToken,
-        creds.baseUrl,
+        creds,
         `/bind/${submissionNumber}`,
         "PUT",
         bindData,

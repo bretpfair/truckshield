@@ -449,6 +449,27 @@ export type Database = {
           },
         ]
       }
+      coverwhale_token_cache: {
+        Row: {
+          access_token: string
+          expires_at: string
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          expires_at: string
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          expires_at?: string
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           accidents: Json | null
