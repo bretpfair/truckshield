@@ -1023,7 +1023,7 @@ Deno.serve(async (req) => {
       const result = await cwFetch(
         cwToken,
         creds.baseUrl,
-        `/api/v1/bind/${submissionNumber}`,
+        `/bind/${submissionNumber}`,
         "PUT",
         bindData,
       );
