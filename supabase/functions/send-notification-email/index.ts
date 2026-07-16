@@ -21,6 +21,17 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Authorization: only allow service-role callers (server-to-server).
+    const authHeader = req.headers.get("Authorization");
+    const bearer = authHeader?.replace("Bearer ", "");
+    if (bearer !== serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const payload: NotificationPayload = await req.json();
@@ -115,12 +126,7 @@ Deno.serve(async (req: Request) => {
     });
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        subject,
-        toEmail: toEmail || "no-recipient",
-        notificationsCreated: true,
-      }),
+      JSON.stringify({ success: true }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
