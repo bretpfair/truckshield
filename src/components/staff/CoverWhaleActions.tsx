@@ -46,6 +46,20 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
   const [errorDialog, setErrorDialog] = useState<{ title: string; message: string; details?: string } | null>(null);
   const [bindDialog, setBindDialog] = useState<CWSubmission | null>(null);
   const [bindEffectiveDate, setBindEffectiveDate] = useState("");
+  const [bindForm, setBindForm] = useState({
+    insuredEmail: "",
+    insuredFullName: "",
+    retailAgentEmail: "",
+    electronicSignature: true,
+    signFirst: "insured" as "insured" | "agent",
+    optInCWFinancing: true,
+    electTRIA: false,
+    shipStreet: "",
+    shipCity: "",
+    shipState: "",
+    shipZip: "",
+    shipCounty: "",
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -144,18 +158,28 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
       bindData: {
         coverage: {
           includeAL: bindDialog.coverages_data?.al ? "Y" : "N",
-          brokerFeeAL: 0,
           includeAPD: bindDialog.coverages_data?.apd ? "Y" : "N",
-          brokerFeeAPD: 0,
           includeMTC: bindDialog.coverages_data?.mtc ? "Y" : "N",
-          brokerFeeMTC: 0,
           includeTGL: bindDialog.coverages_data?.tgl ? "Y" : "N",
-          brokerFeeTGL: 0,
           includeNTL: bindDialog.coverages_data?.ntl ? "Y" : "N",
-          brokerFeeNTL: 0,
-          electTRIA: "N",
-          optInCWFinancing: "Y",
+          electTRIA: bindForm.electTRIA ? "Y" : "N",
+          optInCWFinancing: bindForm.optInCWFinancing ? "Y" : "N",
           effectiveDate: formattedDate,
+        },
+        bindingMethod: {
+          signFirst: bindForm.signFirst,
+          retailAgentEmail: bindForm.retailAgentEmail,
+          insuredEmail: bindForm.insuredEmail,
+          insuredFullName: bindForm.insuredFullName,
+          electronicSignature: bindForm.electronicSignature ? "Y" : "N",
+        },
+        shippingAddress: {
+          dashcam_shipping_address: "Y",
+          street: bindForm.shipStreet,
+          city: bindForm.shipCity,
+          state: bindForm.shipState,
+          zip: bindForm.shipZip,
+          county: bindForm.shipCounty,
         },
       },
     });
