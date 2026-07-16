@@ -102,7 +102,9 @@ const ClientPortal = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quotes")
-        .select("*, carriers(name, logo_path)")
+        // carriers_public is a safe view that only exposes id/name/logo_path.
+        // Alias it back to `carriers` so downstream JSX keeps working.
+        .select("*, carriers:carriers_public(name, logo_path)")
         .eq("account_id", account!.id);
       if (error) throw error;
       return data;

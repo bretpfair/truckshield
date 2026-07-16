@@ -95,7 +95,11 @@ const ClientPortalForAccount = (props: Props = {}) => {
     queryKey: ["client-all-quotes", accountId],
     enabled: !!account,
     queryFn: async () => {
-      const { data, error } = await supabase.from("quotes").select("*, carriers(name, logo_path)").eq("account_id", accountId);
+      const { data, error } = await supabase
+        .from("quotes")
+        // carriers_public is a safe view exposing only id/name/logo_path; aliased for JSX.
+        .select("*, carriers:carriers_public(name, logo_path)")
+        .eq("account_id", accountId);
       if (error) throw error;
       return data;
     },

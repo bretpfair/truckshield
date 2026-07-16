@@ -16,7 +16,8 @@ const InfoRequestBanner = ({ accountId }: InfoRequestBannerProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("info_requests")
-        .select("*, quotes(carriers(name))")
+        // carriers_public exposes only safe carrier fields; aliased for JSX.
+        .select("*, quotes(carriers:carriers_public(name))")
         .eq("account_id", accountId)
         .eq("status", "pending");
       if (error) throw error;
