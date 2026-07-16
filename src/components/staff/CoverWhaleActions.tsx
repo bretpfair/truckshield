@@ -163,6 +163,29 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
 
   const latestSub = submissions?.[0];
 
+  const openQuotePdf = async (url: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("coverwhale-api", {
+        body: { action: "pdf-proxy", pdfUrl: url },
+      });
+      if (error) throw error;
+      // supabase-js returns a Blob when the function replies with a binary content-type
+      const blob = data instanceof Blob ? data : new Blob([data as ArrayBuffer], { type: "application/pdf" });
+      const objUrl = URL.createObjectURL(blob);
+      window.open(objUrl, "_blank");
+      // Revoke after a delay so the new tab has time to load it
+      setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+    } catch (err: any) {
+      console.error("PDF proxy failed:", err);
+      toast({
+        title: "Could not open PDF",
+        description: "Falling back to direct link. If it doesn't open, disable your ad blocker for this site.",
+        variant: "destructive",
+      });
+      window.open(url, "_blank");
+    }
+  };
+
   return (
     <>
       <Card className="glass-panel border-primary/20">
@@ -223,7 +246,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2 gap-1"
-                          onClick={() => window.open(sub.quote_pdf_url!, "_blank")}
+                          onClick={() => openQuotePdf(sub.quote_pdf_url!)}
                         >
                           <FileText className="h-3.5 w-3.5" />
                           <span className="text-xs">PDF</span>
@@ -322,7 +345,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                 <Button
                   variant="outline"
                   className="w-full gap-2"
-                  onClick={() => window.open(resultDialog.quote_pdf, "_blank")}
+                  onClick={() => openQuotePdf(resultDialog.quote_pdf)}
                 >
                   <ExternalLink className="h-4 w-4" /> View Quote PDF
                 </Button>
