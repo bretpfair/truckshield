@@ -163,10 +163,10 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
 
   const latestSub = submissions?.[0];
 
-  const openQuotePdf = async (url: string) => {
+  const openQuotePdf = async (url: string, submissionNumber?: string) => {
     try {
       const { data, error } = await supabase.functions.invoke("coverwhale-api", {
-        body: { action: "pdf-proxy", pdfUrl: url },
+        body: { action: "pdf-proxy", pdfUrl: url, submissionNumber },
       });
       if (error) throw error;
       // supabase-js returns a Blob when the function replies with a binary content-type
@@ -246,7 +246,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2 gap-1"
-                          onClick={() => openQuotePdf(sub.quote_pdf_url!)}
+                          onClick={() => openQuotePdf(sub.quote_pdf_url!, sub.submission_number)}
                         >
                           <FileText className="h-3.5 w-3.5" />
                           <span className="text-xs">PDF</span>
@@ -345,7 +345,7 @@ const CoverWhaleActions = ({ accountId, companyName }: Props) => {
                 <Button
                   variant="outline"
                   className="w-full gap-2"
-                  onClick={() => openQuotePdf(resultDialog.quote_pdf)}
+                  onClick={() => openQuotePdf(resultDialog.quote_pdf, resultDialog.submission_number)}
                 >
                   <ExternalLink className="h-4 w-4" /> View Quote PDF
                 </Button>
