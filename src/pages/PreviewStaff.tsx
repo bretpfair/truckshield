@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import CarrierManager from "@/components/staff/CarrierManager";
 import {
   AlertTriangle, Building2, Users, FileText, TrendingUp, Plus, Search,
   Upload, Truck, Eye,
@@ -211,7 +210,11 @@ const PreviewStaff = () => {
             </TabsContent>
 
             <TabsContent value="carriers">
-              <CarrierManager />
+              <Card className="glass-panel">
+                <CardContent className="p-8 text-center text-muted-foreground text-sm">
+                  Carrier management is disabled in preview mode.
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="invite">
