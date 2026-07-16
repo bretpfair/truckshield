@@ -71,7 +71,7 @@ const ResetPassword = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  minLength={6}
+                  minLength={12}
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>

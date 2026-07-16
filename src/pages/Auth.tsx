@@ -250,7 +250,9 @@ const Auth = () => {
       : `${window.location.origin}/auth?mode=staff`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: redirectTo },
+      // Login-only: never create new users from the auth page. Invited staff
+      // are provisioned server-side via the staff invitation flow.
+      options: { emailRedirectTo: redirectTo, shouldCreateUser: false },
     });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -270,7 +272,9 @@ const Auth = () => {
       : `${window.location.origin}/auth`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: redirectTo },
+      // Login-only: never create new users from the auth page. Invited clients
+      // are provisioned server-side via the client invitation flow.
+      options: { emailRedirectTo: redirectTo, shouldCreateUser: false },
     });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -495,7 +499,7 @@ const Auth = () => {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
                         required
-                        minLength={6}
+                        minLength={12}
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={loading}>
@@ -536,13 +540,17 @@ const Auth = () => {
                         </button>
                       </>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setIsLogin(!isLogin)}
-                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
-                    </button>
+                    {/* Open staff signup is disabled — staff accounts are created
+                        only via the staff invitation flow (staff_invite token). */}
+                    {!isLogin && staffInviteToken && (
+                      <button
+                        type="button"
+                        onClick={() => setIsLogin(true)}
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        Already have an account? Sign in
+                      </button>
+                    )}
                   </div>
                 </>
               )}
