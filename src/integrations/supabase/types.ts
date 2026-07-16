@@ -1100,6 +1100,13 @@ export type Database = {
             referencedRelation: "carriers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "quotes_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       staff_invitations: {
@@ -1312,7 +1319,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      carriers_public: {
+        Row: {
+          id: string | null
+          logo_path: string | null
+          name: string | null
+        }
+        Insert: {
+          id?: string | null
+          logo_path?: string | null
+          name?: string | null
+        }
+        Update: {
+          id?: string | null
+          logo_path?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invitation: { Args: { p_token: string }; Returns: Json }
